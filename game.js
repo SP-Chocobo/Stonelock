@@ -1572,9 +1572,11 @@ function renderSetup() {
   const r = REGIONS[TABLE_REGION];
   const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
   const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
-  body.innerHTML += `
+  // insertAdjacentHTML keeps the option cards' click handlers alive
+  // (innerHTML += would re-parse the container and strip them).
+  body.insertAdjacentHTML('beforeend', `
     <div class="valstrip">${r.name} — card values: ${vals}</div>
-    <div class="setupsummary">${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`;
+    <div class="setupsummary">${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`);
 
   const btns = $('setupBtns');
   btns.innerHTML = '';
