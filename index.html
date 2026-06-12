@@ -10,72 +10,86 @@
 </head>
 <body>
 
-<header>
-  <div class="titleblock">
-    <h1>Stonelock</h1>
-    <div class="tagline">Regional Leverage · Point Optimization · Tactical Wills</div>
-  </div>
-  <div class="ledgerblock">
-    <div id="regionBadge" class="regionbadge"></div>
-    <div class="ledgerwrap">
-      <span class="ledgerend">Stranger 40</span>
-      <div class="ledgertrack">
-        <div id="ledgerFill"></div>
-        <div class="ledgerzero"></div>
-        <div id="ledgerMarker" class="pivot" title="The Pivot Marker"></div>
-      </div>
-      <span class="ledgerend">You 40</span>
-    </div>
-    <div id="ledgerValue" class="ledgervalue">even</div>
-  </div>
-  <div class="headerbtns">
-    <button id="rulesBtn" class="btn">Rules</button>
-    <button id="newGameBtn" class="btn">New Match</button>
-  </div>
-</header>
+<div class="game">
 
-<div class="layout">
-  <main>
-    <!-- Opponent -->
-    <section class="side opp">
-      <div class="sidebarrow">
-        <div class="playername">The Stranger <span id="dealerAi" class="dealertoken" title="Dealer Token">⬤ dealer</span></div>
-        <div class="telegraphwrap"><span class="tlabel">telegraphed</span><div id="aiTelegraph" class="telegraph"></div></div>
+  <!-- Left scoreboard column -->
+  <aside class="scoreboard">
+    <div class="titleblock">
+      <h1>Stonelock</h1>
+      <div id="regionBadge" class="regionbadge"></div>
+    </div>
+
+    <div class="playerpanel opp">
+      <div class="pname">The Stranger <span id="dealerAi" class="dealertoken" title="Dealer Token">dealer</span></div>
+      <div class="tlabel">telegraphed stones</div>
+      <div id="aiTelegraph" class="telegraph"></div>
+    </div>
+
+    <div class="ledger" title="The Sovereign Ledger — the Pivot Marker shifts by the net difference of each showdown">
+      <div class="ledgerheads"><span>Stranger</span><span class="lcap">the ledger</span><span>You</span></div>
+      <div class="ledgerrow">
+        <span id="ledgerEndAi" class="ledgerend">40</span>
+        <div class="ledgertrack">
+          <div class="ledgerzero"></div>
+          <div id="ledgerMarker" class="pivot" title="The Pivot Marker"></div>
+        </div>
+        <span id="ledgerEndYou" class="ledgerend">40</span>
       </div>
+      <div id="ledgerValue" class="ledgervalue">even</div>
+    </div>
+
+    <div class="playerpanel you">
+      <div class="pname">You <span id="dealerYou" class="dealertoken" title="Dealer Token">dealer</span></div>
+      <div class="tlabel">telegraphed stones</div>
+      <div id="playerTelegraph" class="telegraph"></div>
+    </div>
+
+    <div class="sidebtns">
+      <button id="rulesBtn" class="btn">Rules</button>
+      <button id="newGameBtn" class="btn">New Match</button>
+    </div>
+  </aside>
+
+  <!-- Battlefield -->
+  <main class="battlefield">
+    <section class="row opp">
       <div id="aiBoard" class="board"></div>
     </section>
 
-    <!-- Center strip -->
-    <section class="center">
-      <div id="phaseLabel" class="phaselabel">Stonelock</div>
-      <div id="phaseNote" class="phasenote"></div>
+    <section class="divider">
+      <div class="phaserow">
+        <span id="phaseLabel" class="phaselabel">Stonelock</span>
+        <span id="phaseNote" class="phasenote"></span>
+      </div>
       <div id="announce" class="announce"></div>
-      <div id="prompt" class="prompt"></div>
-      <div id="actionBar" class="actionbar"></div>
+      <div class="promptrow">
+        <span id="prompt" class="prompt"></span>
+        <span id="actionBar" class="actionbar"></span>
+      </div>
     </section>
 
-    <!-- Player -->
-    <section class="side you">
+    <section class="row you">
       <div id="playerBoard" class="board"></div>
-      <div class="sidebarrow">
-        <div class="playername">You <span id="dealerYou" class="dealertoken" title="Dealer Token">⬤ dealer</span></div>
-        <div class="telegraphwrap"><span class="tlabel">telegraphed</span><div id="playerTelegraph" class="telegraph"></div></div>
-      </div>
+    </section>
+
+    <section class="bottombar">
       <div id="handArea" class="handarea">
-        <div class="handlabel">Your hand</div>
+        <div class="arealabel">Your hand</div>
         <div id="hand" class="hand"></div>
       </div>
       <div class="poucharea">
-        <div class="handlabel">Your stone pouch</div>
+        <div class="arealabel">Stone pouch</div>
         <div id="pouch" class="pouch"></div>
       </div>
     </section>
   </main>
 
+  <!-- Table talk log -->
   <aside class="logpanel">
     <div class="loghead">Table Talk</div>
     <div id="log" class="log"></div>
   </aside>
+
 </div>
 
 <div id="toast" class="toast"></div>
@@ -87,7 +101,7 @@
     <p class="modalsub">Stonelock is not a single fixed doctrine. Declare the local ruleset before the first deal.</p>
     <div id="regionChoices" class="regionchoices"></div>
     <div class="targetrow">
-      <span class="handlabel">Match length — push the Pivot Marker this far to win:</span>
+      <span class="arealabel">Match length — push the Pivot Marker this far to win:</span>
       <label><input type="radio" name="target" value="10"> Quick (10)</label>
       <label><input type="radio" name="target" value="20" checked> Standard (20)</label>
       <label><input type="radio" name="target" value="40"> Full Sovereign Race (40)</label>

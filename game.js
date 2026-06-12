@@ -974,11 +974,12 @@ function render() {
 }
 
 function renderLedger() {
-  const track = $('ledgerFill');
   const pct = 50 + (G.ledger / G.target) * 50;
-  $('ledgerMarker').style.left = `calc(${Math.max(0, Math.min(100, pct))}% )`;
-  $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} you` : G.ledger < 0 ? `${-G.ledger} them` : 'even';
-  track.style.width = '100%';
+  $('ledgerMarker').style.left = `${Math.max(0, Math.min(100, pct))}%`;
+  // End labels follow the chosen race length so the track reads true.
+  $('ledgerEndAi').textContent = G.target;
+  $('ledgerEndYou').textContent = G.target;
+  $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} your side` : G.ledger < 0 ? `+${-G.ledger} their side` : 'even';
   $('regionBadge').textContent = `${G.region.name} · ${G.region.subtitle}`;
 }
 
