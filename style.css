@@ -101,9 +101,9 @@ h1 {
 .pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; }
 .pinfo { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); margin-top: 2px; min-height: 14px; }
 
-.minipouch { display: flex; gap: 8px; margin: 2px 0 2px; }
-.minicol { display: flex; gap: 3px; }
-.minipouch .stonedot { width: 15px; height: 15px; }
+.minipouch { display: flex; gap: 11px; margin: 2px 0 2px; }
+.minicol { display: flex; flex-direction: column; gap: 5px; }
+.minipouch .stonedot { width: 19px; height: 19px; }
 .stonedot.socket {
   background: rgba(0,0,0,0.3);
   border: 1.5px dashed rgba(232,220,190,0.22);
