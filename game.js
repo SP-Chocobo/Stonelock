@@ -943,30 +943,43 @@ function showdown() {
   const diff = top.score - second.score;
 
   let matchWinner = null;
-  if (winner && diff > 0) {
-    if (G.mode === 'ffa') {
-      G.scores[winner.members[0]] += diff;
-      if (G.scores[winner.members[0]] >= G.target) matchWinner = winner;
+  let gains = null;
+  if (G.mode === 'ffa') {
+    // Everyone banks their margin over the lowest hand at the table.
+    const min = Math.min(...ents.map(e => e.score));
+    gains = ents.map(e => e.score - min);
+    ents.forEach((e, i) => { G.scores[e.members[0]] += gains[i]; });
+    const max = Math.max(...G.scores);
+    if (max >= G.target) {
+      const leaders = G.scores.filter(s => s === max).length;
+      if (leaders === 1) matchWinner = ents.find(e => G.scores[e.members[0]] === max);
+    }
+    if (gains.every(g => g === 0)) {
+      log('Every hand scores level — nothing banked.', 'sys');
     } else {
+      log(`Hands settle ${ents.map(e => e.score).join(' / ')}. Each banks the lead over the lowest hand: ${ents.map((e, i) => `${e.name} +${gains[i]}`).join(', ')}.`, 'sys');
+    }
+    if (!matchWinner && Math.max(...G.scores) >= G.target) {
+      log('Leaders cross the line together — the race runs on until one stands alone.', 'sys');
+    }
+  } else {
+    if (winner && diff > 0) {
       const sign = winner.members.includes(0) ? 1 : -1;
       G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + sign * diff));
       if (G.ledger >= G.target) matchWinner = ents.find(e => e.members.includes(0));
       if (G.ledger <= -G.target) matchWinner = ents.find(e => !e.members.includes(0));
     }
-  }
-
-  if (push) {
-    log('A perfect mathematical tie at the top — declared a Push. Nothing moves.', 'sys');
-  } else if (structuralOnly) {
-    log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown on structure (${STRUCT_LABEL[['singles','pair','triad'][winner.rank]]}), but with no point difference nothing moves.`, 'sys');
-  } else if (G.mode === 'ffa') {
-    log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown, ${top.score} over ${second.score}, banking ${diff}.`, 'sys');
-  } else {
-    log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown, ${top.score} to ${second.score}. The Pivot Marker shifts ${diff}.`, 'sys');
+    if (push) {
+      log('A perfect mathematical tie — declared a Push. Nothing moves.', 'sys');
+    } else if (structuralOnly) {
+      log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown on structure (${STRUCT_LABEL[['singles','pair','triad'][winner.rank]]}), but with no point difference nothing moves.`, 'sys');
+    } else {
+      log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown, ${top.score} to ${second.score}. The Pivot Marker shifts ${diff}.`, 'sys');
+    }
   }
 
   if (matchWinner) G.over = true;
-  showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner);
+  showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner, gains);
 }
 
 function nextHand() {
@@ -1411,11 +1424,11 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
-function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner) {
+function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner, gains) {
   if (typeof document === 'undefined') return;
   const m = $('showdownModal');
   const body = $('showdownBody');
-  $('showdownTitle').textContent = push ? 'A Push'
+  $('showdownTitle').textContent = push ? (G.mode === 'ffa' ? 'Dead heat at the top' : 'A Push')
     : winner.members.includes(0) ? `${winner.name === 'You' ? 'You take' : winner.name + ' takes'} the showdown`
     : `${winner.name} takes the showdown`;
 
@@ -1439,9 +1452,13 @@ function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchW
     </div>`).join('');
 
   let verdict;
-  if (push) verdict = 'A perfect mathematical tie at the top. Nothing moves.';
+  if (G.mode === 'ffa') {
+    verdict = gains.every(g => g === 0)
+      ? 'Every hand scores level — nothing banked.'
+      : `Each seat banks its lead over the lowest hand: ${ents.map((e, i) => `${e.name} <b>+${gains[i]}</b>`).join(' · ')}.`;
+  }
+  else if (push) verdict = 'A perfect mathematical tie. Nothing moves.';
   else if (structuralOnly) verdict = `${winner.name} wins on structure, but with no point difference nothing moves.`;
-  else if (G.mode === 'ffa') verdict = `${winner.name} bank${winner.members.includes(0) ? '' : 's'} <b>${diff}</b> — the margin over the runner-up.`;
   else verdict = `The Pivot Marker shifts <b>${diff}</b> toward ${winner.members.includes(0) ? 'your' : 'their'} side. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
 
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
@@ -1454,7 +1471,7 @@ function showVictory() {
   const m = $('victoryModal');
   let won, name;
   if (G.mode === 'ffa') {
-    const w = G.scores.findIndex(s => s >= G.target);
+    const w = G.scores.indexOf(Math.max(...G.scores));
     won = w === 0;
     name = playerName(w);
   } else {

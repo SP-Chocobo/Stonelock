@@ -31,8 +31,8 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
   Deep Draft (9 cards, 2–2–1 footprint, best 3 of 5, leftovers dead).
 - **Sovereign Honor scoring** (no betting): two-sided tables race the Pivot
   Marker by the net difference of each showdown; the Free-for-All table is a
-  purse race where the winner banks the margin over the runner-up. Match
-  length selectable (10 / 20 / full 40).
+  purse race where every seat banks its margin over the lowest hand each
+  showdown. Match length selectable (10 / 20 / full 40).
 - The table plays the **Bar-Level valuation** ("The Practical Common"). The
   engine supports all three regional value tables (House Games, Dock /
   Traveler); they will surface alongside the regional rule variants so the
