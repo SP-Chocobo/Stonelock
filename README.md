@@ -28,9 +28,10 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
 - **Sovereign Honor scoring** (no betting): the Pivot Marker shifts by the net
   difference of each showdown; push it the full distance to win. Match length is
   selectable (10 / 20 / full 40).
-- All **three regional valuations** are selectable at the table: Bar-Level
-  ("The Practical Common"), House Games ("The Sovereign Ledger"), and Dock /
-  Traveler ("The Fluvial Exchange").
+- The table plays the **Bar-Level valuation** ("The Practical Common"). The
+  engine supports all three regional value tables (House Games, Dock /
+  Traveler); they will surface alongside the regional rule variants so the
+  value shifts pair with actual rule changes.
 - All four **Interaction Stones** — Red (Duplication), White (Lock), Blue
   (Exchange), Black (Disruption). All stones are placed in turn during the
   resolution phases; a Black Stone undoing a trade sends every riding stone

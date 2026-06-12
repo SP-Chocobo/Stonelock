@@ -1273,33 +1273,31 @@ function showVictory() {
 
 /* ---------- Setup / boot ---------- */
 
+// The table plays the Practical Common for now. The engine supports
+// all three regional valuations (REGIONS); they return as part of the
+// regional rule variants (Riverlock, Slumlock, Cursed Register) later,
+// where the value shifts pair with actual rule changes.
+const TABLE_REGION = 'bar';
+
 function buildSetup() {
   const wrap = $('regionChoices');
   wrap.innerHTML = '';
-  for (const key of Object.keys(REGIONS)) {
-    const r = REGIONS[key];
-    const card = document.createElement('div');
-    card.className = 'regionchoice' + (key === 'bar' ? ' selected' : '');
-    card.dataset.region = key;
-    const rows = [3, 2, 1].map(v => {
-      const names = TYPES.filter(t => r.values[t] === v).join(', ');
-      return `<div class="valrow"><span class="valnum v${v}">${v}</span> ${names}</div>`;
-    }).join('');
-    card.innerHTML = `<h3>${r.name}</h3><div class="regionsub">“${r.subtitle}”</div><div class="regionblurb">${r.blurb}</div>${rows}`;
-    card.onclick = () => {
-      wrap.querySelectorAll('.regionchoice').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-    };
-    wrap.appendChild(card);
-  }
+  const r = REGIONS[TABLE_REGION];
+  const card = document.createElement('div');
+  card.className = 'regionchoice static';
+  const rows = [3, 2, 1].map(v => {
+    const names = TYPES.filter(t => r.values[t] === v).join(', ');
+    return `<div class="valrow"><span class="valnum v${v}">${v}</span> ${names}</div>`;
+  }).join('');
+  card.innerHTML = `<h3>${r.name}</h3><div class="regionsub">“${r.subtitle}”</div><div class="regionblurb">${r.blurb} Card values at this table:</div>${rows}`;
+  wrap.appendChild(card);
 }
 
 function startFromSetup() {
-  const region = document.querySelector('.regionchoice.selected').dataset.region;
   const target = parseInt(document.querySelector('input[name=target]:checked').value, 10);
   closeModal('setupModal');
   logEl.innerHTML = '';
-  newGame(region, target);
+  newGame(TABLE_REGION, target);
 }
 
 function boot() {

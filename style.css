@@ -527,6 +527,8 @@ h1 {
 }
 .regionchoice:hover { transform: translateY(-3px); border-color: var(--gold-dim); }
 .regionchoice.selected { border-color: var(--gold-bright); box-shadow: 0 0 14px rgba(232,196,119,0.25); }
+.regionchoice.static { cursor: default; border-color: var(--gold-dim); }
+.regionchoice.static:hover { transform: none; }
 .regionchoice h3 { margin: 0; font-size: 17px; color: var(--gold); }
 .regionsub { font-style: italic; font-size: 12px; margin-bottom: 4px; color: var(--parchment-dim); }
 .regionblurb { font-size: 11.5px; margin-bottom: 8px; color: var(--parchment-dim); }
