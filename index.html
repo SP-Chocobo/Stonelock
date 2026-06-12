@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -19,37 +19,24 @@
       <div id="regionBadge" class="regionbadge"></div>
     </div>
 
-    <div class="playerpanel opp">
-      <div class="pname">The Stranger <span id="dealerAi" class="dealertoken" title="Dealer Token">dealer</span></div>
-      <div id="aiInfo" class="pinfo"></div>
-      <div class="tlabel">stone pouch</div>
-      <div id="aiPouchMini" class="minipouch"></div>
-      <div class="tlabel">telegraphed stones</div>
-      <div id="aiTelegraph" class="telegraph"></div>
-    </div>
-
-    <div class="ledger" title="The Sovereign Ledger — the Pivot Marker shifts by the net difference of each showdown">
+    <div class="ledger" title="The score — honor tables move by the net difference of each showdown">
       <div id="handNum" class="handnum"></div>
-      <div class="ledgerheads"><span>Stranger</span><span class="lcap">the ledger</span><span>You</span></div>
-      <div class="ledgerrow">
-        <span id="ledgerEndAi" class="ledgerend">40</span>
-        <div class="ledgertrack">
-          <div class="ledgerzero"></div>
-          <div id="ledgerMarker" class="pivot" title="The Pivot Marker"></div>
+      <div id="ledgerWrap">
+        <div class="ledgerheads"><span id="ledgerHeadAi">Them</span><span class="lcap">the ledger</span><span id="ledgerHeadYou">You</span></div>
+        <div class="ledgerrow">
+          <span id="ledgerEndAi" class="ledgerend">40</span>
+          <div class="ledgertrack">
+            <div class="ledgerzero"></div>
+            <div id="ledgerMarker" class="pivot" title="The Pivot Marker"></div>
+          </div>
+          <span id="ledgerEndYou" class="ledgerend">40</span>
         </div>
-        <span id="ledgerEndYou" class="ledgerend">40</span>
+        <div id="ledgerValue" class="ledgervalue">even</div>
       </div>
-      <div id="ledgerValue" class="ledgervalue">even</div>
+      <div id="scoreList" class="scorelist" style="display:none"></div>
     </div>
 
-    <div class="playerpanel you">
-      <div class="pname">You <span id="dealerYou" class="dealertoken" title="Dealer Token">dealer</span></div>
-      <div id="youInfo" class="pinfo"></div>
-      <div class="tlabel">stone pouch</div>
-      <div id="youPouchMini" class="minipouch"></div>
-      <div class="tlabel">telegraphed stones</div>
-      <div id="playerTelegraph" class="telegraph"></div>
-    </div>
+    <div id="panels" class="panels"></div>
 
     <div class="sidebtns">
       <button id="rulesBtn" class="btn">Rules</button>
@@ -60,7 +47,7 @@
   <!-- Battlefield -->
   <main class="battlefield">
     <section class="row opp">
-      <div id="aiBoard" class="board"></div>
+      <div id="oppSeats" class="seats"></div>
     </section>
 
     <section class="divider">
@@ -76,7 +63,7 @@
     </section>
 
     <section class="row you">
-      <div id="playerBoard" class="board"></div>
+      <div id="youSeats" class="seats"></div>
     </section>
 
     <section class="bottombar">
@@ -108,11 +95,24 @@
     <p class="modalsub">This table plays by the commoner's ruleset. Regional variants — with their own card valuations — will join in time.</p>
     <div id="regionChoices" class="regionchoices"></div>
     <div class="targetrow">
-      <span class="arealabel">Match length — push the Pivot Marker this far to win:</span>
+      <span class="arealabel">The table:</span>
+      <label><input type="radio" name="mode" value="duel" checked> Solo 1v1</label>
+      <label><input type="radio" name="mode" value="ffa"> Free-for-All (4 seats)</label>
+      <label><input type="radio" name="mode" value="teams"> Paired Teams (2v2)</label>
+    </div>
+    <div class="targetrow">
+      <span class="arealabel">The deal:</span>
+      <label><input type="radio" name="deal" value="small" checked> Small Game — 5 cards, best 3 of 4</label>
+      <label><input type="radio" name="deal" value="house"> House Deep Draft — 9 cards, best 3 of 5</label>
+    </div>
+    <div class="targetrow">
+      <span class="arealabel">Match length:</span>
       <label><input type="radio" name="target" value="10"> Quick (10)</label>
       <label><input type="radio" name="target" value="20" checked> Standard (20)</label>
       <label><input type="radio" name="target" value="40"> Full Sovereign Race (40)</label>
     </div>
+    <p class="modalsub small">Free-for-All scores as a purse race: each showdown the winner banks the margin over the runner-up.
+    Paired Teams seats your partner opposite you; team totals decide the showdown and individual multiples never pool.</p>
     <div class="modalbtns"><button id="startBtn" class="btn primary big">Deal the first hand</button></div>
   </div>
 </div>
@@ -170,15 +170,25 @@
       <li><b class="kword">Black — Disruption.</b> Played on your turn like any other stone: it undoes the last stone effect upon a card — including unwinding a trade, with every riding stone traveling home. Cannot itself be undone, and cannot touch a locked card.</li>
     </ul>
 
-    <h3>The Sovereign Honor Ledger</h3>
-    <p>No betting at this table. After each showdown the Pivot Marker shifts by the <b>net difference</b>
-    between the two scores. Push it the full distance onto your opponent's side to take the match.
-    The Dealer Token rotates every hand.</p>
+    <h3>Formats &amp; Scoring</h3>
+    <p>No betting at these tables — all honor play. The Dealer Token rotates every hand.</p>
+    <ul>
+      <li><b>Solo 1v1 / Paired Teams:</b> the Pivot Marker shifts by the <b>net difference</b> between
+      the two sides each showdown. Push it the full distance to take the match. In teams, your
+      partner sits opposite; team totals decide the showdown, but Pairs and Triads never pool
+      across layouts. Partners may Lock each other's cards and never trade against each other.</li>
+      <li><b>Free-for-All (4 seats):</b> a purse race — each showdown the winner banks the
+      <b>margin over the runner-up</b>; first to the target takes the match.</li>
+      <li><b>The deals:</b> Small Game — 5 cards, a 2-1-1 footprint, best 3 of 4. House Deep
+      Draft — 9 cards, a 2-2-1 footprint, best 3 of 5, leftovers discarded dead.</li>
+    </ul>
+    <p>A locked card shields more than itself: if either card of a trade is later locked, a Black
+    Stone can no longer unwind that trade.</p>
 
     <div class="modalbtns"><button id="rulesClose" class="btn primary">Back to the table</button></div>
   </div>
 </div>
 
-<script src="game.js?v=10"></script>
+<script src="game.js?v=11"></script>
 </body>
 </html>

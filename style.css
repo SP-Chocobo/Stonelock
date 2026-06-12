@@ -68,6 +68,14 @@ h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
   border-radius: 10px;
   padding: 12px;
   box-shadow: inset 0 0 24px rgba(0,0,0,0.4);
+  overflow-y: auto;
+}
+.panels {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .titleblock { text-align: center; }
@@ -98,7 +106,16 @@ h1 {
 .playerpanel.opp { border-left: 3px solid var(--row-opp); }
 .playerpanel.you { border-left: 3px solid var(--row-you); }
 
-.pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; }
+.pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.allytag {
+  font-size: 10px;
+  font-family: 'Alegreya', serif;
+  font-style: italic;
+  color: var(--sage);
+  border: 1px solid var(--row-you);
+  border-radius: 8px;
+  padding: 0 6px;
+}
 .pinfo { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); margin-top: 2px; min-height: 14px; }
 
 .minipouch { display: flex; gap: 12px; margin: 2px 0 2px; }
@@ -189,6 +206,34 @@ h1 {
   margin-top: 4px;
 }
 
+/* FFA purse race */
+.scorelist { display: flex; flex-direction: column; gap: 6px; }
+.scorerow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--parchment-dim);
+}
+.scorerow.yourow .scorename { color: var(--parchment); }
+.scorerow.leading .scorenum { color: var(--gold-bright); }
+.scorename { white-space: nowrap; }
+.scorebar {
+  height: 9px;
+  border-radius: 5px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--edge);
+  overflow: hidden;
+}
+.scorefill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  transition: width 0.8s ease;
+}
+.scorenum { min-width: 18px; text-align: right; font-weight: bold; }
+
 .sidebtns { display: flex; gap: 8px; justify-content: center; }
 .sidebtns .btn { font-size: 11px; padding: 6px 10px; }
 
@@ -218,12 +263,46 @@ h1 {
 .row.opp { border-top: 2px solid var(--row-opp); }
 .row.you { border-bottom: 2px solid var(--row-you); }
 
+.seats {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  width: 100%;
+}
+.seat { flex: 0 1 auto; min-width: 0; }
+.seathead {
+  text-align: center;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 11px;
+  color: var(--parchment-dim);
+  margin-bottom: 3px;
+}
+body[data-compact="0"] .row.you .seathead { display: none; }
+
 .board {
   display: flex;
   gap: 12px;
   justify-content: center;
-  width: 100%;
+  flex-wrap: wrap;
 }
+
+/* Compact boards when more than two sit at the table */
+body[data-compact="1"] .board { gap: 6px; }
+body[data-compact="1"] .slot { width: 62px; min-height: 96px; }
+body[data-compact="1"] .slot.empty::before { width: 58px; height: 80px; }
+body[data-compact="1"] .slotlabel { display: none; }
+body[data-compact="1"] .board .card { width: 58px; height: 80px; padding-top: 8px; }
+body[data-compact="1"] .board .cicon { width: 34px; height: 34px; padding: 4px; }
+body[data-compact="1"] .board .cname { display: none; }
+body[data-compact="1"] .board .cval { width: 17px; height: 17px; line-height: 17px; font-size: 10px; top: -6px; left: -6px; }
+body[data-compact="1"] .board .stonedot { width: 13px; height: 13px; }
+body[data-compact="1"] .board .veilband, body[data-compact="1"] .board .knownband { font-size: 7.5px; bottom: 2px; }
+body[data-compact="1"] .board .tradebadge { width: 14px; height: 14px; line-height: 13px; font-size: 9px; }
+body[data-compact="1"] .row { min-height: 112px; }
+
+/* Nine-card hands wrap tighter */
+body[data-deal="house"] .hand .card { width: 80px; height: 110px; padding-top: 12px; }
+body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; }
 
 .slot {
   width: 92px;
@@ -593,7 +672,9 @@ h1 {
 .pickcard .cname { font-size: 11px; }
 .pickcard .cval { width: 18px; height: 18px; line-height: 18px; font-size: 10px; top: -6px; left: -6px; }
 .pickcard.phantom { opacity: 0.72; border-style: dashed; border-color: #d96a5b; }
-.mathline { font-size: 12.5px; font-style: italic; color: var(--parchment-dim); margin-top: 8px; }
+.mathline { font-size: 12.5px; font-style: italic; color: var(--parchment-dim); margin: 4px 0 8px; }
+.membername { font-size: 12px; color: var(--gold); margin: 6px 0 4px; font-family: 'Cinzel', Georgia, serif; }
+.modalsub.small { font-size: 12.5px; margin-top: 10px; }
 .verdict { text-align: center; font-size: 15px; margin-top: 14px; color: var(--parchment); }
 
 /* Rules */
@@ -622,10 +703,14 @@ h1 {
 
 /* ---------- Responsive ---------- */
 
+body[data-compact="1"] .game { height: auto; min-height: 100vh; }
+
 @media (max-width: 1150px) {
   .game { flex-wrap: wrap; height: auto; }
   .scoreboard { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px; }
   .scoreboard .ledger { flex: 1; min-width: 220px; }
+  .scoreboard .panels { flex-direction: row; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .scoreboard .playerpanel { min-width: 200px; }
   .sidebtns { margin-top: 0; }
   .battlefield { width: 100%; }
   .logpanel { width: 100%; max-height: 200px; }

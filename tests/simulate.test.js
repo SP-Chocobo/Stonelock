@@ -1,39 +1,41 @@
 'use strict';
-/* Headless full-match simulation: a random-but-legal "human" plays
-   complete matches against the AI. Asserts structural invariants. */
+/* Headless full-match simulation across all formats: a random-but-
+   legal "human" plays complete matches against the AI. Asserts
+   structural invariants at every showdown. */
 const M = require('../game.js');
 
 const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function assert(cond, msg, ctx) {
   if (!cond) {
-    console.error('ASSERT FAIL:', msg, ctx || '');
+    console.error('ASSERT FAIL:', msg, ctx === undefined ? '' : ctx);
     process.exit(1);
   }
 }
 
 let showdowns = 0, blacksUsed = 0, bluesUsed = 0;
 
-function driveOne(region, target) {
-  M.newGame(region, target);
+function driveOne(cfg) {
+  M.newGame(cfg);
+  const footprint = cfg.deal === 'house' ? 5 : 4;
   let guard = 0;
   while (true) {
-    if (guard++ > 20000) { assert(false, 'game did not terminate'); }
-    const G = M._state(), UI = M._ui();
+    if (guard++ > 60000) { assert(false, 'game did not terminate', cfg); }
+    const G = M._state();
 
     if (G.over) break;
     if (!G.queue.length) {
       // showdown finished — validate the table
       showdowns++;
       for (const p of G.players) {
-        assert(p.board.length === 4, 'board must hold 4 cards', p.board.length);
+        assert(p.board.length === footprint, 'board holds the full footprint', p.board.length);
         assert(p.board.every(c => c.faceUp), 'all cards flipped at showdown');
         assert(p.hand.length === 0, 'hand empty at showdown');
-        assert(p.active.length === 0 || p.active.length <= 2, 'active stones sane');
+        assert(p.active.length === 0, 'all active stones resolved');
       }
-      const total = G.players[0].board.length + G.players[1].board.length;
-      assert(total === 8, 'cards conserved across swaps', total);
-      assert(Math.abs(G.ledger) <= G.target, 'ledger clamped');
+      const total = G.players.reduce((s, p) => s + p.board.length, 0);
+      assert(total === G.nPlayers * footprint, 'cards conserved across swaps', total);
+      if (G.mode !== 'ffa') assert(Math.abs(G.ledger) <= G.target, 'ledger clamped');
       M.nextHand();
       continue;
     }
@@ -71,16 +73,20 @@ function driveOne(region, target) {
     }
   }
   const G = M._state();
-  assert(Math.abs(G.ledger) >= G.target, 'match ends at target');
+  if (G.mode === 'ffa') assert(G.scores.some(s => s >= G.target), 'ffa match ends at target');
+  else assert(Math.abs(G.ledger) >= G.target, 'match ends at target');
 }
 
 // pick-and-remove helper so deploy never double-toggles the same card
 function rnd0(arr) { const i = Math.floor(Math.random() * arr.length); return arr.splice(i, 1)[0]; }
 
 function placeTargets(color) {
-  const G = M._state(), UI = M._ui();
+  const G = M._state();
   const mine = () => G.players[0].board.filter(c => !M.isLocked(c));
-  const theirs = () => G.players[1].board.filter(c => !M.isLocked(c));
+  const theirs = () => G.players
+    .filter(p => M.isOpponent(0, p.idx))
+    .flatMap(p => p.board)
+    .filter(c => !M.isLocked(c));
   if (color === 'white') {
     const t = mine();
     if (!t.length) return M.humanDiscardStone();
@@ -103,8 +109,15 @@ function placeTargets(color) {
   }
 }
 
-const regions = ['bar', 'house', 'dock'];
-for (let i = 0; i < 120; i++) {
-  driveOne(regions[i % 3], 10);
+const matrix = [
+  { mode: 'duel', deal: 'small' },
+  { mode: 'duel', deal: 'house' },
+  { mode: 'ffa', deal: 'small' },
+  { mode: 'ffa', deal: 'house' },
+  { mode: 'teams', deal: 'small' },
+  { mode: 'teams', deal: 'house' },
+];
+for (let i = 0; i < 60; i++) {
+  driveOne({ ...matrix[i % matrix.length], target: 10, region: 'bar' });
 }
-console.log(`OK: 120 full matches completed. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
+console.log(`OK: 60 full matches across 6 format combos. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);

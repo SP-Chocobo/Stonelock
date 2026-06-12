@@ -23,11 +23,16 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
 
 ## This version
 
-- **Solo 1v1** against an AI opponent ("The Stranger"), Small Game rules: 5 cards
-  dealt, a 2–1–1 table footprint, best 3 of 4 scored.
-- **Sovereign Honor scoring** (no betting): the Pivot Marker shifts by the net
-  difference of each showdown; push it the full distance to win. Match length is
-  selectable (10 / 20 / full 40).
+- **Three table formats**: Solo 1v1, 4-player Free-for-All, and Paired Teams
+  (2v2 — your AI partner sits opposite; team totals decide the showdown, but
+  multiples never pool across layouts; partners may Lock each other's cards
+  and never trade against each other).
+- **Two deals**: Small Game (5 cards, 2–1–1 footprint, best 3 of 4) or House
+  Deep Draft (9 cards, 2–2–1 footprint, best 3 of 5, leftovers dead).
+- **Sovereign Honor scoring** (no betting): two-sided tables race the Pivot
+  Marker by the net difference of each showdown; the Free-for-All table is a
+  purse race where the winner banks the margin over the runner-up. Match
+  length selectable (10 / 20 / full 40).
 - The table plays the **Bar-Level valuation** ("The Practical Common"). The
   engine supports all three regional value tables (House Games, Dock /
   Traveler); they will surface alongside the regional rule variants so the
@@ -42,7 +47,9 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
 
 The source document leaves a few edges to the hosting venue; this table rules:
 
-- A locked card cannot be targeted by *any* subsequent stone, from either player.
+- A locked card cannot be targeted by *any* subsequent stone, from any player —
+  and if either card of a trade is later locked, a Black Stone can no longer
+  unwind that trade.
 - One Red Stone per card.
 - A Blue or Black Stone (or any stone with no legal target) may be set down
   without effect.
@@ -51,9 +58,8 @@ The source document leaves a few edges to the hosting venue; this table rules:
 
 ### Not yet at this table
 
-House/team format (9-card deep draft), the money variants (Fixed Purse, Raw
-Exchange) with betting, folds and all-ins, and the regional house rules
-(Slumlock, Riverlock, Cursed Register).
+The money variants (Fixed Purse, Raw Exchange) with betting, folds and
+all-ins, and the regional house rules (Slumlock, Riverlock, Cursed Register).
 
 ## Files
 
