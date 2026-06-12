@@ -32,8 +32,9 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
   ("The Practical Common"), House Games ("The Sovereign Ledger"), and Dock /
   Traveler ("The Fluvial Exchange").
 - All four **Interaction Stones** — Red (Duplication), White (Lock), Blue
-  (Exchange), Black (Disruption) — including immediate Black Stone reactions and
-  stones traveling home with an unwound trade.
+  (Exchange), Black (Disruption). All stones are placed in turn during the
+  resolution phases; a Black Stone undoing a trade sends every riding stone
+  home with its card.
 - The **Rule of Rotation**: the Dealer Token passes after every hand.
 
 ### Rule interpretations made for the digital table

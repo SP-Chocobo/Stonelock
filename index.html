@@ -49,6 +49,7 @@
     <section class="center">
       <div id="phaseLabel" class="phaselabel">Stonelock</div>
       <div id="phaseNote" class="phasenote"></div>
+      <div id="announce" class="announce"></div>
       <div id="prompt" class="prompt"></div>
       <div id="actionBar" class="actionbar"></div>
     </section>
@@ -92,18 +93,6 @@
       <label><input type="radio" name="target" value="40"> Full Sovereign Race (40)</label>
     </div>
     <div class="modalbtns"><button id="startBtn" class="btn primary big">Deal the first hand</button></div>
-  </div>
-</div>
-
-<!-- Reaction modal -->
-<div id="reactionModal" class="modal">
-  <div class="modalcard">
-    <h2>An Opening for Disruption</h2>
-    <p id="reactionText"></p>
-    <div class="modalbtns">
-      <button id="reactYes" class="btn primary">Drop the Black Stone</button>
-      <button id="reactNo" class="btn">Hold</button>
-    </div>
   </div>
 </div>
 
@@ -155,7 +144,7 @@
       <li><b class="rword">Red — Duplication.</b> A phantom duplicate rides one of your cards, building toward a Pair or Triad with one physical card.</li>
       <li><b class="wword">White — Lock.</b> The card cannot be altered, stolen, or neutralized for the rest of the hand.</li>
       <li><b class="bword">Blue — Exchange.</b> Forcibly swap one of your cards for an unprotected opponent card. Face-up stays face-up; face-down stays face-down, but you may secretly inspect a hidden card that enters your layout.</li>
-      <li><b class="kword">Black — Disruption.</b> Undoes the last stone effect upon a card — including unwinding a trade, with every riding stone traveling home. May be dropped as an immediate reaction. Cannot itself be undone, and cannot touch a locked card.</li>
+      <li><b class="kword">Black — Disruption.</b> Played on your turn like any other stone: it undoes the last stone effect upon a card — including unwinding a trade, with every riding stone traveling home. Cannot itself be undone, and cannot touch a locked card.</li>
     </ul>
 
     <h3>The Sovereign Honor Ledger</h3>

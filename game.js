@@ -124,9 +124,11 @@ const STRUCT_LABEL = { triad: 'a Triad', pair: 'a Pair', singles: 'three Singles
 /* ---------------- Game state ---------------- */
 
 let G = null;       // game state
-let UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null };
+let UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null, flashIds: [] };
+let runTimer = null;
 
 function newGame(regionKey, target) {
+  clearTimeout(runTimer);
   G = {
     region: REGIONS[regionKey],
     target,
@@ -138,7 +140,6 @@ function newGame(regionKey, target) {
     queue: [],
     events: [],
     cards: [],
-    paused: false,
   };
   log(`A table is set under ${G.region.name} — “${G.region.subtitle}.” First to push the Pivot Marker ${G.target} points onto the opponent’s side takes the match.`, 'sys');
   startHand();
@@ -150,8 +151,7 @@ function startHand() {
   G.handNum++;
   G.events = [];
   G.cards = [];
-  G.paused = false;
-  UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null };
+  UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null, flashIds: [] };
 
   // Build the 64-card Ledger Deck, full shuffle, scale to 16 per player.
   let id = 0;
@@ -206,6 +206,7 @@ function startHand() {
     { t: 'place', who: dOrd[0] }, { t: 'place', who: dOrd[1] },
     { t: 'phase', label: 'Phase 7 — Second Stone & Showdown', note: 'Final stones drop, then all veiled cards are flipped.' },
     { t: 'place', who: dOrd[0] }, { t: 'place', who: dOrd[1] },
+    { t: 'beat', ms: 900 },
     { t: 'showdown' },
   ];
   log(`— Hand ${G.handNum}. The deck is broken, shuffled clean, and dealt. —`, 'sys');
@@ -220,12 +221,41 @@ function hasRed(card) { return card.stones.some(s => s.color === 'red'); }
 
 /* ---------------- Queue runner ---------------- */
 
+// Dramatic pause (ms) taken BEFORE a step is shown, so the table
+// breathes between visible opponent actions. Zero when headless
+// or when tests set window.STONELOCK_FAST.
+function dramatic(ms) {
+  if (typeof document === 'undefined') return 0;
+  if (typeof window !== 'undefined' && window.STONELOCK_FAST) return 0;
+  return ms;
+}
+
+function preWait(step) {
+  switch (step.t) {
+    case 'phase': return 500;
+    case 'declare': return step.who === 1 ? 900 : 0;
+    case 'deploy': return 700;
+    case 'thin': return step.who === 1 ? 900 : 0;
+    case 'place': return (step.who === 1 && G.players[1].active.length > 0) ? 1200 : 0;
+    case 'beat': return step.ms || 900;
+    default: return 0;
+  }
+}
+
 function run() {
-  while (G.queue.length && !G.paused && !G.over) {
+  clearTimeout(runTimer);
+  while (G.queue.length && !G.over) {
     const step = G.queue[0];
     if (stepNeedsHuman(step)) {
       promptHuman(step);
       render();
+      return;
+    }
+    const wait = dramatic(preWait(step));
+    if (wait > 0 && !step._waited) {
+      step._waited = true;
+      render();
+      runTimer = setTimeout(run, wait);
       return;
     }
     G.queue.shift();
@@ -259,8 +289,11 @@ function executeStep(step) {
       deployCards(0, step.humanCards, step.faceUp);
       if (step.faceUp) {
         log(`The cards flip in the same breath. You show ${step.humanCards.map(c => c.type).join(' and ')}; the Stranger shows ${aiCards.map(c => c.type).join(' and ')}.`);
+        announce(`The Foundation — the Stranger shows ${aiCards.map(c => c.type).join(' and ')}`);
+        UI.flashIds = aiCards.concat(step.humanCards).map(c => c.id);
       } else {
         log('Both players slide their cards onto the table, face-down. The veil holds.');
+        announce('Veiled cards slide onto the table');
       }
       if (step.discardRest) {
         for (const p of G.players) {
@@ -275,6 +308,8 @@ function executeStep(step) {
       break;
     case 'place':
       if (step.who === 1 && G.players[1].active.length > 0) aiPlace();
+      break;
+    case 'beat':
       break;
     case 'showdown':
       showdown();
@@ -318,6 +353,7 @@ function humanDeclare(color) {
   p.pool[color]--;
   p.declared.push(color);
   log(`You set a ${STONES[color].name} in the open. (${STONES[color].power})`, 'you');
+  announce(`You telegraph a ${STONES[color].name}`, color);
   finishHumanStep();
 }
 
@@ -345,6 +381,7 @@ function humanThin(index) {
   p.declared.splice(index, 1);
   p.active = p.declared.slice();
   log(`You slide your ${STONES[color].name} back to your pouch. Two stones stay live.`, 'you');
+  announce(`You abandon a ${STONES[color].name}`, color);
   finishHumanStep();
 }
 
@@ -384,6 +421,7 @@ function humanDiscardStone() {
   // Blue/black may be set down without effect.
   consumeActive(0, UI.pendingStone);
   log(`You set your ${STONES[UI.pendingStone].name} down without effect. It passes.`, 'you');
+  announce(`You set a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone);
   UI.pendingStone = null;
   finishHumanStep();
 }
@@ -422,7 +460,6 @@ function humanTargetCard(card) {
 function finishHumanStep() {
   G.queue.shift();
   UI.mode = 'idle';
-  maybeAiReaction();
   run();
 }
 
@@ -441,18 +478,25 @@ function applyStone(actor, color, target) {
       target.card.stones.push({ color: 'white', by: actor });
       ev.cards = [target.card];
       log(`${playerName(actor)} lock${actor === 0 ? '' : 's'} ${describeCard(target.card, actor)} under a White Stone. Untouchable now.`, actor === 0 ? 'you' : 'ai');
+      announce(`White Stone — ${describeCard(target.card, 0)} is locked`, 'white');
       break;
     case 'red':
       target.card.stones.push({ color: 'red', by: actor });
       ev.cards = [target.card];
       log(`${playerName(actor)} drop${actor === 0 ? '' : 's'} a Red Stone on ${describeCard(target.card, actor)} — a phantom duplicate shimmers over it.`, actor === 0 ? 'you' : 'ai');
+      announce(`Red Stone — a phantom rises over ${describeCard(target.card, 0)}`, 'red');
       break;
     case 'blue': {
       const { give, take } = target;
+      const giveDesc = describeCard(give, 0), takeDesc = describeCard(take, 0);
       swapCards(give, take);
       ev.cards = [give, take];
       ev.give = give; ev.take = take;
+      // Remember how each card changed hands, for the hover detail.
+      give.prov = { by: actor, partnerId: take.id };
+      take.prov = { by: actor, partnerId: give.id };
       log(`${playerName(actor)} drop${actor === 0 ? '' : 's'} a Blue Stone — ${describeCard(give, actor)} trades places with ${describeCard(take, actor)}. Whatever was hidden stays hidden.`, actor === 0 ? 'you' : 'ai');
+      announce(`Blue Stone — ${actor === 0 ? 'you seize' : 'the Stranger seizes'} ${takeDesc} for ${giveDesc}`, 'blue');
       // The receiver may secretly inspect a face-down arrival.
       if (!take.faceUp) {
         take.known[actor] = true;
@@ -470,16 +514,21 @@ function applyStone(actor, color, target) {
         const idx = prev.cards[0].stones.findIndex(s => s.color === 'red' && s.by === prev.actor);
         if (idx >= 0) prev.cards[0].stones.splice(idx, 1);
         log(`${playerName(actor)} drop${actor === 0 ? '' : 's'} a Black Stone — the phantom over ${describeCard(prev.cards[0], actor)} gutters out.`, actor === 0 ? 'you' : 'ai');
+        announce('Black Stone — the phantom is snuffed out', 'black');
       } else if (prev.color === 'blue') {
         // Reverse the trade. Stones travel with their cards.
         swapCards(prev.give, prev.take);
+        prev.give.prov = null;
+        prev.take.prov = null;
         log(`${playerName(actor)} drop${actor === 0 ? '' : 's'} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, actor === 0 ? 'you' : 'ai');
+        announce('Black Stone — the trade unwinds, stones and all', 'black');
       }
       break;
     }
   }
   G.events.push(ev);
   G.lastEvent = ev;
+  UI.flashIds = ev.cards.map(c => c.id);
   render();
 }
 
@@ -523,24 +572,7 @@ function describeCard(card, viewer) {
   return card.faceUp ? `${ownerWord} ${card.type}` : `${ownerWord} veiled card`;
 }
 
-/* ---------------- Reactions (Black Stone) ---------------- */
-
-function maybeAiReaction() {
-  const ev = G.lastEvent;
-  if (!ev || ev.reacted || ev.actor !== 0) return;
-  ev.reacted = true;
-  if (!['red', 'blue'].includes(ev.color)) return;
-  const ai = G.players[1];
-  if (!ai.active.includes('black')) return;
-  if (ev.undone || ev.cards.some(isLocked)) return;
-  // Worth undoing if it swings the known totals against the AI.
-  const before = swingIfUndone(ev);
-  if (before >= 3) {
-    consumeActive(1, 'black');
-    applyStone(1, 'black', { event: ev });
-    log('An immediate reaction — the interruption cannot be reversed or countered.', 'ai');
-  }
-}
+/* ---------------- Black Stone evaluation ---------------- */
 
 function swingIfUndone(ev) {
   const cur = estimate(1, 1) - estimate(0, 1);
@@ -563,35 +595,6 @@ function simulateUndo(ev, apply) {
   } else if (ev.color === 'blue') {
     swapCards(ev.give, ev.take); // swapping twice restores
   }
-}
-
-function offerHumanReaction() {
-  const ev = G.lastEvent;
-  if (!ev || ev.reactedHuman || ev.actor !== 1) return false;
-  ev.reactedHuman = true;
-  if (!['red', 'blue'].includes(ev.color)) return false;
-  const p = G.players[0];
-  if (!p.active.includes('black')) return false;
-  if (ev.undone || ev.cards.some(isLocked)) return false;
-  G.paused = true;
-  UI.mode = 'reaction';
-  UI.reactionEvent = ev;
-  render();
-  return true;
-}
-
-function humanReact(useBlack) {
-  G.paused = false;
-  UI.mode = 'idle';
-  if (useBlack && UI.reactionEvent && !UI.reactionEvent.undone) {
-    consumeActive(0, 'black');
-    applyStone(0, 'black', { event: UI.reactionEvent });
-    maybeAiReaction(); // black cannot be countered, but keeps state tidy
-  } else {
-    log('You hold your Black Stone. The moment passes.', 'you');
-  }
-  UI.reactionEvent = null;
-  run();
 }
 
 /* ---------------- AI ---------------- */
@@ -626,6 +629,7 @@ function aiDeclare(n) {
   ai.pool[choice]--;
   ai.declared.push(choice);
   log(`The Stranger sets a ${STONES[choice].name} in the open. (${STONES[choice].power})`, 'ai');
+  announce(`The Stranger telegraphs a ${STONES[choice].name}`, choice);
 }
 
 function aiStonePreference() {
@@ -689,6 +693,7 @@ function aiThin() {
   ai.declared.splice(worst, 1);
   ai.active = ai.declared.slice();
   log(`The Stranger abandons a ${STONES[color].name}. Two stones stay live.`, 'ai');
+  announce(`The Stranger abandons a ${STONES[color].name}`, color);
 }
 
 function aiStoneValue(color) {
@@ -801,6 +806,7 @@ function aiPlace() {
   consumeActive(1, chosen.color);
   if (chosen.fizzle) {
     log(`The Stranger sets a ${STONES[chosen.color].name} down without effect. It passes.`, 'ai');
+    announce(`The Stranger sets a ${STONES[chosen.color].name} down without effect`, chosen.color);
     G.lastEvent = null;
     return;
   }
@@ -816,7 +822,6 @@ function aiPlace() {
       applyStone(1, 'black', { event: chosen.undo });
       break;
   }
-  if (offerHumanReaction()) return; // pauses the queue until the player answers
 }
 
 /* ---------------- Showdown ---------------- */
@@ -829,6 +834,7 @@ function showdown() {
     }
   }
   log('The Showdown — every veiled card on the table is flipped face-up.', 'sys');
+  announce('The Showdown — every veiled card is flipped');
 
   const sel = [0, 1].map(i => bestSelection(
     G.players[i].board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
@@ -899,6 +905,18 @@ function setPrompt(msg) {
   promptEl.textContent = msg || '';
 }
 
+// Large center-table callout for every visible action, so nothing
+// happens in a corner of the screen unannounced.
+function announce(msg, stoneColor) {
+  if (typeof document === 'undefined') return;
+  const el = $('announce');
+  el.innerHTML = (stoneColor ? `<span class="stone ${stoneColor}"></span>` : '') +
+    `<span>${msg}</span>`;
+  el.classList.remove('pop');
+  void el.offsetWidth; // restart the animation
+  el.classList.add('pop');
+}
+
 function toast(msg) {
   if (typeof document === 'undefined') return;
   const t = $('toast');
@@ -910,8 +928,37 @@ function toast(msg) {
 
 /* ---------- Rendering ---------- */
 
+// FLIP animation: every render captures card positions first, then
+// animates any card that ended up somewhere else (hand → table,
+// trades, unwound trades) sliding from its old spot.
+function captureRects() {
+  const m = {};
+  document.querySelectorAll('[data-card-id]').forEach(el => {
+    m[el.dataset.cardId] = el.getBoundingClientRect();
+  });
+  return m;
+}
+
+function animateMoves(prev) {
+  document.querySelectorAll('[data-card-id]').forEach(el => {
+    const r0 = prev[el.dataset.cardId];
+    if (!r0) return;
+    const r1 = el.getBoundingClientRect();
+    const dx = r0.left - r1.left, dy = r0.top - r1.top;
+    if (Math.abs(dx) + Math.abs(dy) < 6) return;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    el.style.zIndex = '30';
+    el.getBoundingClientRect(); // force reflow
+    el.style.transition = 'transform 0.75s cubic-bezier(.45,1.3,.45,1)';
+    el.style.transform = '';
+    setTimeout(() => { el.style.zIndex = ''; el.style.transition = ''; }, 800);
+  });
+}
+
 function render() {
   if (typeof document === 'undefined' || !G) return;
+  const prevRects = captureRects();
   renderLedger();
   renderBoard(1, $('aiBoard'));
   renderBoard(0, $('playerBoard'));
@@ -920,9 +967,10 @@ function render() {
   renderTelegraph(1, $('aiTelegraph'));
   renderTelegraph(0, $('playerTelegraph'));
   renderControls();
-  renderReaction();
   $('dealerYou').classList.toggle('on', G.dealer === 0);
   $('dealerAi').classList.toggle('on', G.dealer === 1);
+  UI.flashIds = []; // flash plays once per action, not per re-render
+  animateMoves(prevRects);
 }
 
 function renderLedger() {
@@ -969,6 +1017,27 @@ function cardEl(card, viewer) {
       row.appendChild(dot);
     }
     el.appendChild(row);
+  }
+  if ((UI.flashIds || []).includes(card.id)) el.classList.add('flash');
+  if (card.prov) {
+    el.classList.add('traded');
+    const badge = document.createElement('div');
+    badge.className = 'tradebadge';
+    badge.textContent = '⇄';
+    el.appendChild(badge);
+    const partnerId = card.prov.partnerId;
+    const partner = G.cards.find(c => c.id === partnerId);
+    const partnerDesc = partner && (partner.faceUp || partner.known[0])
+      ? `the ${partner.type}` : 'the veiled card';
+    el.title = `Changed hands via ${card.prov.by === 0 ? 'your' : 'the Stranger’s'} Blue Stone — traded for ${partnerDesc} now ${card.owner === 0 ? 'in the Stranger’s layout' : 'in your layout'} (hover to see it).`;
+    el.addEventListener('mouseenter', () => {
+      const pe = document.querySelector(`[data-card-id="${partnerId}"]`);
+      if (pe) pe.classList.add('tradepair');
+      el.classList.add('tradepair');
+    });
+    el.addEventListener('mouseleave', () => {
+      document.querySelectorAll('.tradepair').forEach(x => x.classList.remove('tradepair'));
+    });
   }
   return el;
 }
@@ -1018,6 +1087,7 @@ function renderHand() {
   wrap.innerHTML = '';
   for (const card of G.players[0].hand) {
     const el = document.createElement('div');
+    el.dataset.cardId = card.id;
     el.className = 'card hand-card' + (UI.selected.includes(card) ? ' selected' : '');
     el.innerHTML = `
       <div class="cicon">${ICONS[card.type]}</div>
@@ -1116,19 +1186,6 @@ function renderControls() {
   }
 }
 
-function renderReaction() {
-  const modal = $('reactionModal');
-  if (UI.mode === 'reaction' && UI.reactionEvent) {
-    const ev = UI.reactionEvent;
-    $('reactionText').textContent = ev.color === 'blue'
-      ? `The Stranger’s Blue Stone just traded ${describeCard(ev.take, 0)} out of your layout for ${describeCard(ev.give, 0)}. You are holding an active Black Stone — drop it now to undo the trade?`
-      : `The Stranger just placed a Red Stone, raising a phantom duplicate over ${describeCard(ev.cards[0], 0)}. You are holding an active Black Stone — drop it now to snuff the phantom?`;
-    modal.classList.add('open');
-  } else {
-    modal.classList.remove('open');
-  }
-}
-
 /* ---------- Modals ---------- */
 
 function closeModal(id) {
@@ -1219,8 +1276,6 @@ function boot() {
   buildSetup();
   $('startBtn').onclick = startFromSetup;
   $('nextHandBtn').onclick = nextHand;
-  $('reactYes').onclick = () => humanReact(true);
-  $('reactNo').onclick = () => humanReact(false);
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = () => { $('setupModal').classList.add('open'); };
@@ -1235,7 +1290,7 @@ if (typeof window !== 'undefined') {
     bestSelection, REGIONS, TYPES, STONES,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
-    humanChooseStone, humanTargetCard, humanDiscardStone, humanReact,
+    humanChooseStone, humanTargetCard, humanDiscardStone,
     undoableEventFor, isLocked,
     _state: () => G, _ui: () => UI,
   };

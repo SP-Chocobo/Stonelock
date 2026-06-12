@@ -12,7 +12,7 @@ function assert(cond, msg, ctx) {
   }
 }
 
-let showdowns = 0, reactions = 0, blacksUsed = 0, bluesUsed = 0, structures = {};
+let showdowns = 0, blacksUsed = 0, bluesUsed = 0;
 
 function driveOne(region, target) {
   M.newGame(region, target);
@@ -21,11 +21,6 @@ function driveOne(region, target) {
     if (guard++ > 20000) { assert(false, 'game did not terminate'); }
     const G = M._state(), UI = M._ui();
 
-    if (UI.mode === 'reaction') {
-      reactions++;
-      M.humanReact(Math.random() < 0.6);
-      continue;
-    }
     if (G.over) break;
     if (!G.queue.length) {
       // showdown finished — validate the table
@@ -112,4 +107,4 @@ const regions = ['bar', 'house', 'dock'];
 for (let i = 0; i < 120; i++) {
   driveOne(regions[i % 3], 10);
 }
-console.log(`OK: 120 full matches completed. showdowns=${showdowns} reactions=${reactions} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
+console.log(`OK: 120 full matches completed. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
