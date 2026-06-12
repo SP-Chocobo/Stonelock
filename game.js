@@ -166,7 +166,7 @@ function newGame(cfg) {
   const fmt = G.mode === 'duel' ? 'a quiet duel' : G.mode === 'ffa' ? 'a four-seat free-for-all' : 'paired alliances, two against two';
   const dl = G.deal === 'house' ? 'House deep-draft deal, nine cards down' : 'small-game deal, five cards down';
   log(`A table is set — ${fmt}, ${dl}, under ${G.region.name}. ${G.mode === 'ffa'
-    ? `Each showdown the winner banks the margin over the runner-up; first to ${G.target} takes the match.`
+    ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
     : `First to push the Pivot Marker ${G.target} onto the other side takes the match.`}`, 'sys');
   startHand();
 }
@@ -1050,7 +1050,7 @@ function buildTableDOM() {
   const panels = $('panels');
   panels.innerHTML = '';
   const seats = Array.from({ length: G.nPlayers }, (_, i) => i);
-  const order = [...seats.filter(i => i !== 0), 0];
+  const order = [0, ...seats.filter(i => i !== 0)]; // you first, always in view
   for (const i of order) {
     const ally = !isOpponent(0, i);
     const div = document.createElement('div');
@@ -1342,12 +1342,26 @@ function renderTray() {
   $('handArea').classList.toggle('focus', UI.mode === 'pickCards');
   if (!visible) return;
   stonesEl.innerHTML = '';
-  for (const it of items) {
+  const trayStone = (color, onClick) => {
     const s = document.createElement('div');
-    s.className = `stone big ${it.color} targetable`;
-    s.title = `${STONES[it.color].name} — ${STONES[it.color].power}: ${STONES[it.color].desc}`;
-    s.onclick = it.onClick;
-    stonesEl.appendChild(s);
+    s.className = `stone big ${color} targetable`;
+    s.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}`;
+    s.onclick = onClick;
+    return s;
+  };
+  if (UI.mode === 'pickStone') {
+    // Group the full pouch by color, like the sidebar racks.
+    for (const color of STONE_KEYS) {
+      if (p.pool[color] <= 0) continue;
+      const col = document.createElement('div');
+      col.className = 'traycol';
+      for (let k = 0; k < p.pool[color]; k++) {
+        col.appendChild(trayStone(color, () => humanDeclare(color)));
+      }
+      stonesEl.appendChild(col);
+    }
+  } else {
+    for (const it of items) stonesEl.appendChild(trayStone(it.color, it.onClick));
   }
 }
 

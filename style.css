@@ -381,12 +381,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 
 /* Minimized hand while the stone tray has the floor */
-.handarea.min { flex: 0 0 auto; opacity: 0.5; }
+.handarea.min { flex: 0 0 auto; max-width: 42%; opacity: 0.5; }
 .handarea.min .hand { min-height: 0; gap: 5px; }
-.handarea.min .card { width: 50px; height: 68px; padding-top: 7px; }
-.handarea.min .cicon { width: 32px; height: 32px; padding: 4px; }
+.handarea.min .card, body[data-deal="house"] .handarea.min .card { width: 46px; height: 62px; padding-top: 6px; }
+.handarea.min .cicon, body[data-deal="house"] .handarea.min .cicon { width: 30px; height: 30px; padding: 4px; }
 .handarea.min .cname { display: none; }
-.handarea.min .cval { width: 16px; height: 16px; line-height: 16px; font-size: 9px; top: -5px; left: -5px; }
+.handarea.min .cval { width: 15px; height: 15px; line-height: 15px; font-size: 9px; top: -5px; left: -5px; }
 
 /* The stone tray */
 .stonetray {
@@ -407,13 +407,14 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .traystones {
   display: flex;
-  gap: 22px;
+  gap: 24px;
   align-items: center;
   justify-content: center;
   min-height: 104px;
   flex-wrap: wrap;
 }
-.stone.big { width: 52px; height: 52px; border-width: 3px; }
+.traycol { display: flex; flex-direction: column; gap: 12px; }
+.stone.big { width: 48px; height: 48px; border-width: 3px; }
 .stone.big.targetable:hover { transform: scale(1.14); }
 
 /* ---------- Cards ---------- */
