@@ -285,13 +285,12 @@ function dramatic(ms) {
 }
 
 function preWait(step) {
-  const multi = G.nPlayers > 2;
   switch (step.t) {
     case 'phase': return 500;
-    case 'declare': return step.who !== 0 ? (multi ? 650 : 900) : 0;
+    case 'declare': return step.who !== 0 ? 900 : 0;
     case 'deploy': return 700;
-    case 'thin': return step.who !== 0 ? (multi ? 650 : 900) : 0;
-    case 'place': return (step.who !== 0 && G.players[step.who].active.length > 0) ? (multi ? 1000 : 1200) : 0;
+    case 'thin': return step.who !== 0 ? 900 : 0;
+    case 'place': return (step.who !== 0 && G.players[step.who].active.length > 0) ? 1300 : 0;
     case 'beat': return step.ms || 900;
     default: return 0;
   }
@@ -302,6 +301,7 @@ function run() {
   while (G.queue.length && !G.over) {
     const step = G.queue[0];
     if (stepNeedsHuman(step)) {
+      G.activeSeat = 0;
       promptHuman(step);
       render();
       return;
@@ -309,13 +309,17 @@ function run() {
     const wait = dramatic(preWait(step));
     if (wait > 0 && !step._waited) {
       step._waited = true;
+      // Spotlight the seat that is about to act, through the pause.
+      G.activeSeat = ('who' in step) ? step.who : null;
       render();
       runTimer = setTimeout(run, wait);
       return;
     }
     G.queue.shift();
+    G.activeSeat = ('who' in step) ? step.who : null;
     executeStep(step);
   }
+  G.activeSeat = null;
   render();
 }
 
@@ -412,7 +416,7 @@ function humanDeclare(color) {
   p.pool[color]--;
   p.declared.push(color);
   log(`You set a ${STONES[color].name} in the open. (${STONES[color].power})`, 'you');
-  announce(`You telegraph a ${STONES[color].name}`, color);
+  announce(`You telegraph a ${STONES[color].name}`, color, 0);
   finishHumanStep();
 }
 
@@ -441,7 +445,7 @@ function humanThin(index) {
   p.declared.splice(index, 1);
   p.active = p.declared.slice();
   log(`You slide your ${STONES[color].name} back to your pouch. Two stones stay live.`, 'you');
-  announce(`You abandon a ${STONES[color].name}`, color);
+  announce(`You abandon a ${STONES[color].name}`, color, 0);
   finishHumanStep();
 }
 
@@ -481,7 +485,7 @@ function humanCancelStone() {
 function humanDiscardStone() {
   consumeActive(0, UI.pendingStone);
   log(`You set your ${STONES[UI.pendingStone].name} down without effect. It passes.`, 'you');
-  announce(`You set a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone);
+  announce(`You set a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone, 0);
   UI.pendingStone = null;
   finishHumanStep();
 }
@@ -553,13 +557,13 @@ function applyStone(actor, color, target) {
       target.card.stones.push({ color: 'white', by: actor });
       ev.cards = [target.card];
       log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a White Stone. Untouchable now.`, actor === 0 ? 'you' : 'ai');
-      announce(`White Stone — ${describeCard(target.card)} is locked`, 'white');
+      announce(`White Stone — ${describeCard(target.card)} is locked`, 'white', actor);
       break;
     case 'red':
       target.card.stones.push({ color: 'red', by: actor });
       ev.cards = [target.card];
       log(`${playerName(actor)} ${verb(actor, 'drop')} a Red Stone on ${describeCard(target.card)} — a phantom duplicate shimmers over it.`, actor === 0 ? 'you' : 'ai');
-      announce(`Red Stone — a phantom rises over ${describeCard(target.card)}`, 'red');
+      announce(`Red Stone — a phantom rises over ${describeCard(target.card)}`, 'red', actor);
       break;
     case 'blue': {
       const { give, take } = target;
@@ -570,7 +574,7 @@ function applyStone(actor, color, target) {
       give.prov = { by: actor, partnerId: take.id };
       take.prov = { by: actor, partnerId: give.id };
       log(`${playerName(actor)} ${verb(actor, 'drop')} a Blue Stone — ${giveDesc} trades places with ${takeDesc}. Whatever was hidden stays hidden.`, actor === 0 ? 'you' : 'ai');
-      announce(`Blue Stone — ${actor === 0 ? 'you seize' : playerName(actor) + ' seizes'} ${takeDesc} for ${giveDesc}`, 'blue');
+      announce(`Blue Stone — ${actor === 0 ? 'you seize' : playerName(actor) + ' seizes'} ${takeDesc} for ${giveDesc}`, 'blue', actor);
       // The receiver may secretly inspect a face-down arrival.
       if (!take.faceUp) {
         take.known[actor] = true;
@@ -588,14 +592,14 @@ function applyStone(actor, color, target) {
         const idx = prev.cards[0].stones.findIndex(s => s.color === 'red' && s.by === prev.actor);
         if (idx >= 0) prev.cards[0].stones.splice(idx, 1);
         log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the phantom over ${describeCard(prev.cards[0])} gutters out.`, actor === 0 ? 'you' : 'ai');
-        announce('Black Stone — the phantom is snuffed out', 'black');
+        announce('Black Stone — the phantom is snuffed out', 'black', actor);
       } else if (prev.color === 'blue') {
         // Reverse the trade. Stones travel with their cards.
         swapCards(prev.give, prev.take);
         prev.give.prov = null;
         prev.take.prov = null;
         log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, actor === 0 ? 'you' : 'ai');
-        announce('Black Stone — the trade unwinds, stones and all', 'black');
+        announce('Black Stone — the trade unwinds, stones and all', 'black', actor);
       }
       break;
     }
@@ -684,7 +688,7 @@ function aiDeclare(who) {
   p.pool[choice]--;
   p.declared.push(choice);
   log(`${playerName(who)} sets a ${STONES[choice].name} in the open. (${STONES[choice].power})`, 'ai');
-  announce(`${playerName(who)} telegraphs a ${STONES[choice].name}`, choice);
+  announce(`${playerName(who)} telegraphs a ${STONES[choice].name}`, choice, who);
 }
 
 function aiStonePreference(who) {
@@ -746,7 +750,7 @@ function aiThin(who) {
   p.declared.splice(worst, 1);
   p.active = p.declared.slice();
   log(`${playerName(who)} abandons a ${STONES[color].name}. Two stones stay live.`, 'ai');
-  announce(`${playerName(who)} abandons a ${STONES[color].name}`, color);
+  announce(`${playerName(who)} abandons a ${STONES[color].name}`, color, who);
 }
 
 function aiStoneValue(who, color) {
@@ -882,7 +886,7 @@ function aiPlace(who) {
   consumeActive(who, chosen.color);
   if (chosen.fizzle) {
     log(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect. It passes.`, 'ai');
-    announce(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect`, chosen.color);
+    announce(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect`, chosen.color, who);
     return;
   }
   switch (chosen.color) {
@@ -1019,11 +1023,14 @@ function setPrompt(msg) {
 }
 
 // Large center-table callout for every visible action, so nothing
-// happens in a corner of the screen unannounced.
-function announce(msg, stoneColor) {
+// happens in a corner of the screen unannounced. The acting player's
+// seat color rides along so the callout points at a region.
+function announce(msg, stoneColor, actor) {
   if (typeof document === 'undefined') return;
   const el = $('announce');
-  el.innerHTML = (stoneColor ? `<span class="stone ${stoneColor}"></span>` : '') +
+  el.innerHTML =
+    (actor !== undefined && actor !== null ? `<span class="actorchip" style="--ac:${seatColor(actor)}"></span>` : '') +
+    (stoneColor ? `<span class="stone ${stoneColor}"></span>` : '') +
     `<span>${msg}</span>`;
   el.classList.remove('pop');
   void el.offsetWidth; // restart the animation
@@ -1063,6 +1070,7 @@ function buildTableDOM() {
   for (const i of order) {
     const ally = !isOpponent(0, i);
     const div = document.createElement('div');
+    div.id = `panel-${i}`;
     div.className = 'playerpanel ' + (ally ? 'you' : 'opp');
     div.style.setProperty('--seatc', seatColor(i));
     div.innerHTML = `
@@ -1082,6 +1090,7 @@ function buildTableDOM() {
   youSeats.innerHTML = '';
   for (const i of seats) {
     const seat = document.createElement('div');
+    seat.id = `seat-${i}`;
     seat.className = 'seat';
     seat.style.setProperty('--seatc', seatColor(i));
     seat.innerHTML = `<div class="seathead">${playerName(i)}</div><div id="board-${i}" class="board"></div>`;
@@ -1138,6 +1147,10 @@ function render() {
   for (const p of G.players) {
     const chip = $(`dealer-${p.idx}`);
     if (chip) chip.classList.toggle('on', G.dealer === p.idx);
+    const acting = G.activeSeat === p.idx;
+    const seat = $(`seat-${p.idx}`), panel = $(`panel-${p.idx}`);
+    if (seat) seat.classList.toggle('acting', acting);
+    if (panel) panel.classList.toggle('acting', acting);
   }
   UI.flashIds = []; // flash plays once per action, not per re-render
   animateMoves(prevRects);

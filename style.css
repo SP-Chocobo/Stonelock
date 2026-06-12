@@ -287,6 +287,28 @@ h1 {
 }
 body[data-compact="0"] .row.you .seathead { display: none; }
 
+/* Spotlight on the seat that is acting right now */
+.seat.acting {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 3px;
+  border-radius: 10px;
+  box-shadow: 0 0 18px rgba(232,196,119,0.3);
+}
+.seat.acting .seathead { color: var(--gold-bright); }
+.playerpanel.acting {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px rgba(232,196,119,0.25);
+}
+.playerpanel.acting .pname { color: var(--gold-bright); }
+
+.actorchip {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--ac, var(--gold));
+  box-shadow: 0 0 7px var(--ac, var(--gold));
+  flex-shrink: 0;
+}
+
 /* Multi-seat tables: condensed sidebar panels so four seats plus
    the ledger fit the viewport without squeezing or overflow */
 body[data-compact="1"] .playerpanel {
