@@ -260,10 +260,10 @@ h1 {
   border-radius: 10px;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   padding: 6px 12px 8px;
-  min-height: 128px;
+  min-height: 160px;
 }
 .poucharea {
-  width: 210px;
+  width: 216px;
   flex-shrink: 0;
   border: 1px solid var(--edge);
   border-radius: 10px;
@@ -271,8 +271,16 @@ h1 {
   padding: 6px 12px 8px;
 }
 .arealabel { font-size: 10px; font-style: italic; color: var(--parchment-dim); margin-bottom: 5px; }
-.hand { display: flex; gap: 8px; flex-wrap: wrap; min-height: 96px; align-items: center; }
-.pouch { display: flex; gap: 8px; flex-wrap: wrap; min-height: 64px; align-items: center; align-content: center; }
+.hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 134px; align-items: center; }
+
+.pouch { display: flex; gap: 13px; justify-content: center; padding-top: 4px; }
+.pouchcol { display: flex; flex-direction: column; gap: 9px; }
+.pouch .stone { width: 34px; height: 34px; }
+.stone.socket {
+  background: rgba(0,0,0,0.25);
+  border: 2px dashed rgba(232,220,190,0.22);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+}
 
 /* ---------- Cards ---------- */
 
@@ -371,10 +379,10 @@ h1 {
 .card.traded { cursor: help; }
 .card.tradepair { outline: 2px dashed #7aa6c6; outline-offset: 3px; }
 
-/* hand cards slightly smaller */
-.hand .card { width: 74px; height: 102px; padding-top: 10px; }
-.hand .cicon { width: 42px; height: 42px; padding: 5px; }
-.hand .cname { font-size: 12px; }
+/* hand cards larger — the hand is the main interaction surface */
+.hand .card { width: 96px; height: 132px; padding-top: 16px; }
+.hand .cicon { width: 58px; height: 58px; padding: 7px; }
+.hand .cname { font-size: 15px; margin-top: 6px; }
 
 /* ---------- Stones ---------- */
 
@@ -401,7 +409,7 @@ h1 {
 /* ---------- Log (right) ---------- */
 
 .logpanel {
-  width: 240px;
+  width: 310px;
   flex-shrink: 0;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border: 1px solid var(--edge);
@@ -411,13 +419,13 @@ h1 {
   overflow: hidden;
 }
 .loghead {
-  padding: 8px 12px;
-  font-size: 15px;
+  padding: 9px 14px;
+  font-size: 17px;
   border-bottom: 1px solid var(--edge);
   color: var(--gold);
 }
-.log { padding: 8px 11px; overflow-y: auto; font-size: 12.5px; line-height: 1.45; flex: 1; }
-.logline { margin-bottom: 7px; color: #b9ab8c; }
+.log { padding: 10px 13px; overflow-y: auto; font-size: 14.5px; line-height: 1.55; flex: 1; }
+.logline { margin-bottom: 9px; color: #b9ab8c; }
 .logline.you::before { content: '◆ '; color: var(--sage); }
 .logline.ai::before { content: '◆ '; color: var(--red); }
 .logline.you { color: #d9cba6; }
