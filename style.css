@@ -399,9 +399,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   box-shadow: 0 0 18px rgba(232,196,119,0.28), inset 0 0 22px rgba(201,160,80,0.08);
 }
 
-/* Minimized hand while the stone tray has the floor */
-.handarea.min { flex: 0 0 auto; max-width: 42%; opacity: 0.5; }
-.handarea.min .hand { min-height: 0; gap: 5px; }
+/* Minimized hand while the stone tray has the floor;
+   capped at five cards per row so nine break 5/4 */
+.handarea.min { flex: 0 0 auto; opacity: 0.5; }
+.handarea.min .hand { min-height: 0; gap: 5px; max-width: 252px; }
 .handarea.min .card, body[data-deal="house"] .handarea.min .card { width: 46px; height: 62px; padding-top: 6px; }
 .handarea.min .cicon, body[data-deal="house"] .handarea.min .cicon { width: 30px; height: 30px; padding: 4px; }
 .handarea.min .cname { display: none; }
