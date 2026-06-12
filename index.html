@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -21,11 +21,15 @@
 
     <div class="playerpanel opp">
       <div class="pname">The Stranger <span id="dealerAi" class="dealertoken" title="Dealer Token">dealer</span></div>
+      <div id="aiInfo" class="pinfo"></div>
+      <div class="tlabel">stone pouch</div>
+      <div id="aiPouchMini" class="minipouch"></div>
       <div class="tlabel">telegraphed stones</div>
       <div id="aiTelegraph" class="telegraph"></div>
     </div>
 
     <div class="ledger" title="The Sovereign Ledger — the Pivot Marker shifts by the net difference of each showdown">
+      <div id="handNum" class="handnum"></div>
       <div class="ledgerheads"><span>Stranger</span><span class="lcap">the ledger</span><span>You</span></div>
       <div class="ledgerrow">
         <span id="ledgerEndAi" class="ledgerend">40</span>
@@ -40,6 +44,9 @@
 
     <div class="playerpanel you">
       <div class="pname">You <span id="dealerYou" class="dealertoken" title="Dealer Token">dealer</span></div>
+      <div id="youInfo" class="pinfo"></div>
+      <div class="tlabel">stone pouch</div>
+      <div id="youPouchMini" class="minipouch"></div>
       <div class="tlabel">telegraphed stones</div>
       <div id="playerTelegraph" class="telegraph"></div>
     </div>
@@ -170,6 +177,6 @@
   </div>
 </div>
 
-<script src="game.js?v=4"></script>
+<script src="game.js?v=5"></script>
 </body>
 </html>

@@ -960,6 +960,7 @@ function render() {
   if (typeof document === 'undefined' || !G) return;
   const prevRects = captureRects();
   renderLedger();
+  renderPanels();
   renderBoard(1, $('aiBoard'));
   renderBoard(0, $('playerBoard'));
   renderHand();
@@ -981,6 +982,28 @@ function renderLedger() {
   $('ledgerEndYou').textContent = G.target;
   $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} your side` : G.ledger < 0 ? `+${-G.ledger} their side` : 'even';
   $('regionBadge').textContent = `${G.region.name} · ${G.region.subtitle}`;
+}
+
+function renderPanels() {
+  $('handNum').textContent = `Hand ${G.handNum}`;
+  for (const i of [0, 1]) {
+    const p = G.players[i];
+    $(i === 0 ? 'youInfo' : 'aiInfo').textContent =
+      `${p.hand.length} in hand · ${p.board.length} on table`;
+    const rack = $(i === 0 ? 'youPouchMini' : 'aiPouchMini');
+    rack.innerHTML = '';
+    for (const color of STONE_KEYS) {
+      const col = document.createElement('div');
+      col.className = 'minicol';
+      for (let k = 0; k < 2; k++) {
+        const dot = document.createElement('span');
+        dot.className = k < p.pool[color] ? `stonedot ${color}` : 'stonedot socket';
+        dot.title = `${STONES[color].name} — ${STONES[color].power}` + (k < p.pool[color] ? '' : ' (telegraphed)');
+        col.appendChild(dot);
+      }
+      rack.appendChild(col);
+    }
+  }
 }
 
 function cardEl(card, viewer) {

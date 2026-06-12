@@ -34,15 +34,15 @@ body {
     radial-gradient(ellipse at 50% 115%, rgba(201,160,80,0.05), transparent 55%),
     var(--bg);
   color: var(--parchment);
-  font-family: 'IM Fell English', Georgia, 'Palatino Linotype', serif;
+  font-family: 'Alegreya', Georgia, 'Palatino Linotype', serif;
   font-size: 15px;
   overflow-x: hidden;
 }
 
-h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .announce {
-  font-family: 'IM Fell English SC', Georgia, serif;
-  font-weight: normal;
-  letter-spacing: 0.04em;
+h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 /* ---------- Frame ---------- */
@@ -73,7 +73,7 @@ h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .announce {
 .titleblock { text-align: center; }
 h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 21px;
   color: var(--gold);
   text-shadow: 0 2px 4px rgba(0,0,0,0.7);
 }
@@ -86,15 +86,28 @@ h1 {
 }
 
 .playerpanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   border: 1px solid var(--edge);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: rgba(0,0,0,0.22);
 }
 .playerpanel.opp { border-left: 3px solid var(--row-opp); }
 .playerpanel.you { border-left: 3px solid var(--row-you); }
 
-.pname { font-size: 16px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; }
+.pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; }
+.pinfo { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); margin-top: 2px; min-height: 14px; }
+
+.minipouch { display: flex; gap: 9px; margin: 2px 0 2px; }
+.minicol { display: flex; gap: 3px; }
+.stonedot.socket {
+  background: rgba(0,0,0,0.3);
+  border: 1.5px dashed rgba(232,220,190,0.22);
+  box-shadow: none;
+}
 .dealertoken {
   font-size: 10px;
   font-family: 'IM Fell English', serif;
@@ -107,16 +120,25 @@ h1 {
 }
 .dealertoken.on { visibility: visible; }
 
-.tlabel { font-size: 10px; font-style: italic; color: var(--parchment-dim); margin: 5px 0 4px; }
-.telegraph { display: flex; gap: 7px; min-height: 34px; align-items: center; flex-wrap: wrap; }
+.tlabel { font-size: 10px; font-style: italic; color: var(--parchment-dim); margin: 7px 0 4px; }
+.telegraph { display: flex; gap: 7px; min-height: 32px; align-items: center; flex-wrap: wrap; }
 
 /* ---------- Ledger ---------- */
 
 .ledger {
-  border: 1px solid var(--edge);
+  border: 1px solid var(--gold-dim);
   border-radius: 8px;
-  padding: 8px 10px 6px;
-  background: rgba(0,0,0,0.22);
+  padding: 9px 12px 8px;
+  background: rgba(0,0,0,0.3);
+  box-shadow: 0 0 12px rgba(201,160,80,0.08);
+}
+.handnum {
+  text-align: center;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 12px;
+  color: var(--gold);
+  margin-bottom: 5px;
+  min-height: 14px;
 }
 .ledgerheads {
   display: flex;
@@ -134,7 +156,7 @@ h1 {
 .ledgertrack {
   position: relative;
   flex: 1;
-  height: 14px;
+  height: 16px;
   border-radius: 7px;
   background: linear-gradient(180deg, #0e0b08, #1a1510 60%, #0e0b08);
   border: 1px solid var(--edge);
@@ -161,7 +183,8 @@ h1 {
   margin-top: 4px;
 }
 
-.sidebtns { margin-top: auto; display: flex; gap: 8px; justify-content: center; }
+.sidebtns { display: flex; gap: 8px; justify-content: center; }
+.sidebtns .btn { font-size: 11px; padding: 6px 10px; }
 
 /* ---------- Battlefield (center) ---------- */
 
@@ -229,7 +252,8 @@ h1 {
 .announce {
   min-height: 30px;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  font-size: 18px;
+  font-size: 17.5px;
+  font-weight: 600;
   color: var(--parchment);
 }
 .announce .stone { width: 22px; height: 22px; }
