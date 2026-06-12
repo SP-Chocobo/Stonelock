@@ -295,6 +295,48 @@ h1 {
 .arealabel { font-size: 10px; font-style: italic; color: var(--parchment-dim); margin-bottom: 5px; }
 .hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 134px; align-items: center; justify-content: center; }
 
+/* Card-commitment emphasis */
+.handarea.focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 18px rgba(232,196,119,0.28), inset 0 0 22px rgba(201,160,80,0.08);
+}
+
+/* Minimized hand while the stone tray has the floor */
+.handarea.min { flex: 0 0 auto; opacity: 0.5; }
+.handarea.min .hand { min-height: 0; gap: 5px; }
+.handarea.min .card { width: 50px; height: 68px; padding-top: 7px; }
+.handarea.min .cicon { width: 32px; height: 32px; padding: 4px; }
+.handarea.min .cname { display: none; }
+.handarea.min .cval { width: 16px; height: 16px; line-height: 16px; font-size: 9px; top: -5px; left: -5px; }
+
+/* The stone tray */
+.stonetray {
+  flex: 1;
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(201,160,80,0.1), transparent 60%),
+    linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow: 0 0 18px rgba(232,196,119,0.18);
+  padding: 6px 12px 8px;
+  text-align: center;
+  animation: trayin 0.3s ease;
+}
+@keyframes trayin {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.traystones {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  justify-content: center;
+  min-height: 104px;
+  flex-wrap: wrap;
+}
+.stone.big { width: 52px; height: 52px; border-width: 3px; }
+.stone.big.targetable:hover { transform: scale(1.14); }
+
 /* ---------- Cards ---------- */
 
 .card {

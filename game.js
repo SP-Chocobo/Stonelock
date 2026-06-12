@@ -964,6 +964,7 @@ function render() {
   renderBoard(1, $('aiBoard'));
   renderBoard(0, $('playerBoard'));
   renderHand();
+  renderTray();
   renderTelegraph(1, $('aiTelegraph'));
   renderTelegraph(0, $('playerTelegraph'));
   renderControls();
@@ -1129,6 +1130,45 @@ function renderHand() {
     wrap.appendChild(el);
   }
   $('handArea').style.display = G.players[0].hand.length ? '' : 'none';
+}
+
+// Contextual tray along the base of the play area: whenever a stone
+// choice is due, the stones grow large down here and the hand makes
+// way; during card commitment the hand takes the emphasis instead.
+function renderTray() {
+  const tray = $('stoneTray');
+  const stonesEl = $('trayStones');
+  const label = $('trayLabel');
+  const p = G.players[0];
+  let items = null;
+  if (UI.mode === 'pickStone') {
+    label.textContent = 'Telegraph a stone';
+    items = [];
+    for (const color of STONE_KEYS) {
+      for (let k = 0; k < p.pool[color]; k++) {
+        items.push({ color, onClick: () => humanDeclare(color) });
+      }
+    }
+  } else if (UI.mode === 'thin') {
+    label.textContent = 'The Thinning — abandon one stone';
+    items = p.declared.map((color, i) => ({ color, onClick: () => humanThin(i) }));
+  } else if (UI.mode === 'placeChoose') {
+    label.textContent = 'Place a stone';
+    items = p.active.map(color => ({ color, onClick: () => humanChooseStone(color) }));
+  }
+  const visible = !!items;
+  tray.style.display = visible ? '' : 'none';
+  $('handArea').classList.toggle('min', visible);
+  $('handArea').classList.toggle('focus', UI.mode === 'pickCards');
+  if (!visible) return;
+  stonesEl.innerHTML = '';
+  for (const it of items) {
+    const s = document.createElement('div');
+    s.className = `stone big ${it.color} targetable`;
+    s.title = `${STONES[it.color].name} — ${STONES[it.color].power}: ${STONES[it.color].desc}`;
+    s.onclick = it.onClick;
+    stonesEl.appendChild(s);
+  }
 }
 
 function renderTelegraph(who, container) {
