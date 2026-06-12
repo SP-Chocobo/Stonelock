@@ -794,3 +794,79 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   .battlefield { width: 100%; }
   .logpanel { width: 100%; max-height: 200px; }
 }
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 760px) {
+  body { font-size: 13.5px; }
+  .game { flex-direction: column; height: auto; min-height: 100vh; padding: 6px; gap: 8px; }
+
+  /* Score strip up top, panels as a swipeable row */
+  .scoreboard {
+    width: 100%; flex-direction: column; gap: 7px; padding: 8px;
+    overflow: visible; position: static;
+  }
+  .titleblock h1 { font-size: 17px; }
+  .regionbadge { display: none; }
+  .scoreboard .panels {
+    flex-direction: row; flex-wrap: nowrap; justify-content: flex-start;
+    overflow-x: auto; width: 100%; gap: 6px; padding-bottom: 3px;
+  }
+  .scoreboard .playerpanel { flex: 0 0 auto; min-width: 148px; padding: 6px 9px; justify-content: flex-start; }
+  .tlabel { display: none; }
+  .pname { font-size: 12px; }
+  .pinfo { font-size: 10px; min-height: 12px; }
+  .minipouch { gap: 6px; margin: 3px 0 2px; }
+  .minicol { flex-direction: row; gap: 2px; }
+  .minipouch .stonedot, body[data-compact="1"] .minipouch .stonedot { width: 13px; height: 13px; }
+  #youPouchMini .stonedot, body[data-compact="1"] #rack-0 .stonedot { width: 16px; height: 16px; }
+  .telegraph, body[data-compact="1"] .telegraph { min-height: 22px; gap: 5px; margin-top: 2px; }
+  .telegraph .stone, body[data-compact="1"] .telegraph .stone { width: 20px; height: 20px; }
+  .handnum { font-size: 11px; }
+
+  /* Boards: compact cards in every format, seats stacked */
+  .seats { flex-direction: column; align-items: center; gap: 8px; }
+  .seat { width: 100%; }
+  .row { min-height: 0; padding: 6px; }
+  .board { gap: 5px; }
+  .slot, body[data-compact="1"] .slot { width: 60px; min-height: 88px; }
+  .slot.empty::before, body[data-compact="1"] .slot.empty::before { width: 56px; height: 76px; }
+  .slotlabel { display: none; }
+  .board .card, body[data-compact="1"] .board .card { width: 56px; height: 76px; padding-top: 8px; }
+  .board .cicon, body[data-compact="1"] .board .cicon { width: 32px; height: 32px; padding: 4px; }
+  .board .cname { display: none; }
+  .board .cval, body[data-compact="1"] .board .cval { width: 16px; height: 16px; line-height: 16px; font-size: 9px; top: -5px; left: -5px; }
+  .board .stonedot, body[data-compact="1"] .board .stonedot { width: 12px; height: 12px; }
+  .board .veilband, .board .knownband { font-size: 7px; bottom: 2px; }
+
+  /* Divider */
+  .divider { padding: 5px 8px; }
+  .phaselabel { font-size: 12.5px; }
+  .phasenote { font-size: 10px; }
+  .announce { font-size: 14px; min-height: 24px; gap: 7px; }
+  .announce .stone { width: 18px; height: 18px; }
+  .actorchip { width: 10px; height: 10px; }
+  .prompt { font-size: 12px; }
+
+  /* Hand and tray stack; touch-sized targets */
+  .bottombar { flex-direction: column; gap: 8px; }
+  .handarea { min-height: 0; }
+  .hand { min-height: 0; gap: 7px; }
+  .hand .card, body[data-deal="house"] .hand .card { width: 62px; height: 86px; padding-top: 9px; }
+  .hand .cicon, body[data-deal="house"] .hand .cicon { width: 36px; height: 36px; padding: 4px; }
+  .hand .cname { font-size: 10px; }
+  .handarea.min { max-width: none; }
+  .handarea.min .hand { max-width: none; }
+  .traystones { min-height: 64px; gap: 16px; }
+  .traycol { flex-direction: row; gap: 8px; }
+  .stone.big { width: 44px; height: 44px; }
+
+  .logpanel { width: 100%; max-height: 150px; }
+  .log { font-size: 12.5px; }
+
+  .modalcard { padding: 14px 16px; }
+  .modalcard h2 { font-size: 19px; }
+  .pickrow { gap: 6px; }
+  .pickcard { width: 56px; height: 78px; }
+  .pickcard .cicon { width: 28px; height: 28px; }
+}
