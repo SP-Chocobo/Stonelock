@@ -964,7 +964,6 @@ function render() {
   renderBoard(1, $('aiBoard'));
   renderBoard(0, $('playerBoard'));
   renderHand();
-  renderPouch();
   renderTelegraph(1, $('aiTelegraph'));
   renderTelegraph(0, $('playerTelegraph'));
   renderControls();
@@ -997,8 +996,14 @@ function renderPanels() {
       col.className = 'minicol';
       for (let k = 0; k < 2; k++) {
         const dot = document.createElement('span');
-        dot.className = k < p.pool[color] ? `stonedot ${color}` : 'stonedot socket';
-        dot.title = `${STONES[color].name} — ${STONES[color].power}` + (k < p.pool[color] ? '' : ' (telegraphed)');
+        const held = k < p.pool[color];
+        dot.className = held ? `stonedot ${color}` : 'stonedot socket';
+        dot.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}` + (held ? '' : ' (telegraphed)');
+        // Your rack is the live pouch: declare stones from here.
+        if (i === 0 && held && UI.mode === 'pickStone') {
+          dot.classList.add('targetable');
+          dot.onclick = () => humanDeclare(color);
+        }
         col.appendChild(dot);
       }
       rack.appendChild(col);
@@ -1124,34 +1129,6 @@ function renderHand() {
     wrap.appendChild(el);
   }
   $('handArea').style.display = G.players[0].hand.length ? '' : 'none';
-}
-
-function renderPouch() {
-  // Always drawn as a fixed 2-of-each rack: spent stones leave an
-  // empty socket behind instead of reflowing the row.
-  const wrap = $('pouch');
-  wrap.innerHTML = '';
-  const p = G.players[0];
-  for (const color of STONE_KEYS) {
-    const col = document.createElement('div');
-    col.className = 'pouchcol';
-    for (let i = 0; i < 2; i++) {
-      const s = document.createElement('div');
-      if (i < p.pool[color]) {
-        s.className = `stone ${color}`;
-        s.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}`;
-        if (UI.mode === 'pickStone') {
-          s.classList.add('targetable');
-          s.onclick = () => humanDeclare(color);
-        }
-      } else {
-        s.className = 'stone socket';
-        s.title = `${STONES[color].name} — already telegraphed this hand`;
-      }
-      col.appendChild(s);
-    }
-    wrap.appendChild(col);
-  }
 }
 
 function renderTelegraph(who, container) {

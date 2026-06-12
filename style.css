@@ -58,7 +58,7 @@ h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
 /* ---------- Scoreboard (left) ---------- */
 
 .scoreboard {
-  width: 218px;
+  width: 252px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -101,9 +101,14 @@ h1 {
 .pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; }
 .pinfo { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); margin-top: 2px; min-height: 14px; }
 
-.minipouch { display: flex; gap: 11px; margin: 2px 0 2px; }
-.minicol { display: flex; flex-direction: column; gap: 5px; }
-.minipouch .stonedot { width: 19px; height: 19px; }
+.minipouch { display: flex; gap: 12px; margin: 2px 0 2px; }
+.minicol { display: flex; flex-direction: column; gap: 6px; }
+.minipouch .stonedot { width: 20px; height: 20px; }
+
+/* Your rack is the live pouch — bigger, clickable stones */
+#youPouchMini .stonedot { width: 28px; height: 28px; }
+.stonedot.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.stonedot.targetable:hover { transform: scale(1.18); }
 .stonedot.socket {
   background: rgba(0,0,0,0.3);
   border: 1.5px dashed rgba(232,220,190,0.22);
@@ -287,25 +292,8 @@ h1 {
   padding: 6px 12px 8px;
   min-height: 160px;
 }
-.poucharea {
-  width: 216px;
-  flex-shrink: 0;
-  border: 1px solid var(--edge);
-  border-radius: 10px;
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  padding: 6px 12px 8px;
-}
 .arealabel { font-size: 10px; font-style: italic; color: var(--parchment-dim); margin-bottom: 5px; }
-.hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 134px; align-items: center; }
-
-.pouch { display: flex; gap: 13px; justify-content: center; padding-top: 4px; }
-.pouchcol { display: flex; flex-direction: column; gap: 9px; }
-.pouch .stone { width: 34px; height: 34px; }
-.stone.socket {
-  background: rgba(0,0,0,0.25);
-  border: 2px dashed rgba(232,220,190,0.22);
-  box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-}
+.hand { display: flex; gap: 10px; flex-wrap: wrap; min-height: 134px; align-items: center; justify-content: center; }
 
 /* ---------- Cards ---------- */
 
