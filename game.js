@@ -1041,6 +1041,15 @@ function toast(msg) {
 
 /* ---------- Per-game DOM scaffolding ---------- */
 
+// One identity color per seat, shared by the battlefield frame and
+// the sidebar panel so each player's region reads as one unit.
+function seatColor(i) {
+  if (!isOpponent(0, i)) return i === 0 ? '#55683f' : '#4a5a3a';
+  const opps = [];
+  for (let k = 0; k < G.nPlayers; k++) if (isOpponent(0, k)) opps.push(k);
+  return ['#7a3b2a', '#3a5d78', '#6b4d7a'][opps.indexOf(i) % 3];
+}
+
 function buildTableDOM() {
   if (typeof document === 'undefined') return;
   document.body.dataset.compact = G.nPlayers > 2 ? '1' : '0';
@@ -1055,6 +1064,7 @@ function buildTableDOM() {
     const ally = !isOpponent(0, i);
     const div = document.createElement('div');
     div.className = 'playerpanel ' + (ally ? 'you' : 'opp');
+    div.style.setProperty('--seatc', seatColor(i));
     div.innerHTML = `
       <div class="pname">${playerName(i)} <span id="dealer-${i}" class="dealertoken" title="Dealer Token">dealer</span>${i !== 0 && ally ? '<span class="allytag">partner</span>' : ''}</div>
       <div id="pinfo-${i}" class="pinfo"></div>
@@ -1073,6 +1083,7 @@ function buildTableDOM() {
   for (const i of seats) {
     const seat = document.createElement('div');
     seat.className = 'seat';
+    seat.style.setProperty('--seatc', seatColor(i));
     seat.innerHTML = `<div class="seathead">${playerName(i)}</div><div id="board-${i}" class="board"></div>`;
     if (isOpponent(0, i)) oppSeats.appendChild(seat);
     else youSeats.appendChild(seat);

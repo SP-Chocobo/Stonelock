@@ -103,8 +103,7 @@ h1 {
   padding: 8px 12px;
   background: rgba(0,0,0,0.22);
 }
-.playerpanel.opp { border-left: 3px solid var(--row-opp); }
-.playerpanel.you { border-left: 3px solid var(--row-you); }
+.playerpanel { border-left: 3px solid var(--seatc, var(--edge)); }
 
 .pname { font-size: 14px; color: var(--parchment); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .allytag {
@@ -265,7 +264,7 @@ h1 {
 
 .seats {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   justify-content: center;
   width: 100%;
 }
@@ -277,7 +276,27 @@ h1 {
   color: var(--parchment-dim);
   margin-bottom: 3px;
 }
+.seathead::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--seatc, var(--edge));
+  margin-right: 6px;
+  vertical-align: 1px;
+}
 body[data-compact="0"] .row.you .seathead { display: none; }
+
+/* Multi-seat tables: each player's region is its own framed panel */
+body[data-compact="1"] .seat {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--edge);
+  border-top: 3px solid var(--seatc, var(--edge));
+  border-radius: 9px;
+  padding: 5px 9px 8px;
+  box-shadow: inset 0 0 14px rgba(0,0,0,0.3);
+}
+body[data-compact="1"] .seathead { margin-bottom: 5px; }
 
 .board {
   display: flex;
