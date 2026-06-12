@@ -287,6 +287,25 @@ h1 {
 }
 body[data-compact="0"] .row.you .seathead { display: none; }
 
+/* Multi-seat tables: condensed sidebar panels so four seats plus
+   the ledger fit the viewport without squeezing or overflow */
+body[data-compact="1"] .playerpanel {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  padding: 7px 10px 8px;
+}
+body[data-compact="1"] .tlabel { display: none; }
+body[data-compact="1"] .pname { font-size: 13px; }
+body[data-compact="1"] .pinfo { font-size: 10.5px; min-height: 12px; margin-top: 1px; }
+body[data-compact="1"] .minipouch { gap: 8px; margin: 4px 0 3px; }
+body[data-compact="1"] .minicol { flex-direction: row; gap: 3px; }
+body[data-compact="1"] .minipouch .stonedot { width: 14px; height: 14px; }
+body[data-compact="1"] #rack-0 .stonedot { width: 17px; height: 17px; }
+body[data-compact="1"] .telegraph { min-height: 26px; gap: 6px; margin-top: 3px; }
+body[data-compact="1"] .telegraph .stone { width: 24px; height: 24px; }
+body[data-compact="1"] .telegraph .stone.removed::after { font-size: 14px; line-height: 20px; }
+body[data-compact="1"] .panels { gap: 7px; }
+
 /* Multi-seat tables: each player's region is its own framed panel */
 body[data-compact="1"] .seat {
   background: rgba(0,0,0,0.2);
