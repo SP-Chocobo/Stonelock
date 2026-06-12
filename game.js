@@ -1512,27 +1512,84 @@ function showVictory() {
 
 /* ---------- Setup / boot ---------- */
 
-function buildSetup() {
-  const wrap = $('regionChoices');
-  wrap.innerHTML = '';
+/* Setup wizard: table → deal → match length, big option cards
+   with a breadcrumb of picks and Back buttons. */
+
+const SETUP_STEPS = [
+  {
+    key: 'mode', title: 'Choose the table', options: [
+      { v: 'duel', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
+      { v: 'ffa', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
+      { v: 'teams', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
+    ],
+  },
+  {
+    key: 'deal', title: 'Choose the deal', options: [
+      { v: 'small', label: 'Small Game', desc: '5 cards dealt, a 2-1-1 footprint, best 3 of 4 scored. The roadside standard.' },
+      { v: 'house', label: 'House Deep Draft', desc: '9 cards dealt, a 2-2-1 footprint, best 3 of 5 scored. Leftovers are discarded dead.' },
+    ],
+  },
+  {
+    key: 'target', title: 'Choose the match length', options: [
+      { v: 10, label: 'Quick — to 10', desc: 'A fast settling of scores.' },
+      { v: 20, label: 'Standard — to 20', desc: 'The common evening match.' },
+      { v: 40, label: 'Full Sovereign Race — to 40', desc: 'The long campaign, as the nobles play it.' },
+    ],
+  },
+];
+
+let SETUP = null;
+
+function openSetup() {
+  SETUP = { mode: 'duel', deal: 'small', target: 20 };
+  renderSetup();
+  $('setupModal').classList.add('open');
+}
+
+function renderSetup() {
+  // Single screen: every setting visible, defaults preselected,
+  // one confirm button at the bottom.
+  const body = $('setupBody');
+  body.innerHTML = '';
+  for (const section of SETUP_STEPS) {
+    const title = document.createElement('div');
+    title.className = 'steptitle';
+    title.textContent = section.title.replace('Choose the ', 'The ').replace('Choose ', '');
+    body.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'optgrid';
+    for (const opt of section.options) {
+      const el = document.createElement('div');
+      el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '');
+      el.dataset.v = opt.v;
+      el.innerHTML = `<h3>${opt.label}</h3><div class="bigoptdesc">${opt.desc}</div>`;
+      el.onclick = () => { SETUP[section.key] = opt.v; renderSetup(); };
+      grid.appendChild(el);
+    }
+    body.appendChild(grid);
+  }
+
   const r = REGIONS[TABLE_REGION];
-  const card = document.createElement('div');
-  card.className = 'regionchoice static';
-  const rows = [3, 2, 1].map(v => {
-    const names = TYPES.filter(t => r.values[t] === v).join(', ');
-    return `<div class="valrow"><span class="valnum v${v}">${v}</span> ${names}</div>`;
-  }).join('');
-  card.innerHTML = `<h3>${r.name}</h3><div class="regionsub">“${r.subtitle}”</div><div class="regionblurb">${r.blurb} Card values at this table:</div>${rows}`;
-  wrap.appendChild(card);
+  const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
+  const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
+  body.innerHTML += `
+    <div class="valstrip">${r.name} — card values: ${vals}</div>
+    <div class="setupsummary">${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`;
+
+  const btns = $('setupBtns');
+  btns.innerHTML = '';
+  const deal = document.createElement('button');
+  deal.id = 'startBtn';
+  deal.className = 'btn primary big';
+  deal.textContent = 'Deal the first hand';
+  deal.onclick = startFromSetup;
+  btns.appendChild(deal);
 }
 
 function startFromSetup() {
-  const mode = document.querySelector('input[name=mode]:checked').value;
-  const deal = document.querySelector('input[name=deal]:checked').value;
-  const target = parseInt(document.querySelector('input[name=target]:checked').value, 10);
   closeModal('setupModal');
   logEl.innerHTML = '';
-  newGame({ mode, deal, target });
+  newGame({ mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target });
 }
 
 function boot() {
@@ -1540,14 +1597,12 @@ function boot() {
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
   promptEl = $('prompt');
-  buildSetup();
-  $('startBtn').onclick = startFromSetup;
   $('nextHandBtn').onclick = nextHand;
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('rulesClose').onclick = () => closeModal('rulesModal');
-  $('newGameBtn').onclick = () => { $('setupModal').classList.add('open'); };
-  $('victoryNew').onclick = () => { closeModal('victoryModal'); $('setupModal').classList.add('open'); };
-  $('setupModal').classList.add('open');
+  $('newGameBtn').onclick = openSetup;
+  $('victoryNew').onclick = () => { closeModal('victoryModal'); openSetup(); };
+  openSetup();
 }
 
 if (typeof window !== 'undefined') {

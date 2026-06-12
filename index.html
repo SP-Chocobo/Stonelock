@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -88,32 +88,12 @@
 
 <div id="toast" class="toast"></div>
 
-<!-- Setup modal -->
+<!-- Setup modal (built by game.js) -->
 <div id="setupModal" class="modal">
   <div class="modalcard wide">
     <h2>Set the Table</h2>
-    <p class="modalsub">This table plays by the commoner's ruleset. Regional variants — with their own card valuations — will join in time.</p>
-    <div id="regionChoices" class="regionchoices"></div>
-    <div class="targetrow">
-      <span class="arealabel">The table:</span>
-      <label><input type="radio" name="mode" value="duel" checked> Solo 1v1</label>
-      <label><input type="radio" name="mode" value="ffa"> Free-for-All (4 seats)</label>
-      <label><input type="radio" name="mode" value="teams"> Paired Teams (2v2)</label>
-    </div>
-    <div class="targetrow">
-      <span class="arealabel">The deal:</span>
-      <label><input type="radio" name="deal" value="small" checked> Small Game — 5 cards, best 3 of 4</label>
-      <label><input type="radio" name="deal" value="house"> House Deep Draft — 9 cards, best 3 of 5</label>
-    </div>
-    <div class="targetrow">
-      <span class="arealabel">Match length:</span>
-      <label><input type="radio" name="target" value="10"> Quick (10)</label>
-      <label><input type="radio" name="target" value="20" checked> Standard (20)</label>
-      <label><input type="radio" name="target" value="40"> Full Sovereign Race (40)</label>
-    </div>
-    <p class="modalsub small">Free-for-All scores as a purse race: each showdown, every seat banks its margin over the lowest
-    hand at the table. Paired Teams seats your partner opposite you; team totals decide the showdown and individual multiples never pool.</p>
-    <div class="modalbtns"><button id="startBtn" class="btn primary big">Deal the first hand</button></div>
+    <div id="setupBody"></div>
+    <div id="setupBtns" class="modalbtns"></div>
   </div>
 </div>
 
@@ -190,6 +170,6 @@
   </div>
 </div>
 
-<script src="game.js?v=14"></script>
+<script src="game.js?v=15"></script>
 </body>
 </html>
