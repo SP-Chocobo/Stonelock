@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stonelock — A Game of Regional Leverage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="titleblock">
+    <h1>Stonelock</h1>
+    <div class="tagline">Regional Leverage · Point Optimization · Tactical Wills</div>
+  </div>
+  <div class="ledgerblock">
+    <div id="regionBadge" class="regionbadge"></div>
+    <div class="ledgerwrap">
+      <span class="ledgerend">Stranger 40</span>
+      <div class="ledgertrack">
+        <div id="ledgerFill"></div>
+        <div class="ledgerzero"></div>
+        <div id="ledgerMarker" class="pivot" title="The Pivot Marker"></div>
+      </div>
+      <span class="ledgerend">You 40</span>
+    </div>
+    <div id="ledgerValue" class="ledgervalue">even</div>
+  </div>
+  <div class="headerbtns">
+    <button id="rulesBtn" class="btn">Rules</button>
+    <button id="newGameBtn" class="btn">New Match</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main>
+    <!-- Opponent -->
+    <section class="side opp">
+      <div class="sidebarrow">
+        <div class="playername">The Stranger <span id="dealerAi" class="dealertoken" title="Dealer Token">⬤ dealer</span></div>
+        <div class="telegraphwrap"><span class="tlabel">telegraphed</span><div id="aiTelegraph" class="telegraph"></div></div>
+      </div>
+      <div id="aiBoard" class="board"></div>
+    </section>
+
+    <!-- Center strip -->
+    <section class="center">
+      <div id="phaseLabel" class="phaselabel">Stonelock</div>
+      <div id="phaseNote" class="phasenote"></div>
+      <div id="prompt" class="prompt"></div>
+      <div id="actionBar" class="actionbar"></div>
+    </section>
+
+    <!-- Player -->
+    <section class="side you">
+      <div id="playerBoard" class="board"></div>
+      <div class="sidebarrow">
+        <div class="playername">You <span id="dealerYou" class="dealertoken" title="Dealer Token">⬤ dealer</span></div>
+        <div class="telegraphwrap"><span class="tlabel">telegraphed</span><div id="playerTelegraph" class="telegraph"></div></div>
+      </div>
+      <div id="handArea" class="handarea">
+        <div class="handlabel">Your hand</div>
+        <div id="hand" class="hand"></div>
+      </div>
+      <div class="poucharea">
+        <div class="handlabel">Your stone pouch</div>
+        <div id="pouch" class="pouch"></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="logpanel">
+    <div class="loghead">Table Talk</div>
+    <div id="log" class="log"></div>
+  </aside>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Setup modal -->
+<div id="setupModal" class="modal">
+  <div class="modalcard wide">
+    <h2>Set the Table</h2>
+    <p class="modalsub">Stonelock is not a single fixed doctrine. Declare the local ruleset before the first deal.</p>
+    <div id="regionChoices" class="regionchoices"></div>
+    <div class="targetrow">
+      <span class="handlabel">Match length — push the Pivot Marker this far to win:</span>
+      <label><input type="radio" name="target" value="10"> Quick (10)</label>
+      <label><input type="radio" name="target" value="20" checked> Standard (20)</label>
+      <label><input type="radio" name="target" value="40"> Full Sovereign Race (40)</label>
+    </div>
+    <div class="modalbtns"><button id="startBtn" class="btn primary big">Deal the first hand</button></div>
+  </div>
+</div>
+
+<!-- Reaction modal -->
+<div id="reactionModal" class="modal">
+  <div class="modalcard">
+    <h2>An Opening for Disruption</h2>
+    <p id="reactionText"></p>
+    <div class="modalbtns">
+      <button id="reactYes" class="btn primary">Drop the Black Stone</button>
+      <button id="reactNo" class="btn">Hold</button>
+    </div>
+  </div>
+</div>
+
+<!-- Showdown modal -->
+<div id="showdownModal" class="modal">
+  <div class="modalcard wide">
+    <h2 id="showdownTitle"></h2>
+    <div id="showdownBody"></div>
+    <div class="modalbtns"><button id="nextHandBtn" class="btn primary big"></button></div>
+  </div>
+</div>
+
+<!-- Victory modal -->
+<div id="victoryModal" class="modal">
+  <div class="modalcard">
+    <h2 id="victoryTitle"></h2>
+    <p id="victoryText"></p>
+    <div class="modalbtns"><button id="victoryNew" class="btn primary big">Set a new table</button></div>
+  </div>
+</div>
+
+<!-- Rules modal -->
+<div id="rulesModal" class="modal">
+  <div class="modalcard wide rules">
+    <h2>How Stonelock Is Played</h2>
+    <p>You are seizing assets. At the showdown you field <b>any three cards</b> from your final table
+    layout. Card values shift with the region; matching cards earn flat bonuses; Interaction Stones
+    warp the board.</p>
+
+    <h3>The Hand</h3>
+    <ol>
+      <li><b>The Deal</b> — five cards each from a fresh-shuffled pool.</li>
+      <li><b>The Foundation</b> — each player telegraphs a stone, then both commit 2 cards <b>face-up</b>.</li>
+      <li><b>The Veil</b> — second stone telegraphed (reverse order); both commit 1 card <b>face-down</b>.</li>
+      <li><b>The Final Commitment</b> — third stone telegraphed; 1 final face-down card. The leftover hand card is discarded dead.</li>
+      <li><b>The Thinning</b> — each player abandons one telegraphed stone, keeping <b>two active</b>.</li>
+      <li><b>Stone Resolutions</b> — in deal order, each player places their first stone, then their second.</li>
+      <li><b>The Showdown</b> — all cards flip; best 3 of your 4 are scored.</li>
+    </ol>
+
+    <h3>Scoring</h3>
+    <p>Add the regional values of your three fielded cards. <b>Pair</b> (two identical): +2.
+    <b>Triad</b> (three identical): +6. A phantom duplicate from a Red Stone counts as one of your three.
+    Ties break by structure — Triad beats Pair beats Singles; identical structure is a <b>Push</b> and the
+    marker holds.</p>
+
+    <h3>The Interaction Stones</h3>
+    <ul>
+      <li><b class="rword">Red — Duplication.</b> A phantom duplicate rides one of your cards, building toward a Pair or Triad with one physical card.</li>
+      <li><b class="wword">White — Lock.</b> The card cannot be altered, stolen, or neutralized for the rest of the hand.</li>
+      <li><b class="bword">Blue — Exchange.</b> Forcibly swap one of your cards for an unprotected opponent card. Face-up stays face-up; face-down stays face-down, but you may secretly inspect a hidden card that enters your layout.</li>
+      <li><b class="kword">Black — Disruption.</b> Undoes the last stone effect upon a card — including unwinding a trade, with every riding stone traveling home. May be dropped as an immediate reaction. Cannot itself be undone, and cannot touch a locked card.</li>
+    </ul>
+
+    <h3>The Sovereign Honor Ledger</h3>
+    <p>No betting at this table. After each showdown the Pivot Marker shifts by the <b>net difference</b>
+    between the two scores. Push it the full distance onto your opponent's side to take the match.
+    The Dealer Token rotates every hand.</p>
+
+    <div class="modalbtns"><button id="rulesClose" class="btn primary">Back to the table</button></div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
