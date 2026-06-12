@@ -52,7 +52,7 @@ h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
   gap: 10px;
   padding: 10px;
   height: 100vh;
-  min-height: 600px;
+  min-height: 560px; /* genuinely tiny windows scroll instead of cramming */
 }
 
 /* ---------- Scoreboard (left) ---------- */
@@ -742,8 +742,6 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- Responsive ---------- */
-
-body[data-compact="1"] .game { height: auto; min-height: 100vh; }
 
 @media (max-width: 1150px) {
   .game { flex-wrap: wrap; height: auto; }

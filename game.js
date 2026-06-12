@@ -1603,6 +1603,10 @@ function boot() {
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = openSetup;
+  $('fsBtn').onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  };
   $('victoryNew').onclick = () => { closeModal('victoryModal'); openSetup(); };
   openSetup();
 }
