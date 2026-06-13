@@ -64,13 +64,33 @@ const PARTNER_NAME = 'The Old Hand';
 // `bluff` is the chance a telegraph means nothing; `risk` is how much
 // an unknown face-down card discourages a steal.
 const PERSONALITIES = {
-  'The Stranger': { red: 1.0, white: 1.0, blue: 1.2, black: 1.2, bluff: 0.30, risk: 1, flavor: 'Reads the table, and lies to it. His telegraphs mean less than they seem.' },
-  'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, flavor: 'Anything on the river can be taken. Hide what you love.' },
-  'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
-  'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
+  'The Stranger': { red: 1.0, white: 1.0, blue: 1.2, black: 1.2, bluff: 0.30, risk: 1, skill: 1.0, flavor: 'Reads the table, and lies to it. His telegraphs mean less than they seem.' },
+  'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, skill: 1.0, flavor: 'Anything on the river can be taken. Hide what you love.' },
+  'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
+  'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
+  'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.' },
+  'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.' },
 };
-const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, flavor: '' };
+const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, skill: 1, flavor: '' };
 function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA; }
+// Sloppiness: below-skill players occasionally make the wrong play.
+function fumbles(who) { return Math.random() > personaOf(who).skill; }
+
+// The pool a table can draw from (the Old Hand stays the default
+// partner unless seated deliberately).
+const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand'];
+
+// Which seats are AI-held, in seat order, per mode.
+function aiSeatsFor(mode) {
+  switch (mode) {
+    case 'duel': return [1];
+    case 'ffa': return [1, 2, 3];
+    case 'teams': return [1, 2, 3];
+    case 'hs-team': return [1, 3];
+    case 'hs-rivals': return [2, 3];
+    default: return []; // hotseat
+  }
+}
 
 const ICONS = {
   Crest: '<svg viewBox="0 0 40 40"><path d="M20 4 L33 9 V20 C33 29 27 34 20 37 C13 34 7 29 7 20 V9 Z" fill="#8a6d3b" stroke="#4d3a1e" stroke-width="2"/><path d="M20 10 L27 13 V20 C27 25 24 28.5 20 30.5 C16 28.5 13 25 13 20 V13 Z" fill="#e8d9b5"/></svg>',
@@ -263,10 +283,11 @@ function newGame(cfg) {
     target: cfg.target,
     venue,
     variant: venue.variant,         // null | 'riverlock' | 'cursed' | 'slumlock'
+    open: cfg.targeting === 'open', // advanced: any stone, any layout
     cursedType: null,
     region: REGIONS[cfg.region || venue.region],
     nPlayers: n,
-    names: buildNames(cfg.mode, cfg.names || []),
+    names: buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
     humans: humansFor(cfg.mode),
     viewer: 0,
     ledger: 0,                      // duel/teams: positive = your side
@@ -283,6 +304,9 @@ function newGame(cfg) {
   buildTableDOM();
   const fmt = G.mode === 'duel' ? 'a quiet duel' : G.mode === 'ffa' ? 'a four-seat free-for-all' : 'paired alliances, two against two';
   const dl = G.deal === 'house' ? 'House deep-draft deal, nine cards down' : 'small-game deal, five cards down';
+  if (cfg.drewLots) {
+    log(`Lots are drawn for the seats: ${aiSeatsFor(cfg.mode).map(s => G.names[s]).join(', ')} sit down at the table.`, 'sys');
+  }
   const variantNote = {
     riverlock: ' Riverlock is declared: no Road or Ferry in your final three, and the hand is docked 2.',
     cursed: ' The Cursed Register is declared: each hand, one card type is voided entirely.',
@@ -294,16 +318,21 @@ function newGame(cfg) {
   startHand();
 }
 
-function buildNames(mode, entered) {
+function buildNames(mode, entered, company) {
   const n1 = entered[0] || 'Player One';
   const n2 = entered[1] || 'Player Two';
-  if (mode === 'teams') return ['You', AI_ROSTER[0], PARTNER_NAME, AI_ROSTER[1]];
-  if (mode === 'ffa') return ['You', ...AI_ROSTER];
-  if (mode === 'hotseat') return [n1, n2];
+  let base;
+  if (mode === 'teams') base = ['You', AI_ROSTER[0], PARTNER_NAME, AI_ROSTER[1]];
+  else if (mode === 'ffa') base = ['You', ...AI_ROSTER];
+  else if (mode === 'hotseat') base = [n1, n2];
   // Seats alternate teams: {0,2} vs {1,3}.
-  if (mode === 'hs-team') return [n1, AI_ROSTER[0], n2, AI_ROSTER[1]];   // humans allied
-  if (mode === 'hs-rivals') return [n1, n2, PARTNER_NAME, AI_ROSTER[2]]; // humans opposed, AI partners
-  return ['You', AI_ROSTER[0]];
+  else if (mode === 'hs-team') base = [n1, AI_ROSTER[0], n2, AI_ROSTER[1]];   // humans allied
+  else if (mode === 'hs-rivals') base = [n1, n2, PARTNER_NAME, AI_ROSTER[2]]; // humans opposed, AI partners
+  else base = ['You', AI_ROSTER[0]];
+  if (company) {
+    aiSeatsFor(mode).forEach((seat, i) => { if (company[i]) base[seat] = company[i]; });
+  }
+  return base;
 }
 
 function humansFor(mode) {
@@ -652,7 +681,9 @@ function humanChooseStone(color) {
       break;
     case 'blue':
       UI.mode = 'target-blue-own';
-      setPrompt('Blue Stone (Exchange) — first click the card of YOURS you will give up.');
+      setPrompt(G.open
+        ? 'Blue Stone (Exchange) — open table: click the first card of the trade, on any layout.'
+        : 'Blue Stone (Exchange) — first click the card of YOURS you will give up.');
       break;
     case 'black':
       UI.mode = 'target-black';
@@ -681,7 +712,8 @@ function humanDiscardStone() {
 }
 
 function validWhiteTarget(card) {
-  return card.zone === 'board' && !isLocked(card) && !isOpponent(G.viewer, card.owner);
+  if (card.zone !== 'board' || isLocked(card)) return false;
+  return G.open || !isOpponent(G.viewer, card.owner);
 }
 
 function humanTargetCard(card) {
@@ -691,20 +723,23 @@ function humanTargetCard(card) {
     if (color === 'white') {
       if (!validWhiteTarget(card)) return;
     } else { // red
-      if (card.owner !== me || card.zone !== 'board' || isLocked(card) || hasRed(card)) return;
+      if ((card.owner !== me && !G.open) || card.zone !== 'board' || isLocked(card) || hasRed(card)) return;
     }
     consumeActive(me, color);
     applyStone(me, color, { card });
     UI.pendingStone = null;
     finishHumanStep();
   } else if (UI.mode === 'target-blue-own') {
-    if (card.owner !== me || card.zone !== 'board' || isLocked(card)) return;
+    if ((card.owner !== me && !G.open) || card.zone !== 'board' || isLocked(card)) return;
     UI.blueOwn = card;
     UI.mode = 'target-blue-opp';
-    setPrompt(`Giving up your ${card.faceUp ? card.type : 'veiled card'} — now click the opponent card to seize.`);
+    setPrompt(G.open
+      ? `Trading away ${describeCard(card)} — now click any card on another layout to trade it with.`
+      : `Giving up your ${card.faceUp ? card.type : 'veiled card'} — now click the opponent card to seize.`);
     render();
   } else if (UI.mode === 'target-blue-opp') {
-    if (!isOpponent(me, card.owner) || card.zone !== 'board' || isLocked(card)) return;
+    const legal = G.open ? card.owner !== UI.blueOwn.owner : isOpponent(me, card.owner);
+    if (!legal || card.zone !== 'board' || isLocked(card)) return;
     consumeActive(me, 'blue');
     applyStone(me, 'blue', { give: UI.blueOwn, take: card });
     UI.pendingStone = null; UI.blueOwn = null;
@@ -774,13 +809,14 @@ function applyStone(actor, color, target) {
       give.prov = { by: actor, partnerId: take.id };
       take.prov = { by: actor, partnerId: give.id };
       log(`${playerName(actor)} ${verb(actor, 'drop')} a Blue Stone — ${giveDesc} trades places with ${takeDesc}. Whatever was hidden stays hidden.`, logClass(actor));
-      announce(`Blue Stone — ${playerName(actor) === 'You' ? 'you seize' : playerName(actor) + ' seizes'} ${takeDesc} for ${giveDesc}`, 'blue', actor);
-      // The receiver may secretly inspect a face-down arrival.
-      if (!take.faceUp) {
-        take.known[actor] = true;
-        if (isHuman(actor) && actor === G.viewer) toast(`You peek at your new veiled card: it is a ${take.type}.`);
+      announce(`Blue Stone — ${playerName(actor) === 'You' ? 'you trade' : playerName(actor) + ' trades'} ${takeDesc} for ${giveDesc}`, 'blue', actor);
+      // A face-down card may be secretly inspected by its new owner.
+      for (const c of [give, take]) {
+        if (!c.faceUp) {
+          c.known[c.owner] = true;
+          if (isHuman(c.owner) && c.owner === G.viewer) toast(`You peek at your new veiled card: it is a ${c.type}.`);
+        }
       }
-      if (!give.faceUp) give.known[give.owner] = true; // its new owner may inspect it
       break;
     }
     case 'black': {
@@ -839,10 +875,16 @@ function stoneHasValidTarget(color) {
   const me = G.viewer;
   const mine = G.players[me].board.filter(c => !isLocked(c));
   const theirs = opponentsOf(me).flatMap(i => G.players[i].board).filter(c => !isLocked(c));
+  const anyCards = G.players.flatMap(p => p.board).filter(c => !isLocked(c));
   switch (color) {
-    case 'white': return mine.length > 0 || alliesOf(me).some(i => G.players[i].board.some(c => !isLocked(c)));
-    case 'red': return mine.some(c => !hasRed(c));
-    case 'blue': return mine.length > 0 && theirs.length > 0;
+    case 'white':
+      if (G.open) return anyCards.length > 0;
+      return mine.length > 0 || alliesOf(me).some(i => G.players[i].board.some(c => !isLocked(c)));
+    case 'red':
+      return (G.open ? anyCards : mine).some(c => !hasRed(c));
+    case 'blue':
+      if (G.open) return anyCards.length > 1 && new Set(anyCards.map(c => c.owner)).size > 1;
+      return mine.length > 0 && theirs.length > 0;
     case 'black': return anyUndoable();
   }
   return false;
@@ -942,6 +984,11 @@ function aiChooseDeploy(who, step) {
       : regionVal(c.type) + (counts[c.type] >= 2 ? 2.5 : 0);
     const sorted = p.hand.slice().sort((a, b) => scoreCard(b) - scoreCard(a));
     const keep = sorted.slice(0, spec.footprint);
+    // A less practiced player keeps the wrong card now and then.
+    if (sorted.length > spec.footprint && fumbles(who)) {
+      keep[Math.floor(Math.random() * keep.length)] =
+        sorted[spec.footprint + Math.floor(Math.random() * (sorted.length - spec.footprint))];
+    }
     const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
     const exposable = keep.slice().sort((a, b) => {
       const risk = c => (counts[c.type] >= 2 ? 5 : 0) + (threatened ? regionVal(c.type) : -regionVal(c.type));
@@ -969,6 +1016,7 @@ function aiThin(who) {
   const scores = p.declared.map(color => aiStoneValue(who, color));
   let worst = 0;
   for (let i = 1; i < scores.length; i++) if (scores[i] < scores[worst]) worst = i;
+  if (fumbles(who)) worst = Math.floor(Math.random() * p.declared.length);
   const color = p.declared[worst];
   p.removed = color;
   p.declared.splice(worst, 1);
@@ -1005,15 +1053,18 @@ function aiStoneBaseValue(who, color) {
 }
 
 function aiBestRedTarget(who) {
-  const p = G.players[who];
+  // Open tables let allies' layouts carry your phantom too.
+  const seats = G.open ? [who, ...alliesOf(who)] : [who];
   let best = null;
-  const base = estimate(who, who);
-  for (const card of p.board) {
-    if (isLocked(card) || hasRed(card)) continue;
-    card.stones.push({ color: 'red', by: who });
-    const delta = estimate(who, who) - base;
-    card.stones.pop();
-    if (!best || delta > best.delta) best = { card, delta };
+  const base = sideSwing(who);
+  for (const seat of seats) {
+    for (const card of G.players[seat].board) {
+      if (isLocked(card) || hasRed(card)) continue;
+      card.stones.push({ color: 'red', by: who });
+      const delta = sideSwing(who) - base;
+      card.stones.pop();
+      if (!best || delta > best.delta) best = { card, delta };
+    }
   }
   return best;
 }
@@ -1111,7 +1162,7 @@ function aiPlace(who) {
   }
   for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice
   options.sort((a, b) => b.value - a.value);
-  const chosen = options[0];
+  const chosen = fumbles(who) ? options[Math.floor(Math.random() * options.length)] : options[0];
   consumeActive(who, chosen.color);
   if (chosen.fizzle) {
     log(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect. It passes.`, 'ai');
@@ -1555,11 +1606,11 @@ function decorateTarget(card, el) {
   if (UI.mode === 'target-own') {
     targetable = UI.pendingStone === 'white'
       ? validWhiteTarget(card)
-      : (card.owner === me && !isLocked(card) && !hasRed(card));
+      : ((card.owner === me || G.open) && !isLocked(card) && !hasRed(card));
   } else if (UI.mode === 'target-blue-own') {
-    targetable = card.owner === me && !isLocked(card);
+    targetable = (card.owner === me || G.open) && !isLocked(card);
   } else if (UI.mode === 'target-blue-opp') {
-    targetable = isOpponent(me, card.owner) && !isLocked(card);
+    targetable = (G.open ? card.owner !== UI.blueOwn.owner : isOpponent(me, card.owner)) && !isLocked(card);
     if (UI.blueOwn === card) el.classList.add('selected');
   } else if (UI.mode === 'target-black') {
     targetable = !!undoableEventFor(card);
@@ -1812,6 +1863,19 @@ const SETUP_STEPS = [
     ],
   },
   {
+    key: 'company', title: 'Choose the company', options: [
+      { v: 'usual', label: 'The Usual Table', desc: 'The regulars take their accustomed seats.' },
+      { v: 'lottery', label: 'Draw Lots', desc: 'Seats are filled at random from whoever is in the room tonight.' },
+      { v: 'choose', label: 'Choose Your Company', desc: 'Pick exactly who sits down, seat by seat.' },
+    ],
+  },
+  {
+    key: 'targeting', title: 'Choose the targeting custom', options: [
+      { v: 'standard', label: 'Standard Custom', desc: 'Stones bind as written: Red and Blue work your own layout against your rivals’; White may shelter an ally.' },
+      { v: 'open', label: 'Open Table — advanced', desc: 'Any stone may target any layout, allies included: red an ally’s pair, lock a rival’s dead card, trade between any two seats.' },
+    ],
+  },
+  {
     key: 'deal', title: 'Choose the deal', options: [
       { v: 'small', label: 'Small Game', desc: '5 cards dealt, a 2-1-1 footprint, best 3 of 4 scored. The roadside standard.' },
       { v: 'house', label: 'House Deep Draft', desc: '9 cards dealt, a 2-2-1 footprint, best 3 of 5 scored. Leftovers are discarded dead.' },
@@ -1829,9 +1893,20 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', deal: 'small', target: 20, names: ['', ''] };
+  SETUP = { venue: 'tavern', mode: 'duel', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', ''], picks: [] };
   renderSetup();
   $('setupModal').classList.add('open');
+}
+
+function seatRoles(mode) {
+  switch (mode) {
+    case 'duel': return ['your opponent'];
+    case 'ffa': return ['rival', 'rival', 'rival'];
+    case 'teams': return ['rival', 'your partner', 'rival'];
+    case 'hs-team': return ['rival', 'rival'];
+    case 'hs-rivals': return ['Player One’s partner', 'Player Two’s partner'];
+    default: return [];
+  }
 }
 
 function renderSetup() {
@@ -1839,7 +1914,10 @@ function renderSetup() {
   // one confirm button at the bottom.
   const body = $('setupBody');
   body.innerHTML = '';
+  const K = aiSeatsFor(SETUP.mode).length;
+  SETUP.picks = SETUP.picks.slice(0, K);
   for (const section of SETUP_STEPS) {
+    if (section.key === 'company' && K === 0) continue; // pure hotseat: no AI seats
     const title = document.createElement('div');
     title.className = 'steptitle';
     title.textContent = section.title.replace('Choose the ', 'The ').replace('Choose ', '');
@@ -1855,6 +1933,35 @@ function renderSetup() {
       grid.appendChild(el);
     }
     body.appendChild(grid);
+
+    // The seat-by-seat picker, right under the company choice.
+    if (section.key === 'company' && SETUP.company === 'choose' && K > 0) {
+      const row = document.createElement('div');
+      row.className = 'namerow';
+      const lab = document.createElement('span');
+      lab.className = 'arealabel';
+      lab.textContent = `The lineup (${SETUP.picks.length}/${K}):`;
+      row.appendChild(lab);
+      for (const name of BOT_POOL) {
+        const chip = document.createElement('button');
+        const ord = SETUP.picks.indexOf(name);
+        chip.className = 'botchip' + (ord >= 0 ? ' selected' : '');
+        chip.title = PERSONALITIES[name].flavor;
+        chip.innerHTML = (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
+        chip.onclick = () => {
+          const i = SETUP.picks.indexOf(name);
+          if (i >= 0) SETUP.picks.splice(i, 1);
+          else if (SETUP.picks.length < K) SETUP.picks.push(name);
+          renderSetup();
+        };
+        row.appendChild(chip);
+      }
+      const roles = document.createElement('div');
+      roles.className = 'rolesline';
+      roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode).map((r, i) => `${i + 1} — ${r}`).join(' · ');
+      row.appendChild(roles);
+      body.appendChild(row);
+    }
   }
 
   // Hotseat tables take player names.
@@ -1880,18 +1987,22 @@ function renderSetup() {
   const r = REGIONS[VENUES[SETUP.venue].region];
   const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
   const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
+  const parts = [labelOf('venue'), labelOf('mode'), labelOf('targeting'), labelOf('deal'), labelOf('target')];
+  if (K > 0) parts.splice(2, 0, labelOf('company'));
   // insertAdjacentHTML keeps the option cards' click handlers alive
   // (innerHTML += would re-parse the container and strip them).
   body.insertAdjacentHTML('beforeend', `
     <div class="valstrip">${r.name} — card values: ${vals}</div>
-    <div class="setupsummary">${labelOf('venue')} · ${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`);
+    <div class="setupsummary">${parts.join(' · ')}</div>`);
 
   const btns = $('setupBtns');
   btns.innerHTML = '';
   const deal = document.createElement('button');
   deal.id = 'startBtn';
   deal.className = 'btn primary big';
-  deal.textContent = 'Deal the first hand';
+  const needPicks = SETUP.company === 'choose' && K > 0 && SETUP.picks.length !== K;
+  deal.textContent = needPicks ? `Choose ${K - SETUP.picks.length} more for the table` : 'Deal the first hand';
+  deal.disabled = needPicks;
   deal.onclick = startFromSetup;
   btns.appendChild(deal);
 }
@@ -1899,9 +2010,18 @@ function renderSetup() {
 function startFromSetup() {
   closeModal('setupModal');
   logEl.innerHTML = '';
+  const K = aiSeatsFor(SETUP.mode).length;
+  let companyNames = null, drewLots = false;
+  if (K > 0 && SETUP.company === 'lottery') {
+    companyNames = shuffle(BOT_POOL.slice()).slice(0, K);
+    drewLots = true;
+  } else if (K > 0 && SETUP.company === 'choose') {
+    companyNames = SETUP.picks.slice(0, K);
+  }
   newGame({
-    venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target,
+    venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target, targeting: SETUP.targeting,
     names: SETUP.names.map(s => s.trim()).filter(Boolean).length ? SETUP.names.map(s => s.trim()) : [],
+    companyNames, drewLots,
   });
 }
 
