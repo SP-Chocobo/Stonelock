@@ -28,6 +28,13 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
 
 ## This version
 
+- **Raid Boss — The Magistrate**: a co-op fight reached from the title's Raid
+  Boss button. You and an ally (bot or co-op hotseat) play the standard game;
+  the Magistrate is one boss who fields a larger face-up board (seven cards),
+  answers each placement with a stone, and scores its two best non-overlapping
+  hands. Your two scores combine; the marker moves by (party − Magistrate) and
+  the boss holds any tie. Tuned (7 cards / 5 stones) for a hard-but-winnable
+  raid — coordinate your six stones to break one of its engines.
 - **Hotseat play**: two humans on one device — duel, allied 2v2, or rival 2v2
   with AI partners — with name entry and a pass-confirmation screen guarding
   hidden information between turns.

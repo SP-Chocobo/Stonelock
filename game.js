@@ -69,6 +69,7 @@ const PERSONALITIES = {
   'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, skill: 1.0, flavor: 'Anything on the river can be taken. Hide what you love.' },
   'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
   'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
+  'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a double board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.' },
   'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.' },
 };
@@ -263,6 +264,42 @@ function variantOpts() {
   };
 }
 
+// The Magistrate's score: the two best non-overlapping three-card
+// hands from its board. We try every split of the cards into two
+// groups (bitmask) and let bestSelection optimize each group's best
+// three units (phantoms included); the best summed pair of hands wins.
+function twoBestHands(cards, values, opts) {
+  const n = cards.length;
+  const empty = { score: 0, raw: 0, bonus: 0, penalty: 0, structure: 'singles', picks: [] };
+  if (n < 6) { // not enough to field two full hands — score the one best
+    const h = bestSelection(cards, values, opts);
+    return { score: h.score, hands: [h, empty] };
+  }
+  // A scoring hand uses at most 3 physical cards (2 if one carries a
+  // phantom). Try every 2- or 3-card group as hand A; hand B is the
+  // best three of whatever's left. This is exact and far cheaper than
+  // a full 2^n partition.
+  let best = null;
+  const tryA = combo => {
+    const A = combo.map(i => cards[i]);
+    const rest = cards.filter((_, i) => !combo.includes(i));
+    const ha = bestSelection(A, values, opts);
+    const hb = bestSelection(rest, values, opts);
+    const total = ha.score + hb.score;
+    if (!best || total > best.score) {
+      const [h1, h2] = ha.score >= hb.score ? [ha, hb] : [hb, ha];
+      best = { score: total, hands: [h1, h2] };
+    }
+  };
+  for (let a = 0; a < n; a++) {
+    for (let b = a + 1; b < n; b++) {
+      tryA([a, b]);
+      for (let c = b + 1; c < n; c++) tryA([a, b, c]);
+    }
+  }
+  return best || { score: 0, hands: [empty, empty] };
+}
+
 const STRUCT_RANK = { triad: 2, pair: 1, singles: 0 };
 const STRUCT_LABEL = { triad: 'a Triad', pair: 'a Pair', singles: 'three Singles' };
 
@@ -278,20 +315,23 @@ function newGame(cfg) {
   clearTimeout(runTimer);
   INGAME = true;
   hideTitle();
-  const n = (cfg.mode === 'duel' || cfg.mode === 'hotseat') ? 2 : 4;
+  const raid = cfg.mode === 'raid';
+  const n = raid ? 3 : (cfg.mode === 'duel' || cfg.mode === 'hotseat') ? 2 : 4;
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
-    mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams'
-    deal: cfg.deal,                 // 'small' | 'house'
+    mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
+    deal: raid ? 'small' : cfg.deal,
     target: cfg.target,
     venue,
-    variant: venue.variant,         // null | 'riverlock' | 'cursed' | 'slumlock'
-    open: cfg.targeting === 'open', // advanced: any stone, any layout
+    variant: raid ? null : venue.variant,
+    open: !raid && cfg.targeting === 'open', // advanced: any stone, any layout
     cursedType: null,
-    region: REGIONS[cfg.region || venue.region],
+    region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
-    names: buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
-    humans: humansFor(cfg.mode),
+    names: raid
+      ? (cfg.raidAlly === 'hotseat' ? [((cfg.names || [])[0] || 'Player One'), 'The Magistrate', ((cfg.names || [])[1] || 'Player Two')] : ['You', 'The Magistrate', 'The Old Hand'])
+      : buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
+    humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : humansFor(cfg.mode),
     viewer: 0,
     ledger: 0,                      // duel/teams: positive = your side
     scores: new Array(n).fill(0),   // ffa: banked margins
@@ -316,9 +356,13 @@ function newGame(cfg) {
     slumlock: ' Slumlock is declared: a stone placed this hand is exhausted for the two that follow.',
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
   }[G.variant] || '';
-  log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
-    ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
-    : `First to push the Pivot Marker ${G.target} onto the other side takes the match.`}`, 'sys');
+  if (G.mode === 'raid') {
+    log(`The Magistrate takes the high seat — a raid table. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; the Magistrate fields ${RAID_BOSS_CARDS} cards, all face-up, and answers with ${RAID_BOSS_STONES} stones. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+  } else {
+    log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
+      ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
+      : `First to push the Pivot Marker ${G.target} onto the other side takes the match.`}`, 'sys');
+  }
   startHand();
 }
 
@@ -347,7 +391,10 @@ function humansFor(mode) {
 
 function playerName(i) { return G.names[i]; }
 function isHuman(i) { return G.humans.includes(i); }
-function teamOf(i) { return TEAM_MODES.has(G.mode) ? i % 2 : i; }
+function teamOf(i) {
+  if (G.mode === 'raid') return i === 1 ? 1 : 0; // the Magistrate alone vs the party
+  return TEAM_MODES.has(G.mode) ? i % 2 : i;
+}
 function isOpponent(a, b) { return teamOf(a) !== teamOf(b); }
 function opponentsOf(me) {
   return G.players.map(p => p.idx).filter(i => isOpponent(me, i));
@@ -361,6 +408,16 @@ function dealSpec() {
     ? { handSize: 9, footprint: 5, deploys: [{ c: 2, up: true }, { c: 2, up: false }, { c: 1, up: false }] }
     : { handSize: 5, footprint: 4, deploys: [{ c: 2, up: true }, { c: 1, up: false }, { c: 1, up: false }] };
 }
+
+// Raid Boss: seat 1 is The Magistrate, who fields a larger board, all
+// face-up, and scores its two best non-overlapping three-card hands.
+// Card/stone counts are tuned for a hard-but-winnable fight.
+const RAID_BOSS_CARDS = (typeof process !== 'undefined' && +(process.env.RAID_CARDS) ) || 7;
+const RAID_BOSS_STONES = (typeof process !== 'undefined' && +(process.env.RAID_STONES)) || 5;
+function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
+function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
+function handSizeFor(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().handSize; }
+
 
 function orderFrom(start) {
   const out = [];
@@ -384,9 +441,12 @@ function startHand() {
 
   const spec = dealSpec();
   const gauntlet = G.variant === 'gauntlet';
+  const raid = G.mode === 'raid';
+  // Raid/Gauntlet: stones are placed freely (no telegraph or thinning),
+  // drawn from a 2-of-each pouch up to the round count the queue allows.
+  const freePlace = gauntlet || raid;
   G.players = [];
   for (let p = 0; p < G.nPlayers; p++) {
-    // Gauntlet: one of each stone, all of them live from the start.
     const pool = gauntlet ? { red: 1, white: 1, blue: 1, black: 1 } : { red: 2, white: 2, blue: 2, black: 2 };
     // Slumlock: stones placed in recent hands are still exhausted.
     if (G.variant === 'slumlock') {
@@ -399,7 +459,7 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      active: gauntlet ? STONE_KEYS.slice() : [],
+      active: freePlace ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
     });
   }
@@ -410,7 +470,7 @@ function startHand() {
     log(`The Cursed Card is drawn: every ${G.cursedType} is voided this hand — no points, no Pairs, no Triads.`, 'sys');
   }
   for (let p = 0; p < G.nPlayers; p++) {
-    for (let k = 0; k < spec.handSize; k++) {
+    for (let k = 0; k < handSizeFor(p); k++) {
       const card = {
         id: id++,
         type: active.pop(),
@@ -430,7 +490,32 @@ function startHand() {
   const dep = spec.deploys;
   const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
 
-  if (gauntlet) {
+  if (raid) {
+    // The Magistrate (seat 1) faces the party (seats 0 and 2). No
+    // telegraphing or thinning. Cards commit normally for the party,
+    // doubled and all face-up for the boss. Then each player places
+    // 3 stones and the boss 6, interleaved You→Boss→Ally→Boss × 3.
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up. The Magistrate matches the table, fielding double — and shows everything.' },
+      { t: 'deploy', count: dep[0].c, faceUp: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Veil', note: 'Commit one card face-down. The Magistrate fields its share face-up.' },
+      { t: 'deploy', count: dep[1].c, faceUp: false, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover party cards are discarded dead.' },
+      { t: 'deploy', count: dep[2].c, faceUp: false, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Reckoning', note: 'No telegraphing — place your stones. The Magistrate answers each placement with one of its own.' },
+    ];
+    const party = [0, 2];
+    let bossLeft = RAID_BOSS_STONES;
+    for (let r = 0; r < 3; r++) {
+      for (const w of party) {
+        G.queue.push({ t: 'place', who: w });
+        if (bossLeft > 0) { G.queue.push({ t: 'place', who: 1 }); bossLeft--; }
+      }
+    }
+    while (bossLeft-- > 0) G.queue.push({ t: 'place', who: 1 });
+    G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+  } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
     // four stones across four serpentine rounds (deal / reverse / …).
     const veilCount = dep[1].c + dep[2].c; // fold the two veil deploys into the normal pattern
@@ -548,11 +633,14 @@ function executeStep(step) {
       aiDeclare(step.who);
       break;
     case 'deploy': {
-      // Human portions already stored in step.choices by the UI.
+      // Human portions already stored in step.choices by the UI. The
+      // Magistrate commits double, always face-up.
       const reveals = [];
       for (let i = 0; i < G.nPlayers; i++) {
-        const cards = isHuman(i) ? step.choices[i] : aiChooseDeploy(i, step);
-        deployCards(i, cards, step.faceUp);
+        const up = isMagistrate(i) ? true : step.faceUp;
+        const cnt = isMagistrate(i) ? step.count * 2 : step.count;
+        const cards = isHuman(i) ? step.choices[i] : aiChooseDeploy(i, cnt, up);
+        deployCards(i, cards, up);
         reveals.push(`${playerName(i)} ${verb(i, 'show')} ${cards.map(c => c.type).join(' and ')}`);
       }
       SFX.play(step.faceUp ? 'flip' : 'card');
@@ -792,7 +880,15 @@ function finishHumanStep() {
 /* ---------------- Stone mechanics ---------------- */
 
 function consumeActive(who, color) {
-  const a = G.players[who].active;
+  const p = G.players[who];
+  // Raid: free placement from a 2-of-each pouch — spend the stone and
+  // recompute which colors remain legal. The queue caps the count.
+  if (G.mode === 'raid') {
+    if (p.pool[color] > 0) p.pool[color]--;
+    p.active = STONE_KEYS.filter(c => p.pool[c] > 0);
+    return;
+  }
+  const a = p.active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
   // Slumlock: a placed stone is exhausted for the next two hands.
@@ -941,6 +1037,8 @@ function estimate(ofPlayer, viewer) {
     return { type, hasRed: c.hasRed };
   });
   if (!cards.length) return 0;
+  // The Magistrate's worth is its two best hands, so it plays for both.
+  if (isMagistrate(ofPlayer)) return twoBestHands(cards, values, variantOpts()).score;
   return bestSelection(cards, values, variantOpts()).score;
 }
 
@@ -1003,30 +1101,33 @@ function weightedOrder(keys, weights) {
   return out;
 }
 
-function aiChooseDeploy(who, step) {
+function aiChooseDeploy(who, count, faceUp) {
   const p = G.players[who];
+  const fp = footprintOf(who);
   if (!p.aiPlan) {
-    const spec = dealSpec();
     const counts = {};
     for (const c of p.hand) counts[c.type] = (counts[c.type] || 0) + 1;
     const scoreCard = c => c.type === G.cursedType ? 0
       : regionVal(c.type) + (counts[c.type] >= 2 ? 2.5 : 0);
     const sorted = p.hand.slice().sort((a, b) => scoreCard(b) - scoreCard(a));
-    const keep = sorted.slice(0, spec.footprint);
+    const keep = sorted.slice(0, fp);
     // A less practiced player keeps the wrong card now and then.
-    if (sorted.length > spec.footprint && fumbles(who)) {
+    if (sorted.length > fp && fumbles(who)) {
       keep[Math.floor(Math.random() * keep.length)] =
-        sorted[spec.footprint + Math.floor(Math.random() * (sorted.length - spec.footprint))];
+        sorted[fp + Math.floor(Math.random() * (sorted.length - fp))];
     }
     const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
     const exposable = keep.slice().sort((a, b) => {
       const risk = c => (counts[c.type] >= 2 ? 5 : 0) + (threatened ? regionVal(c.type) : -regionVal(c.type));
       return risk(a) - risk(b);
     });
-    p.aiPlan = { faceUp: exposable.slice(0, 2), hidden: keep.filter(c => !exposable.slice(0, 2).includes(c)) };
+    // queue: face-up cards lead so they fill the early (revealed) commits.
+    p.aiPlan = { faceUp: exposable.slice(0, 2), hidden: keep.filter(c => !exposable.slice(0, 2).includes(c)), queue: keep.slice() };
   }
-  if (step.faceUp) return p.aiPlan.faceUp;
-  return p.aiPlan.hidden.splice(0, step.count);
+  // The Magistrate fields everything face-up, in ranked order.
+  if (isMagistrate(who)) return p.aiPlan.queue.splice(0, count);
+  if (faceUp) return p.aiPlan.faceUp;
+  return p.aiPlan.hidden.splice(0, count);
 }
 
 function deployCards(who, cards, faceUp) {
@@ -1215,6 +1316,12 @@ function aiPlace(who) {
 /* ---------------- Showdown ---------------- */
 
 function entities() {
+  if (G.mode === 'raid') {
+    return [
+      { name: G.humans.length > 1 ? `${playerName(0)} & ${playerName(2)}` : 'Your raid party', members: [0, 2] },
+      { name: playerName(1), members: [1] },
+    ];
+  }
   if (TEAM_MODES.has(G.mode)) {
     return [
       { name: G.humans.length === 1 ? 'Your alliance' : `${playerName(0)} & ${playerName(2)}`, members: [0, 2] },
@@ -1240,6 +1347,8 @@ function showdown() {
     G.region.values,
     variantOpts()
   ));
+
+  if (G.mode === 'raid') { raidShowdown(sel); return; }
 
   const ents = entities().map(e => ({
     ...e,
@@ -1295,6 +1404,29 @@ function showdown() {
 
   if (matchWinner) G.over = true;
   G.lastShowdown = { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains, hand: G.handNum };
+  showShowdownModal(G.lastShowdown, false);
+}
+
+function raidShowdown(sel) {
+  const party = [0, 2];
+  const teamScore = party.reduce((s, m) => s + sel[m].score, 0);
+  const boss = twoBestHands(
+    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
+    G.region.values, variantOpts()
+  );
+  const diff = teamScore - boss.score; // positive = the party out-scored the Magistrate
+  G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + diff));
+
+  let matchWinner = null;
+  if (G.ledger >= G.target) matchWinner = 'party';
+  else if (G.ledger <= -G.target) matchWinner = 'magistrate';
+
+  if (diff > 0) log(`The party fields ${teamScore} to the Magistrate's ${boss.score} — you press the advantage by ${diff}.`, 'sys');
+  else if (diff < 0) log(`The Magistrate fields ${boss.score} to the party's ${teamScore}. It gains ${-diff} ground.`, 'sys');
+  else log(`Dead level at ${teamScore}. The Magistrate holds — the marker doesn't move.`, 'sys');
+
+  if (matchWinner) G.over = true;
+  G.lastShowdown = { raid: true, sel, boss, teamScore, diff, matchWinner, hand: G.handNum };
   showShowdownModal(G.lastShowdown, false);
 }
 
@@ -1406,9 +1538,9 @@ function buildTableDOM() {
   for (const i of seats) {
     const seat = document.createElement('div');
     seat.id = `seat-${i}`;
-    seat.className = 'seat';
+    seat.className = 'seat' + (isMagistrate(i) ? ' bossseat' : '');
     seat.style.setProperty('--seatc', seatColor(i));
-    seat.innerHTML = `<div class="seathead">${playerName(i)}</div><div id="board-${i}" class="board"></div>`;
+    seat.innerHTML = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div><div id="board-${i}" class="board"></div>`;
     if (isOpponent(0, i)) oppSeats.appendChild(seat);
     else youSeats.appendChild(seat);
   }
@@ -1416,7 +1548,10 @@ function buildTableDOM() {
   // Score widget: track for two-sided modes, purse list for FFA.
   $('ledgerWrap').style.display = G.mode === 'ffa' ? 'none' : '';
   $('scoreList').style.display = G.mode === 'ffa' ? '' : 'none';
-  if (G.mode !== 'ffa') {
+  if (G.mode === 'raid') {
+    $('ledgerHeadAi').textContent = 'Magistrate';
+    $('ledgerHeadYou').textContent = 'Party';
+  } else if (G.mode !== 'ffa') {
     const multiHuman = G.humans.length > 1;
     $('ledgerHeadAi').textContent = TEAM_MODES.has(G.mode)
       ? (multiHuman ? playerName(1).split(' ')[0] + ' & co.' : 'Them')
@@ -1665,9 +1800,11 @@ function renderScore() {
     $('ledgerMarker').style.left = `${Math.max(0, Math.min(100, pct))}%`;
     $('ledgerEndAi').textContent = G.target;
     $('ledgerEndYou').textContent = G.target;
-    const sides = G.humans.length > 1
-      ? [entities()[0].name, entities()[1].name]
-      : ['your side', 'their side'];
+    const sides = G.mode === 'raid'
+      ? ['the party', 'the Magistrate']
+      : G.humans.length > 1
+        ? [entities()[0].name, entities()[1].name]
+        : ['your side', 'their side'];
     $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} ${sides[0]}` : G.ledger < 0 ? `+${-G.ledger} ${sides[1]}` : 'even';
   }
 }
@@ -1784,14 +1921,14 @@ function cardEl(card) {
 function renderBoard(who, container) {
   if (!container) return;
   container.innerHTML = '';
-  const spec = dealSpec();
+  const fp = footprintOf(who);
   const board = G.players[who].board;
-  for (let i = 0; i < spec.footprint; i++) {
+  for (let i = 0; i < fp; i++) {
     const slot = document.createElement('div');
     slot.className = 'slot';
     const label = document.createElement('div');
     label.className = 'slotlabel';
-    label.textContent = slotName(i, spec.footprint);
+    label.textContent = isMagistrate(who) ? '' : slotName(i, fp);
     slot.appendChild(label);
     const card = board[i];
     if (card) {
@@ -1974,8 +2111,21 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
+function handPicksHtml(s) {
+  return s.picks.map(p => `
+    <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
+      <div class="cicon">${ICONS[p.type]}</div>
+      <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
+      <div class="cval">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
+    </div>`).join('');
+}
+function handMathLine(s) {
+  return `${s.raw} raw ${s.bonus ? `+ ${s.bonus} ${s.structure === 'triad' ? 'Triad' : 'Pair'} bonus` : ''}${s.penalty ? ` − ${s.penalty} Riverlock` : ''} — ${STRUCT_LABEL[s.structure]} (${s.score})`;
+}
+
 function showShowdownModal(d, review) {
   if (typeof document === 'undefined') return;
+  if (d.raid) return showRaidShowdown(d, review);
   const { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains } = d;
   const m = $('showdownModal');
   const body = $('showdownBody');
@@ -2022,9 +2172,47 @@ function showShowdownModal(d, review) {
   m.classList.add('open');
 }
 
+function showRaidShowdown(d, review) {
+  const { sel, boss, teamScore, diff, matchWinner } = d;
+  $('showdownTitle').textContent = (review ? `Hand ${d.hand} — ` : '') +
+    (diff > 0 ? 'The party presses' : diff < 0 ? 'The Magistrate answers' : 'The Magistrate holds');
+  const party = [0, 2];
+  const partyHtml = party.map(i => `
+    <div class="showhand">
+      <h3>${playerName(i)} — ${sel[i].score} points</h3>
+      <div class="pickrow">${handPicksHtml(sel[i])}</div>
+      <div class="mathline">${handMathLine(sel[i])}</div>
+    </div>`).join('');
+  const bossHtml = `
+    <div class="showhand">
+      <h3>The Magistrate — ${boss.score} points <span class="mathline">(two best hands)</span></h3>
+      ${boss.hands.map(h => `<div class="pickrow">${handPicksHtml(h)}</div><div class="mathline">${handMathLine(h)}</div>`).join('')}
+    </div>`;
+  const verdict = diff > 0
+    ? `Your party fields <b>${teamScore}</b> to the Magistrate's <b>${boss.score}</b> — the marker swings <b>${diff}</b> your way. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
+    : diff < 0
+      ? `The Magistrate fields <b>${boss.score}</b> to your <b>${teamScore}</b> and gains <b>${-diff}</b>. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
+      : `Dead level at <b>${teamScore}</b> — the Magistrate holds on the tie. Nothing moves.`;
+  $('showdownBody').innerHTML =
+    `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div>${partyHtml}</div>${bossHtml}<div class="verdict">${verdict}</div>`;
+  $('nextHandBtn').textContent = review ? 'Back to the table'
+    : matchWinner ? 'See the result' : 'Next hand';
+  $('showdownModal').classList.add('open');
+}
+
 function showVictory() {
   if (typeof document === 'undefined') return;
   const m = $('victoryModal');
+  if (G.mode === 'raid') {
+    const won = G.ledger >= G.target;
+    SFX.play(won ? 'win' : 'lose');
+    $('victoryTitle').textContent = won ? 'The Magistrate is broken' : 'The Magistrate prevails';
+    $('victoryText').textContent = won
+      ? `Your party drove the marker the full ${G.target} after ${G.handNum} hands. The high seat is empty — for now.`
+      : `The Magistrate held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
+    m.classList.add('open');
+    return;
+  }
   let winnerEnt;
   if (G.mode === 'ffa') {
     const w = G.scores.indexOf(Math.max(...G.scores));
@@ -2235,6 +2423,77 @@ function startFromSetup() {
   });
 }
 
+/* ---------- Raid Boss setup (its own small screen) ---------- */
+
+let RAIDSET = null;
+
+function openRaidSetup() {
+  RAIDSET = { ally: 'bot', target: 12, names: ['', ''] };
+  renderRaidSetup();
+  $('setupModal').classList.add('open');
+}
+
+function renderRaidSetup() {
+  const body = $('setupBody');
+  body.innerHTML = `<p class="modalsub small">The Magistrate is a raid boss — it fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, and <b>${RAID_BOSS_STONES} stones</b>, scoring its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine against it. Drive the marker the full distance to break it — the Magistrate holds any tie.</p>`;
+
+  const section = (title, key, opts, render) => {
+    const h = document.createElement('div');
+    h.className = 'steptitle'; h.textContent = title; body.appendChild(h);
+    const grid = document.createElement('div'); grid.className = 'optgrid';
+    for (const o of opts) {
+      const el = document.createElement('div');
+      el.className = 'bigopt' + (RAIDSET[key] === o.v ? ' selected' : '');
+      el.innerHTML = `<h3>${o.label}</h3><div class="bigoptdesc">${o.desc}</div>`;
+      el.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
+      grid.appendChild(el);
+    }
+    body.appendChild(grid);
+  };
+
+  section('The party', 'ally', [
+    { v: 'bot', label: 'You + an Ally bot', desc: 'The Old Hand fights at your side, AI-controlled.' },
+    { v: 'hotseat', label: 'Two players — co-op', desc: 'Both party seats are human; the device passes between you.' },
+  ]);
+
+  if (RAIDSET.ally === 'hotseat') {
+    const row = document.createElement('div');
+    row.className = 'namerow';
+    const lab = document.createElement('span'); lab.className = 'arealabel'; lab.textContent = 'The party:';
+    row.appendChild(lab);
+    [0, 1].forEach(k => {
+      const inp = document.createElement('input');
+      inp.className = 'nameinput';
+      inp.placeholder = k === 0 ? 'Player One' : 'Player Two';
+      inp.maxLength = 16; inp.value = RAIDSET.names[k] || '';
+      inp.oninput = () => { RAIDSET.names[k] = inp.value; };
+      row.appendChild(inp);
+    });
+    body.appendChild(row);
+  }
+
+  section('How far to break it', 'target', [
+    { v: 10, label: 'Skirmish — to 10', desc: 'A quick clash. High variance; one good hand swings it.' },
+    { v: 16, label: 'Siege — to 16', desc: 'The standard raid. Coordination starts to tell.' },
+    { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
+  ]);
+
+  const btns = $('setupBtns');
+  btns.innerHTML = '';
+  const back = document.createElement('button');
+  back.className = 'btn'; back.textContent = '‹ Title';
+  back.onclick = () => { closeModal('setupModal'); showTitle(); };
+  btns.appendChild(back);
+  const begin = document.createElement('button');
+  begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = 'Face the Magistrate';
+  begin.onclick = () => {
+    closeModal('setupModal');
+    logEl.innerHTML = '';
+    newGame({ mode: 'raid', raidAlly: RAIDSET.ally, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
+  };
+  btns.appendChild(begin);
+}
+
 function boot() {
   logEl = $('log');
   phaseEl = $('phaseLabel');
@@ -2260,16 +2519,17 @@ function boot() {
   $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
   $('muteBtn').onclick = () => { $('muteBtn').textContent = SFX.toggle() ? '🔇' : '🔊'; };
   $('rulesClose').onclick = () => closeModal('rulesModal');
-  $('newGameBtn').onclick = openSetup;
+  $('newGameBtn').onclick = () => (G && G.mode === 'raid' ? openRaidSetup() : openSetup());
   $('fsBtn').onclick = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
   };
-  $('victoryNew').onclick = () => { closeModal('victoryModal'); openSetup(); };
+  $('victoryNew').onclick = () => { const raid = G && G.mode === 'raid'; closeModal('victoryModal'); raid ? openRaidSetup() : openSetup(); };
   $('titleBtn').onclick = requestQuitToTitle;
   $('quitYes').onclick = () => { closeModal('quitModal'); showTitle(); };
   $('quitNo').onclick = () => closeModal('quitModal');
-  $('titleStart').onclick = () => { hideTitle(); openSetup(); };
+  $('titleStandard').onclick = () => { hideTitle(); openSetup(); };
+  $('titleRaid').onclick = () => { hideTitle(); openRaidSetup(); };
   $('titleTutorial').onclick = startTutorial;
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
@@ -2285,8 +2545,8 @@ if (typeof window !== 'undefined') {
     bestSelection, REGIONS, TYPES, STONES,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
-    humanChooseStone, humanTargetCard, humanDiscardStone,
-    undoableEventFor, isLocked, isOpponent,
+    humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
+    twoBestHands, undoableEventFor, isLocked, isOpponent,
     _state: () => G, _ui: () => UI,
   };
 }
