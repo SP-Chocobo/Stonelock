@@ -362,6 +362,9 @@ body[data-compact="1"] .seathead { margin-bottom: 5px; }
 
 /* Compact boards when more than two sit at the table */
 body[data-compact="1"] .board { gap: 6px; }
+/* House deal lays five slots — cap the width so they wrap a centered 3+2
+   rather than a lopsided 4+1. (62px slot ×3 + 6px gap ×2 = 198.) */
+body[data-compact="1"][data-deal="house"] .board { max-width: 204px; margin: 0 auto; }
 body[data-compact="1"] .slot { width: 62px; min-height: 96px; }
 body[data-compact="1"] .slot.empty::before { width: 58px; height: 80px; }
 body[data-compact="1"] .slotlabel { display: none; }
