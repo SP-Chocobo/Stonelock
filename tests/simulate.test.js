@@ -116,8 +116,10 @@ const matrix = [
   { mode: 'ffa', deal: 'house', venue: 'slums' },
   { mode: 'teams', deal: 'small', venue: 'court' },
   { mode: 'teams', deal: 'house', venue: 'slums' },
+  { mode: 'duel', deal: 'small', venue: 'academy' },
+  { mode: 'ffa', deal: 'house', venue: 'academy' },
 ];
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 64; i++) {
   driveOne({ ...matrix[i % matrix.length], target: 10 });
 }
-console.log(`OK: 60 full matches across 6 format/venue combos. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
+console.log(`OK: 64 full matches across 8 format/venue combos. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);

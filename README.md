@@ -41,6 +41,10 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
   Marker by the net difference of each showdown; the Free-for-All table is a
   purse race where every seat banks its margin over the lowest hand each
   showdown. Match length selectable (10 / 20 / full 40).
+- **The Academy Gauntlet** venue replaces telegraphing and thinning with a
+  pure-interaction drill: every player holds one of each stone and places all
+  four in serpentine turn order, free to choose which stone and target each
+  round.
 - The table plays the **Bar-Level valuation** ("The Practical Common"). The
   engine supports all three regional value tables (House Games, Dock /
   Traveler); they will surface alongside the regional rule variants so the

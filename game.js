@@ -45,6 +45,7 @@ const VENUES = {
   docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.' },
   hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.' },
   slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.' },
+  academy: { region: 'bar', variant: 'gauntlet', label: 'The Academy Gauntlet', desc: 'A drill in pure interaction: no telegraphing, no thinning. Every player holds one of each stone and must place all four, in serpentine turn order. The cards are a fixed canvas — the stones decide it.' },
 };
 
 const STONES = {
@@ -313,6 +314,7 @@ function newGame(cfg) {
     riverlock: ' Riverlock is declared: no Road or Ferry in your final three, and the hand is docked 2.',
     cursed: ' The Cursed Register is declared: each hand, one card type is voided entirely.',
     slumlock: ' Slumlock is declared: a stone placed this hand is exhausted for the two that follow.',
+    gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
   }[G.variant] || '';
   log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
     ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
@@ -381,9 +383,11 @@ function startHand() {
   const active = full.slice(0, Math.min(64, 16 * G.nPlayers));
 
   const spec = dealSpec();
+  const gauntlet = G.variant === 'gauntlet';
   G.players = [];
   for (let p = 0; p < G.nPlayers; p++) {
-    const pool = { red: 2, white: 2, blue: 2, black: 2 };
+    // Gauntlet: one of each stone, all of them live from the start.
+    const pool = gauntlet ? { red: 1, white: 1, blue: 1, black: 1 } : { red: 2, white: 2, blue: 2, black: 2 };
     // Slumlock: stones placed in recent hands are still exhausted.
     if (G.variant === 'slumlock') {
       for (const color of STONE_KEYS) pool[color] = Math.max(0, 2 - slumBlocked(p, color));
@@ -395,7 +399,7 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      active: [],
+      active: gauntlet ? STONE_KEYS.slice() : [],
       aiPlan: null,
     });
   }
@@ -424,26 +428,49 @@ function startHand() {
 
   const dOrd = dealOrder(), rOrd = [...dealOrder()].reverse();
   const dep = spec.deploys;
-  G.queue = [
-    { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` },
-    { t: 'phase', label: 'Phase 2 — The Foundation', note: 'Declare your first stone, then commit two cards face-up.' },
-    ...dOrd.map(w => ({ t: 'declare', who: w, n: 1 })),
-    { t: 'deploy', count: dep[0].c, faceUp: dep[0].up, pendingHumans: G.humans.slice(), choices: {} },
-    { t: 'phase', label: 'Phase 3 — The Veil', note: `Declare your second stone (reverse order), then commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down.` },
-    ...rOrd.map(w => ({ t: 'declare', who: w, n: 2 })),
-    { t: 'deploy', count: dep[1].c, faceUp: dep[1].up, pendingHumans: G.humans.slice(), choices: {} },
-    { t: 'phase', label: 'Phase 4 — The Final Commitment', note: 'Declare your third stone, then commit one final card. Leftover hand cards are discarded dead.' },
-    ...dOrd.map(w => ({ t: 'declare', who: w, n: 3 })),
-    { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
-    { t: 'phase', label: 'Phase 5 — The Thinning', note: 'In reverse order, each player abandons one telegraphed stone, leaving two active.' },
-    ...rOrd.map(w => ({ t: 'thin', who: w })),
-    { t: 'phase', label: 'Phase 6 — First Stone Resolution', note: 'In deal order, each player applies their first active stone.' },
-    ...dOrd.map(w => ({ t: 'place', who: w })),
-    { t: 'phase', label: 'Phase 7 — Second Stone & Showdown', note: 'Final stones drop, then all veiled cards are flipped.' },
-    ...dOrd.map(w => ({ t: 'place', who: w })),
-    { t: 'beat', ms: 900 },
-    { t: 'showdown' },
-  ];
+  const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
+
+  if (gauntlet) {
+    // No telegraphing, no thinning — commit the cards, then place all
+    // four stones across four serpentine rounds (deal / reverse / …).
+    const veilCount = dep[1].c + dep[2].c; // fold the two veil deploys into the normal pattern
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up — no stones are telegraphed here.' },
+      { t: 'deploy', count: dep[0].c, faceUp: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Veil', note: `Commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down.` },
+      { t: 'deploy', count: dep[1].c, faceUp: false, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover hand cards are discarded dead.' },
+      { t: 'deploy', count: dep[2].c, faceUp: false, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Gauntlet', note: 'Every player holds one of each stone. Place all four, one per round, in serpentine order.' },
+    ];
+    for (let r = 0; r < 4; r++) {
+      const order = r % 2 === 0 ? dOrd : rOrd; // serpentine: balances tempo across the four placements
+      for (const w of order) G.queue.push({ t: 'place', who: w, gaunt: r + 1 });
+    }
+    G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+  } else {
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'Phase 2 — The Foundation', note: 'Declare your first stone, then commit two cards face-up.' },
+      ...dOrd.map(w => ({ t: 'declare', who: w, n: 1 })),
+      { t: 'deploy', count: dep[0].c, faceUp: dep[0].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'Phase 3 — The Veil', note: `Declare your second stone (reverse order), then commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down.` },
+      ...rOrd.map(w => ({ t: 'declare', who: w, n: 2 })),
+      { t: 'deploy', count: dep[1].c, faceUp: dep[1].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'Phase 4 — The Final Commitment', note: 'Declare your third stone, then commit one final card. Leftover hand cards are discarded dead.' },
+      ...dOrd.map(w => ({ t: 'declare', who: w, n: 3 })),
+      { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'Phase 5 — The Thinning', note: 'In reverse order, each player abandons one telegraphed stone, leaving two active.' },
+      ...rOrd.map(w => ({ t: 'thin', who: w })),
+      { t: 'phase', label: 'Phase 6 — First Stone Resolution', note: 'In deal order, each player applies their first active stone.' },
+      ...dOrd.map(w => ({ t: 'place', who: w })),
+      { t: 'phase', label: 'Phase 7 — Second Stone & Showdown', note: 'Final stones drop, then all veiled cards are flipped.' },
+      ...dOrd.map(w => ({ t: 'place', who: w })),
+      { t: 'beat', ms: 900 },
+      { t: 'showdown' },
+    ];
+  }
   log(`— Hand ${G.handNum}. The deck is broken, shuffled clean, and dealt. —`, 'sys');
   run();
 }
@@ -1651,6 +1678,21 @@ function renderPanels() {
     $(`pinfo-${i}`).textContent = `${p.hand.length} in hand · ${p.board.length} on table`;
     const rack = $(`rack-${i}`);
     rack.innerHTML = '';
+    // Gauntlet: one of each stone — show which remain unplaced.
+    if (G.variant === 'gauntlet') {
+      for (const color of STONE_KEYS) {
+        const col = document.createElement('div');
+        col.className = 'minicol';
+        const held = p.active.includes(color);
+        const dot = document.createElement('span');
+        dot.className = held ? `stonedot ${color}` : 'stonedot socket';
+        dot.title = `${STONES[color].name} — ${STONES[color].power}` + (held ? '' : ' (placed)');
+        col.appendChild(dot);
+        rack.appendChild(col);
+      }
+      renderTelegraph(i, $(`tg-${i}`));
+      continue;
+    }
     for (const color of STONE_KEYS) {
       const col = document.createElement('div');
       col.className = 'minicol';
@@ -1834,7 +1876,7 @@ function renderTray() {
   tray.style.display = visible ? '' : 'none';
   $('handArea').classList.toggle('min', visible);
   $('handArea').classList.toggle('focus', UI.mode === 'pickCards');
-  if (!visible) return;
+  if (!visible) { stonesEl.innerHTML = ''; return; } // clear stale clickable stones
   stonesEl.innerHTML = '';
   const trayStone = (color, onClick) => {
     const s = document.createElement('div');
