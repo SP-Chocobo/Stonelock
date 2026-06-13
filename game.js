@@ -304,6 +304,7 @@ function run() {
       G.activeSeat = 0;
       promptHuman(step);
       render();
+      autoScrollToPrompt();
       return;
     }
     const wait = dramatic(preWait(step));
@@ -408,6 +409,18 @@ function promptHuman(step) {
   }
 }
 
+// On phone layouts the page scrolls; when input is needed, bring
+// the control the player must use into view. One nudge per prompt —
+// never during AI turns, so the screen doesn't fight the reader.
+function autoScrollToPrompt() {
+  if (typeof window === 'undefined' || window.innerWidth > 760) return;
+  let el = null;
+  if (UI.mode === 'pickCards') el = $('handArea');
+  else if (['pickStone', 'thin', 'placeChoose'].includes(UI.mode)) el = $('stoneTray');
+  else if (UI.mode.startsWith('target')) el = document.querySelector('.battlefield');
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 /* ---- Human input handlers (wired from render) ---- */
 
 function humanDeclare(color) {
@@ -472,6 +485,7 @@ function humanChooseStone(color) {
       break;
   }
   render();
+  autoScrollToPrompt();
 }
 
 function humanCancelStone() {
