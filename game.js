@@ -88,6 +88,80 @@ function slotName(i, footprint) {
   return ['Foundation I', 'Foundation II', 'The Veil', 'Final'][i] || '';
 }
 
+/* ---------------- Sound ----------------
+   All effects are synthesized with WebAudio — no files, nothing to
+   load. Muting persists in localStorage. */
+
+const SFX = (() => {
+  let ctx = null;
+  let muted = false;
+  try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) { /* headless */ }
+
+  function ensure() {
+    if (typeof window === 'undefined') return null;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!ctx) ctx = new AC();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function tone(c, t0, freq, dur, type = 'sine', peak = 0.1, slideTo = null) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.05);
+  }
+
+  function noiseBurst(c, t0, dur, filterType = 'lowpass', freq = 600, peak = 0.18) {
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f = c.createBiquadFilter();
+    f.type = filterType;
+    f.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.value = peak;
+    src.connect(f).connect(g).connect(c.destination);
+    src.start(t0);
+  }
+
+  const recipes = {
+    card(c, t)  { noiseBurst(c, t, 0.09, 'lowpass', 320, 0.22); },                     // soft thump on the felt
+    flip(c, t)  { noiseBurst(c, t, 0.07, 'highpass', 2200, 0.07); noiseBurst(c, t + 0.05, 0.06, 'lowpass', 500, 0.14); },
+    stone(c, t) { tone(c, t, 170, 0.09, 'triangle', 0.22, 95); noiseBurst(c, t, 0.025, 'highpass', 1800, 0.12); }, // river-glass clack
+    undo(c, t)  { tone(c, t, 520, 0.22, 'sine', 0.1, 170); },                          // the work unwinds
+    chime(c, t) { tone(c, t, 880, 0.22, 'sine', 0.05); tone(c, t + 0.05, 1318, 0.28, 'sine', 0.035); }, // your move
+    sting(c, t) { tone(c, t, 392, 0.3, 'triangle', 0.08); tone(c, t + 0.13, 523, 0.4, 'triangle', 0.08); },
+    win(c, t)   { [523, 659, 784, 1046].forEach((f, i) => tone(c, t + i * 0.1, f, 0.3, 'triangle', 0.08)); },
+    lose(c, t)  { [392, 311, 262].forEach((f, i) => tone(c, t + i * 0.14, f, 0.34, 'triangle', 0.07)); },
+  };
+
+  return {
+    play(name) {
+      if (muted) return;
+      const c = ensure();
+      if (!c || !recipes[name]) return;
+      try { recipes[name](c, c.currentTime); } catch (e) { /* never break the game for a sound */ }
+    },
+    toggle() {
+      muted = !muted;
+      try { localStorage.setItem('stonelock-muted', muted ? '1' : '0'); } catch (e) {}
+      return muted;
+    },
+    isMuted() { return muted; },
+  };
+})();
+
 /* ---------------- Utilities ---------------- */
 
 function shuffle(arr) {
@@ -423,6 +497,7 @@ function executeStep(step) {
         deployCards(i, cards, step.faceUp);
         reveals.push(`${playerName(i)} ${verb(i, 'show')} ${cards.map(c => c.type).join(' and ')}`);
       }
+      SFX.play(step.faceUp ? 'flip' : 'card');
       if (step.faceUp) {
         log(`The cards flip in the same breath. ${reveals.join('; ')}.`);
         announce('The Foundation — every layout is revealed');
@@ -471,6 +546,7 @@ function promptHuman(step) {
   }
   G.viewer = seat;
   G.activeSeat = seat;
+  SFX.play('chime');
   switch (step.t) {
     case 'declare':
       UI.mode = 'pickStone';
@@ -674,6 +750,7 @@ function describeCard(card) {
 function verb(actor, base) { return playerName(actor) === 'You' ? base : base + 's'; }
 
 function applyStone(actor, color, target) {
+  SFX.play(color === 'black' ? 'undo' : 'stone');
   const ev = { id: G.events.length, color, actor, undone: false };
   switch (color) {
     case 'white':
@@ -1076,6 +1153,7 @@ function showdown() {
   }
   log('The Showdown — every veiled card on the table is flipped face-up.', 'sys');
   announce('The Showdown — every veiled card is flipped');
+  SFX.play('sting');
 
   const sel = G.players.map(p => bestSelection(
     p.board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
@@ -1700,6 +1778,7 @@ function showVictory() {
     winnerEnt = G.ledger >= G.target ? e.find(x => x.members.includes(0)) : e.find(x => !x.members.includes(0));
   }
   const won = winnerEnt.members.some(isHuman);
+  SFX.play(won ? 'win' : 'lose');
   if (G.humans.length > 1) {
     $('victoryTitle').textContent = `${winnerEnt.name} take${winnerEnt.members.length > 1 ? '' : 's'} the table`;
     $('victoryText').textContent = `The match settles at ${G.target} after ${G.handNum} hands. Somewhere down the line, someone is already complaining about how it was done.`;
@@ -1848,6 +1927,8 @@ function boot() {
   };
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('passBtn').onclick = passConfirm;
+  $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
+  $('muteBtn').onclick = () => { $('muteBtn').textContent = SFX.toggle() ? '🔇' : '🔊'; };
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = openSetup;
   $('fsBtn').onclick = () => {
