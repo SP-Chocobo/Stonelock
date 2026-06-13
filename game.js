@@ -44,7 +44,7 @@ const REGIONS = {
 const TABLE_REGION = 'bar';
 
 const STONES = {
-  red:   { name: 'Red Stone',   power: 'Duplication', desc: 'Places a phantom duplicate onto one of your cards, letting it count twice toward Pairs and Triads.' },
+  red:   { name: 'Red Stone',   power: 'Duplication', desc: 'Places a phantom duplicate onto one of your cards. The phantom can stand as the second or third copy for a Pair or Triad bonus, but scores no point value of its own.' },
   white: { name: 'White Stone', power: 'Lock',        desc: 'Protects a card. A locked card cannot be altered, stolen, or neutralized for the rest of the hand.' },
   blue:  { name: 'Blue Stone',  power: 'Exchange',    desc: 'Forcibly swaps one of your cards with an unprotected card in an opponent’s layout. Visibility states stay as they were.' },
   black: { name: 'Black Stone', power: 'Disruption',  desc: 'Undoes the last stone effect upon a card. Played on your turn like any other stone; it cannot itself be undone.' },
@@ -84,7 +84,10 @@ function shuffle(arr) {
 /* ---------------- Scoring ----------------
    A board card may carry a Red Stone, granting one phantom
    duplicate. The phantom may only be fielded alongside its
-   physical card. Best 3 units are selected from the layout. */
+   physical card, and it counts toward STRUCTURE ONLY: it can stand
+   as the second or third copy for a Pair or Triad bonus, but it
+   adds no regional point value of its own. A weak phantom may
+   simply not make the scoring set. Best 3 units are selected. */
 
 function bestSelection(cards, values) {
   let best = null;
@@ -106,7 +109,7 @@ function bestSelection(cards, values) {
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < contrib[i]; k++) {
         counts[cards[i].type] = (counts[cards[i].type] || 0) + 1;
-        raw += values[cards[i].type];
+        if (k === 0) raw += values[cards[i].type]; // phantoms score no raw value
         picks.push({ type: cards[i].type, phantom: k > 0, cardIdx: i });
       }
     }
@@ -705,22 +708,39 @@ function aiDeclare(who) {
   announce(`${playerName(who)} telegraphs a ${STONES[choice].name}`, choice, who);
 }
 
+// Telegraphs are part mind game: order the pouch by situational
+// value, but sample with randomness so tables don't converge on a
+// single doctrine (and so declarations can be honest bluffs).
 function aiStonePreference(who) {
   const p = G.players[who];
   const counts = {};
   for (const c of p.hand.concat(p.board.filter(b => b.owner === who))) {
     counts[c.type] = (counts[c.type] || 0) + 1;
   }
-  const hasMultiple = Object.values(counts).some(v => v >= 2);
+  const hasPair = Object.values(counts).some(v => v >= 2);
   const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
-  const prefs = [];
-  if (hasMultiple) prefs.push('red');
-  if (threatened || hasMultiple) prefs.push('white');
-  prefs.push('blue');
-  prefs.push('black');
-  if (!hasMultiple) prefs.unshift('blue');
-  if (Math.random() < 0.25) shuffle(prefs);
-  return prefs;
+  const enemiesShowedValue = opponentsOf(who).some(o => G.players[o].declared.some(c => c === 'red' || c === 'blue'));
+  const weights = {
+    red: hasPair ? 2.4 : 1.0,
+    white: threatened ? 2.6 : 1.3,
+    blue: 2.2,
+    black: enemiesShowedValue ? 2.0 : 1.2,
+  };
+  return weightedOrder(STONE_KEYS, weights);
+}
+
+function weightedOrder(keys, weights) {
+  const pool = keys.slice();
+  const out = [];
+  while (pool.length) {
+    let ball = Math.random() * pool.reduce((s, k) => s + weights[k], 0);
+    for (let i = 0; i < pool.length; i++) {
+      ball -= weights[pool[i]];
+      if (ball <= 0) { out.push(pool.splice(i, 1)[0]); break; }
+    }
+    if (ball > 0) out.push(pool.pop()); // float-edge fallback
+  }
+  return out;
 }
 
 function aiChooseDeploy(who, step) {
@@ -1487,10 +1507,10 @@ function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchW
   function memberHtml(i) {
     const s = sel[i];
     const picksHtml = s.picks.map(p => `
-      <div class="pickcard${p.phantom ? ' phantom' : ''}">
+      <div class="pickcard${p.phantom ? ' phantom' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : ''}>
         <div class="cicon">${ICONS[p.type]}</div>
         <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
-        <div class="cval">${regionVal(p.type)}</div>
+        <div class="cval">${p.phantom ? '✧' : regionVal(p.type)}</div>
       </div>`).join('');
     const caption = ents.length === G.players.length ? '' : `<div class="membername">${playerName(i)}</div>`;
     return `${caption}<div class="pickrow">${picksHtml}</div>

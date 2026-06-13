@@ -50,6 +50,9 @@ The source document leaves a few edges to the hosting venue; this table rules:
 - A locked card cannot be targeted by *any* subsequent stone, from any player —
   and if either card of a trade is later locked, a Black Stone can no longer
   unwind that trade.
+- A Red Stone's phantom counts toward **structure only**: it can stand as the
+  second or third copy for a Pair or Triad bonus, but scores no regional value
+  of its own (per "build toward a Pair or Triad *flat bonus*").
 - One Red Stone per card.
 - A Blue or Black Stone (or any stone with no legal target) may be set down
   without effect.

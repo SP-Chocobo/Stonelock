@@ -33,28 +33,38 @@ r = bestSelection([
 ], bar);
 check('triad', [r.score, r.raw, r.bonus, r.structure], [15, 9, 6, 'triad']);
 
-// Red phantom: one Bread with red = Bread+phantom+Coin = 3+3+3 +2 pair = 11
+// Red phantom scores structure only: Bread(red)+phantom+Coin = 3+0+3 +2 pair = 8
+// (beats the 7-point singles line, but no free 3 points)
 r = bestSelection([
   { type: 'Bread', hasRed: true }, { type: 'Coin', hasRed: false },
   { type: 'Quill', hasRed: false }, { type: 'Crest', hasRed: false },
 ], bar);
-check('red phantom pair', [r.score, r.structure], [11, 'pair']);
+check('red phantom pair (structure only)', [r.score, r.raw, r.structure], [8, 6, 'pair']);
 
 // Red completing a triad (the prose scenario): two Ferries, one redded, in dock rules (Ferry=3)
+// Ferry+Ferry+phantom = 3+3+0+6 = 12, beating Ferry+Ferry+Road = 11
 const dock = REGIONS.dock.values;
 r = bestSelection([
   { type: 'Ferry', hasRed: true }, { type: 'Ferry', hasRed: false },
   { type: 'Sword', hasRed: false }, { type: 'Road', hasRed: false },
 ], dock);
-check('phantom triad (prose scenario)', [r.score, r.structure], [15, 'triad']); // 3*3+6
+check('phantom triad (prose scenario)', [r.score, r.structure], [12, 'triad']);
 
 // Phantom must not be double-used beyond 3 units / requires host card:
-// single Chain with red in house (Chain=3): chain+phantom+next best
+// single Chain with red in house (Chain=3): chain+phantom+best single = 3+0+1+2 = 6
 r = bestSelection([
   { type: 'Chain', hasRed: true }, { type: 'Bread', hasRed: false },
   { type: 'Coin', hasRed: false }, { type: 'Sword', hasRed: false },
 ], house);
-check('phantom pair house', [r.score, r.structure], [9, 'pair']); // 3+3+1+2
+check('phantom pair house', [r.score, r.structure], [6, 'pair']);
+
+// A weak phantom may not make the scoring set at all:
+// Quill(red) pair = 1+0+3+2 = 6 loses to Bread+Coin+Road = 9 singles
+r = bestSelection([
+  { type: 'Quill', hasRed: true }, { type: 'Bread', hasRed: false },
+  { type: 'Coin', hasRed: false }, { type: 'Road', hasRed: false },
+], bar);
+check('weak phantom left out of the set', [r.score, r.structure, r.picks.some(p => p.phantom)], [9, 'singles', false]);
 
 // House values sanity
 check('house values', [house.Chain, house.Crest, house.Quill, house.Ferry, house.Road, house.Bread, house.Coin, house.Sword], [3,3,3,2,2,1,1,1]);
