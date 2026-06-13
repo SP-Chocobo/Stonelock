@@ -6,9 +6,58 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
+
+<!-- Title screen -->
+<div id="titleScreen" class="titlescreen">
+  <div class="titleinner">
+    <div class="emblem" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="92" fill="none" stroke="#c9a050" stroke-width="2.5"/>
+        <circle cx="100" cy="100" r="84" fill="none" stroke="#6e5a2e" stroke-width="1"/>
+        <!-- fanned cards behind -->
+        <g transform="translate(100 118)">
+          <g transform="rotate(-20)"><rect x="-26" y="-44" width="52" height="74" rx="6" fill="#352b1f" stroke="#c9a050" stroke-width="2"/></g>
+          <g transform="rotate(0)"><rect x="-26" y="-48" width="52" height="78" rx="6" fill="#41331f" stroke="#e8c477" stroke-width="2"/></g>
+          <g transform="rotate(20)"><rect x="-26" y="-44" width="52" height="74" rx="6" fill="#352b1f" stroke="#c9a050" stroke-width="2"/></g>
+        </g>
+        <!-- sword -->
+        <g stroke="#e8dcbe" stroke-linecap="round">
+          <line x1="100" y1="34" x2="100" y2="150" stroke-width="6"/>
+          <polygon points="100,28 104,40 96,40" fill="#e8dcbe" stroke="none"/>
+          <line x1="80" y1="132" x2="120" y2="132" stroke-width="6"/>
+          <line x1="100" y1="150" x2="100" y2="164" stroke-width="8" stroke="#8a6d3b"/>
+        </g>
+        <!-- coins -->
+        <g>
+          <circle cx="62" cy="150" r="15" fill="#d9a83d" stroke="#7a5a14" stroke-width="2.5"/>
+          <circle cx="62" cy="150" r="8" fill="none" stroke="#7a5a14" stroke-width="1.6"/>
+          <circle cx="138" cy="150" r="15" fill="#d9a83d" stroke="#7a5a14" stroke-width="2.5"/>
+          <circle cx="138" cy="150" r="8" fill="none" stroke="#7a5a14" stroke-width="1.6"/>
+        </g>
+      </svg>
+    </div>
+    <h1 class="titlename">Stonelock</h1>
+    <div class="titlesub">a Keth Mara game</div>
+    <div class="titlebtns">
+      <button id="titleStart" class="btn primary big">Start Game</button>
+      <button id="titleTutorial" class="btn big">Tutorial</button>
+      <button id="titleRules" class="btn big">Rules</button>
+    </div>
+    <div class="titlefoot">A game of regional leverage, point optimization, and tactical wills.</div>
+  </div>
+</div>
+
+<!-- Tutorial coach panel -->
+<div id="coach" class="coach" style="display:none">
+  <div id="coachText" class="coachtext"></div>
+  <div class="coachbtns">
+    <button id="coachNext" class="btn primary">Next</button>
+    <button id="coachSkip" class="btn ghost">Skip tutorial</button>
+  </div>
+</div>
 
 <div class="game">
 
@@ -42,6 +91,7 @@
       <button id="rulesBtn" class="btn">Rules</button>
       <button id="reviewBtn" class="btn" title="Review the last showdown" disabled>Last Hand</button>
       <button id="newGameBtn" class="btn">New Match</button>
+      <button id="titleBtn" class="btn" title="Return to the title screen">Menu</button>
       <button id="fsBtn" class="btn" title="Toggle browser fullscreen (also F11)">⛶</button>
       <button id="muteBtn" class="btn" title="Sound on/off">🔊</button>
     </div>
@@ -98,6 +148,18 @@
     <h2 id="passTitle"></h2>
     <p class="modalsub">Keep the table honest — no peeking at veiled cards.</p>
     <div class="modalbtns"><button id="passBtn" class="btn primary big"></button></div>
+  </div>
+</div>
+
+<!-- Quit-to-title confirmation -->
+<div id="quitModal" class="modal">
+  <div class="modalcard">
+    <h2>Leave the table?</h2>
+    <p>Are you sure you want to quit? The match in progress will be abandoned.</p>
+    <div class="modalbtns">
+      <button id="quitYes" class="btn primary">Quit to title</button>
+      <button id="quitNo" class="btn">Stay at the table</button>
+    </div>
   </div>
 </div>
 
@@ -198,6 +260,6 @@
   </div>
 </div>
 
-<script src="game.js?v=28"></script>
+<script src="game.js?v=29"></script>
 </body>
 </html>

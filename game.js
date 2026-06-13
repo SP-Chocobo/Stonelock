@@ -275,6 +275,8 @@ const TEAM_MODES = new Set(['teams', 'hs-team', 'hs-rivals']);
 
 function newGame(cfg) {
   clearTimeout(runTimer);
+  INGAME = true;
+  hideTitle();
   const n = (cfg.mode === 'duel' || cfg.mode === 'hotseat') ? 2 : 4;
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
@@ -1448,6 +1450,144 @@ function render() {
   $('reviewBtn').disabled = !G.lastShowdown;
   UI.flashIds = []; // flash plays once per action, not per re-render
   animateMoves(prevRects);
+  if (TUT.active && TUT.phase === 'live') tutorialTick();
+}
+
+/* ============================================================
+   TITLE SCREEN, QUIT, TUTORIAL
+   ============================================================ */
+
+let INGAME = false;
+
+function hideTitle() { if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden'); }
+
+function showTitle() {
+  if (typeof document === 'undefined') return;
+  clearTimeout(runTimer);
+  INGAME = false;
+  TUT.active = false;
+  coachHide();
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
+  G = null;
+  $('titleScreen').classList.remove('hidden');
+}
+
+function requestQuitToTitle() {
+  if (INGAME) $('quitModal').classList.add('open');
+  else showTitle();
+}
+
+/* ---------- Tutorial ---------- */
+
+const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0 };
+
+const TUT_INTRO = [
+  { sel: '.game', text: '<b>Welcome to Stonelock.</b> You are not building a careful recipe — you are seizing assets. Each hand, you field three cards and bend the board with stones. Let’s walk one hand together.' },
+  { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the Pivot Marker slides toward your side by the point difference. Push it the whole way — here, to 10 — and the match is yours.' },
+  { sel: '#youSeats', text: 'This is <b>your layout</b>. Cards you commit land here in numbered slots. The Stranger’s layout sits across the table, above.' },
+  { sel: '#panels', text: 'The sidebar tracks every seat: who holds the <b>Dealer Token</b>, the stones still in their pouch, and the stones they’ve <b>telegraphed</b> (shown but not yet used).' },
+  { sel: '.game', text: 'A hand runs in phases: telegraph stones, commit cards (some open, some veiled), thin your stones to two, then resolve them and reach the showdown. Ready — the deal begins.' },
+];
+
+function startTutorial() {
+  TUT.active = true;
+  TUT.phase = 'intro';
+  TUT.seen = new Set();
+  TUT.introStep = 0;
+  hideTitle();
+  tutIntro();
+}
+
+function tutIntro() {
+  const step = TUT_INTRO[TUT.introStep];
+  coachShow(step.text, step.sel, {
+    next: () => {
+      TUT.introStep++;
+      if (TUT.introStep < TUT_INTRO.length) tutIntro();
+      else {
+        TUT.phase = 'live';
+        coachHide();
+        newGame({ venue: 'tavern', mode: 'duel', deal: 'small', target: 10, targeting: 'standard' });
+      }
+    },
+    nextLabel: TUT.introStep === TUT_INTRO.length - 1 ? 'Deal the hand' : 'Next',
+  });
+}
+
+const TUT_LIVE = {
+  declare: { sel: '#stoneTray', text: '<b>Telegraph a stone.</b> It’s laid in the open for all to see but does nothing yet — part plan, part bluff. Tap one of the large stones below. (Red duplicates, White locks, Blue steals, Black undoes.)' },
+  deploy:  { sel: '#handArea', text: '<b>Commit your cards.</b> Tap cards from your hand, then confirm. Early ones go face-up; later ones are veiled. Your three best of four are scored at the end.' },
+  thin:    { sel: '#stoneTray', text: '<b>The Thinning.</b> You telegraphed three stones — now abandon one. The two you keep are the ones you’ll actually place.' },
+  place:   { sel: '#stoneTray', text: '<b>Resolve a stone.</b> Now your stones act for real. Choose one to place, then pick its target on the board.' },
+};
+
+function tutorialTick() {
+  if ($('showdownModal').classList.contains('open')) {
+    if (!TUT.seen.has('showdown')) {
+      TUT.seen.add('showdown');
+      coachShow('<b>The Showdown.</b> Every veiled card flips. Each player’s best three of four are scored — raw values plus a Pair (+2) or Triad (+6) bonus. The ledger moves by the difference. That’s a full hand!', '#showdownBody', { next: tutFinish, nextLabel: 'Finish' });
+    }
+    return;
+  }
+  const step = TUT_LIVE[
+    UI.mode === 'pickStone' ? 'declare' :
+    UI.mode === 'pickCards' ? 'deploy' :
+    UI.mode === 'thin' ? 'thin' :
+    UI.mode === 'placeChoose' ? 'place' : null
+  ];
+  const key = step && Object.keys(TUT_LIVE).find(k => TUT_LIVE[k] === step);
+  if (step && !TUT.seen.has(key)) {
+    TUT.seen.add(key);
+    coachShow(step.text, step.sel, { action: true });
+  } else if (!step || TUT.seen.has(key)) {
+    // No fresh lesson for this moment (AI turn, or a repeat) — clear the spotlight.
+    if (!$('showdownModal').classList.contains('open')) coachHide();
+  }
+}
+
+function tutFinish() {
+  coachShow('You’ve played a hand of Stonelock. Keep going to finish this short match, or return to the title to set your own table.', null, {
+    next: () => { TUT.active = false; TUT.phase = 'idle'; coachHide(); },
+    nextLabel: 'Keep playing',
+    alt: { label: 'To title', fn: showTitle },
+  });
+}
+
+/* ---------- Coach panel ---------- */
+
+function tutHighlight(sel) {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.tut-spotlight').forEach(e => e.classList.remove('tut-spotlight'));
+  if (sel) { const el = document.querySelector(sel); if (el) el.classList.add('tut-spotlight'); }
+}
+
+function coachShow(html, sel, opts = {}) {
+  if (typeof document === 'undefined') return;
+  $('coachText').innerHTML = html;
+  tutHighlight(sel);
+  const next = $('coachNext');
+  if (opts.next) {
+    next.style.display = '';
+    next.textContent = opts.nextLabel || 'Next';
+    next.onclick = opts.next;
+  } else {
+    next.style.display = 'none'; // action-driven: the move itself advances
+  }
+  const skip = $('coachSkip');
+  if (opts.alt) {
+    skip.textContent = opts.alt.label;
+    skip.onclick = opts.alt.fn;
+  } else {
+    skip.textContent = 'Skip tutorial';
+    skip.onclick = showTitle;
+  }
+  $('coach').style.display = '';
+}
+
+function coachHide() {
+  if (typeof document === 'undefined') return;
+  $('coach').style.display = 'none';
+  tutHighlight(null);
 }
 
 function renderScore() {
@@ -1997,6 +2137,11 @@ function renderSetup() {
 
   const btns = $('setupBtns');
   btns.innerHTML = '';
+  const back = document.createElement('button');
+  back.className = 'btn';
+  back.textContent = '‹ Title';
+  back.onclick = () => { closeModal('setupModal'); showTitle(); };
+  btns.appendChild(back);
   const deal = document.createElement('button');
   deal.id = 'startBtn';
   deal.className = 'btn primary big';
@@ -2056,7 +2201,14 @@ function boot() {
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
   };
   $('victoryNew').onclick = () => { closeModal('victoryModal'); openSetup(); };
-  openSetup();
+  $('titleBtn').onclick = requestQuitToTitle;
+  $('quitYes').onclick = () => { closeModal('quitModal'); showTitle(); };
+  $('quitNo').onclick = () => closeModal('quitModal');
+  $('titleStart').onclick = () => { hideTitle(); openSetup(); };
+  $('titleTutorial').onclick = startTutorial;
+  $('titleRules').onclick = () => $('rulesModal').classList.add('open');
+  $('coachNext').onclick = () => {}; // assigned per-step by coachShow
+  showTitle();
 }
 
 if (typeof window !== 'undefined') {

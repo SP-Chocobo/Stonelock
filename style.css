@@ -825,6 +825,81 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Title screen ---------- */
+
+.titlescreen {
+  position: fixed; inset: 0;
+  z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(201,160,80,0.12), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgba(201,160,80,0.06), transparent 55%),
+    var(--bg);
+  overflow-y: auto;
+}
+.titlescreen.hidden { display: none; }
+.titleinner { text-align: center; padding: 30px 20px; max-width: 540px; }
+.emblem { width: 188px; height: 188px; margin: 0 auto 6px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)); }
+.emblem svg { width: 100%; height: 100%; }
+.titlename {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 700;
+  font-size: 54px;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: var(--gold);
+  text-shadow: 0 3px 6px rgba(0,0,0,0.7);
+}
+.titlesub {
+  font-family: 'Alegreya', Georgia, serif;
+  font-style: italic;
+  font-size: 19px;
+  color: var(--parchment-dim);
+  margin: 2px 0 26px;
+  letter-spacing: 0.03em;
+}
+.titlebtns { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.titlebtns .btn { width: 240px; }
+.titlefoot {
+  margin-top: 26px;
+  font-size: 13px;
+  font-style: italic;
+  color: #8d7f63;
+}
+
+/* ---------- Tutorial coach ---------- */
+
+.coach {
+  position: fixed;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 95;
+  width: min(560px, 92vw);
+  background: linear-gradient(175deg, #322819, #221a10);
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.8);
+  padding: 14px 18px;
+}
+.coachtext { font-size: 15px; line-height: 1.5; color: var(--parchment); }
+.coachtext b { color: var(--gold-bright); }
+.coachbtns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+
+/* The element the tutorial is pointing at */
+.tut-spotlight {
+  position: relative;
+  z-index: 93;
+  outline: 3px solid var(--gold-bright) !important;
+  outline-offset: 3px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 4000px rgba(8,6,4,0.66), 0 0 22px rgba(232,196,119,0.5) !important;
+  animation: tutpulse 1.4s ease-in-out infinite;
+}
+@keyframes tutpulse {
+  0%, 100% { outline-color: var(--gold-bright); }
+  50% { outline-color: var(--gold-dim); }
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1150px) {

@@ -10,6 +10,11 @@ straight out of your opponent's layout — before the showdown flips every veile
 
 ## Playing
 
+Open `index.html` and you land on the **title screen** — Start Game, Tutorial,
+or Rules. The guided **tutorial** walks one full hand, spotlighting each piece
+of the UI as it comes up. In a match, the sidebar **Menu** button returns to the
+title (with a confirmation so you don't lose a game by accident).
+
 No build step and no dependencies — open `index.html` in any modern browser.
 
 Or serve it locally:
