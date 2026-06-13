@@ -680,6 +680,20 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   padding: 20px;
 }
 .modal.open { display: flex; }
+.modal.pass { background: rgba(10,8,5,0.98); z-index: 70; }
+
+.namerow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.nameinput {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--edge);
+  border-radius: 7px;
+  color: var(--parchment);
+  font-family: 'Alegreya', Georgia, serif;
+  font-size: 14px;
+  padding: 7px 11px;
+  width: 160px;
+}
+.nameinput:focus { outline: none; border-color: var(--gold-dim); }
 
 .modalcard {
   background:

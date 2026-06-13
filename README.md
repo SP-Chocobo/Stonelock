@@ -23,6 +23,9 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
 
 ## This version
 
+- **Hotseat play**: two humans on one device — duel, allied 2v2, or rival 2v2
+  with AI partners — with name entry and a pass-confirmation screen guarding
+  hidden information between turns.
 - **Three table formats**: Solo 1v1, 4-player Free-for-All, and Paired Teams
   (2v2 — your AI partner sits opposite; team totals decide the showdown, but
   multiples never pool across layouts; partners may Lock each other's cards

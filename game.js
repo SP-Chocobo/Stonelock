@@ -177,9 +177,11 @@ let G = null;
 let UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null, flashIds: [] };
 let runTimer = null;
 
+const TEAM_MODES = new Set(['teams', 'hs-team', 'hs-rivals']);
+
 function newGame(cfg) {
   clearTimeout(runTimer);
-  const n = cfg.mode === 'duel' ? 2 : 4;
+  const n = (cfg.mode === 'duel' || cfg.mode === 'hotseat') ? 2 : 4;
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams'
@@ -190,7 +192,9 @@ function newGame(cfg) {
     cursedType: null,
     region: REGIONS[cfg.region || venue.region],
     nPlayers: n,
-    names: buildNames(cfg.mode),
+    names: buildNames(cfg.mode, cfg.names || []),
+    humans: humansFor(cfg.mode),
+    viewer: 0,
     ledger: 0,                      // duel/teams: positive = your side
     scores: new Array(n).fill(0),   // ffa: banked margins
     dealer: Math.floor(Math.random() * n),
@@ -216,14 +220,27 @@ function newGame(cfg) {
   startHand();
 }
 
-function buildNames(mode) {
+function buildNames(mode, entered) {
+  const n1 = entered[0] || 'Player One';
+  const n2 = entered[1] || 'Player Two';
   if (mode === 'teams') return ['You', AI_ROSTER[0], PARTNER_NAME, AI_ROSTER[1]];
   if (mode === 'ffa') return ['You', ...AI_ROSTER];
+  if (mode === 'hotseat') return [n1, n2];
+  // Seats alternate teams: {0,2} vs {1,3}.
+  if (mode === 'hs-team') return [n1, AI_ROSTER[0], n2, AI_ROSTER[1]];   // humans allied
+  if (mode === 'hs-rivals') return [n1, n2, PARTNER_NAME, AI_ROSTER[2]]; // humans opposed, AI partners
   return ['You', AI_ROSTER[0]];
 }
 
+function humansFor(mode) {
+  if (mode === 'hotseat' || mode === 'hs-rivals') return [0, 1];
+  if (mode === 'hs-team') return [0, 2];
+  return [0];
+}
+
 function playerName(i) { return G.names[i]; }
-function teamOf(i) { return G.mode === 'teams' ? i % 2 : i; }
+function isHuman(i) { return G.humans.includes(i); }
+function teamOf(i) { return TEAM_MODES.has(G.mode) ? i % 2 : i; }
 function isOpponent(a, b) { return teamOf(a) !== teamOf(b); }
 function opponentsOf(me) {
   return G.players.map(p => p.idx).filter(i => isOpponent(me, i));
@@ -306,13 +323,13 @@ function startHand() {
     { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` },
     { t: 'phase', label: 'Phase 2 — The Foundation', note: 'Declare your first stone, then commit two cards face-up.' },
     ...dOrd.map(w => ({ t: 'declare', who: w, n: 1 })),
-    { t: 'deploy', count: dep[0].c, faceUp: dep[0].up },
+    { t: 'deploy', count: dep[0].c, faceUp: dep[0].up, pendingHumans: G.humans.slice(), choices: {} },
     { t: 'phase', label: 'Phase 3 — The Veil', note: `Declare your second stone (reverse order), then commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down.` },
     ...rOrd.map(w => ({ t: 'declare', who: w, n: 2 })),
-    { t: 'deploy', count: dep[1].c, faceUp: dep[1].up },
+    { t: 'deploy', count: dep[1].c, faceUp: dep[1].up, pendingHumans: G.humans.slice(), choices: {} },
     { t: 'phase', label: 'Phase 4 — The Final Commitment', note: 'Declare your third stone, then commit one final card. Leftover hand cards are discarded dead.' },
     ...dOrd.map(w => ({ t: 'declare', who: w, n: 3 })),
-    { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true },
+    { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
     { t: 'phase', label: 'Phase 5 — The Thinning', note: 'In reverse order, each player abandons one telegraphed stone, leaving two active.' },
     ...rOrd.map(w => ({ t: 'thin', who: w })),
     { t: 'phase', label: 'Phase 6 — First Stone Resolution', note: 'In deal order, each player applies their first active stone.' },
@@ -343,10 +360,10 @@ function dramatic(ms) {
 function preWait(step) {
   switch (step.t) {
     case 'phase': return 500;
-    case 'declare': return step.who !== 0 ? 900 : 0;
+    case 'declare': return !isHuman(step.who) ? 900 : 0;
     case 'deploy': return 700;
-    case 'thin': return step.who !== 0 ? 900 : 0;
-    case 'place': return (step.who !== 0 && G.players[step.who].active.length > 0) ? 1300 : 0;
+    case 'thin': return !isHuman(step.who) ? 900 : 0;
+    case 'place': return (!isHuman(step.who) && G.players[step.who].active.length > 0) ? 1300 : 0;
     case 'beat': return step.ms || 900;
     default: return 0;
   }
@@ -358,7 +375,6 @@ function run() {
   while (G.queue.length && !G.over) {
     const step = G.queue[0];
     if (stepNeedsHuman(step)) {
-      G.activeSeat = 0;
       promptHuman(step);
       render();
       autoScrollToPrompt();
@@ -383,10 +399,10 @@ function run() {
 
 function stepNeedsHuman(step) {
   switch (step.t) {
-    case 'declare': return step.who === 0;
-    case 'deploy': return !step.humanDone;
-    case 'thin': return step.who === 0;
-    case 'place': return step.who === 0 && G.players[0].active.length > 0;
+    case 'declare': return isHuman(step.who);
+    case 'deploy': return step.pendingHumans.length > 0;
+    case 'thin': return isHuman(step.who);
+    case 'place': return isHuman(step.who) && G.players[step.who].active.length > 0;
     default: return false;
   }
 }
@@ -400,16 +416,15 @@ function executeStep(step) {
       aiDeclare(step.who);
       break;
     case 'deploy': {
-      // Human portion already stored in step.humanCards by the UI.
+      // Human portions already stored in step.choices by the UI.
       const reveals = [];
-      for (let i = 1; i < G.nPlayers; i++) {
-        const cards = aiChooseDeploy(i, step);
+      for (let i = 0; i < G.nPlayers; i++) {
+        const cards = isHuman(i) ? step.choices[i] : aiChooseDeploy(i, step);
         deployCards(i, cards, step.faceUp);
-        reveals.push(`${playerName(i)} shows ${cards.map(c => c.type).join(' and ')}`);
+        reveals.push(`${playerName(i)} ${verb(i, 'show')} ${cards.map(c => c.type).join(' and ')}`);
       }
-      deployCards(0, step.humanCards, step.faceUp);
       if (step.faceUp) {
-        log(`The cards flip in the same breath. You show ${step.humanCards.map(c => c.type).join(' and ')}; ${reveals.join('; ')}.`);
+        log(`The cards flip in the same breath. ${reveals.join('; ')}.`);
         announce('The Foundation — every layout is revealed');
         UI.flashIds = G.players.flatMap(p => p.board).map(c => c.id);
       } else {
@@ -428,7 +443,7 @@ function executeStep(step) {
       aiThin(step.who);
       break;
     case 'place':
-      if (step.who !== 0 && G.players[step.who].active.length > 0) aiPlace(step.who);
+      if (!isHuman(step.who) && G.players[step.who].active.length > 0) aiPlace(step.who);
       break;
     case 'beat':
       break;
@@ -441,6 +456,21 @@ function executeStep(step) {
 /* ---------------- Human prompts ---------------- */
 
 function promptHuman(step) {
+  const seat = step.t === 'deploy' ? step.pendingHumans[0] : step.who;
+  // Hotseat: hide the table behind a pass screen until the right
+  // player is holding the device.
+  if (G.humans.length > 1 && G.viewer !== seat) {
+    UI.mode = 'pass';
+    UI.passSeat = seat;
+    if (typeof document !== 'undefined') {
+      $('passTitle').textContent = `Pass the device to ${playerName(seat)}`;
+      $('passBtn').textContent = `I am ${playerName(seat)}`;
+      $('passModal').classList.add('open');
+    }
+    return;
+  }
+  G.viewer = seat;
+  G.activeSeat = seat;
   switch (step.t) {
     case 'declare':
       UI.mode = 'pickStone';
@@ -478,15 +508,26 @@ function autoScrollToPrompt() {
   if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-/* ---- Human input handlers (wired from render) ---- */
+/* ---- Human input handlers (wired from render) ----
+   All operate on the current viewer's seat (always 0 except in
+   hotseat play, where the pass screen rotates the viewer). ---- */
+
+function passConfirm() {
+  G.viewer = UI.passSeat;
+  UI.passSeat = null;
+  UI.mode = 'idle';
+  closeModal('passModal');
+  run();
+}
 
 function humanDeclare(color) {
-  const p = G.players[0];
+  const me = G.viewer;
+  const p = G.players[me];
   if (p.pool[color] <= 0 || UI.mode !== 'pickStone') return;
   p.pool[color]--;
   p.declared.push(color);
-  log(`You set a ${STONES[color].name} in the open. (${STONES[color].power})`, 'you');
-  announce(`You telegraph a ${STONES[color].name}`, color, 0);
+  log(`${playerName(me)} ${verb(me, 'set')} a ${STONES[color].name} in the open. (${STONES[color].power})`, 'you');
+  announce(`${playerName(me)} ${verb(me, 'telegraph')} a ${STONES[color].name}`, color, me);
   finishHumanStep();
 }
 
@@ -500,27 +541,28 @@ function humanToggleCard(card) {
 function humanConfirmDeploy() {
   const step = G.queue[0];
   if (!step || step.t !== 'deploy' || UI.selected.length !== step.count) return;
-  step.humanCards = UI.selected.slice();
-  step.humanDone = true;
+  const seat = step.pendingHumans.shift();
+  step.choices[seat] = UI.selected.slice();
   UI.selected = [];
   UI.mode = 'idle';
   run();
 }
 
 function humanThin(index) {
-  const p = G.players[0];
+  const me = G.viewer;
+  const p = G.players[me];
   if (UI.mode !== 'thin' || index >= p.declared.length) return;
   const color = p.declared[index];
   p.removed = color;
   p.declared.splice(index, 1);
   p.active = p.declared.slice();
-  log(`You slide your ${STONES[color].name} back to your pouch. Two stones stay live.`, 'you');
-  announce(`You abandon a ${STONES[color].name}`, color, 0);
+  log(`${playerName(me)} ${verb(me, 'slide')} a ${STONES[color].name} back to the pouch. Two stones stay live.`, 'you');
+  announce(`${playerName(me)} ${verb(me, 'abandon')} a ${STONES[color].name}`, color, me);
   finishHumanStep();
 }
 
 function humanChooseStone(color) {
-  if (UI.mode !== 'placeChoose' || !G.players[0].active.includes(color)) return;
+  if (UI.mode !== 'placeChoose' || !G.players[G.viewer].active.includes(color)) return;
   UI.pendingStone = color;
   UI.blueOwn = null;
   switch (color) {
@@ -554,46 +596,48 @@ function humanCancelStone() {
 }
 
 function humanDiscardStone() {
-  consumeActive(0, UI.pendingStone);
-  log(`You set your ${STONES[UI.pendingStone].name} down without effect. It passes.`, 'you');
-  announce(`You set a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone, 0);
+  const me = G.viewer;
+  consumeActive(me, UI.pendingStone);
+  log(`${playerName(me)} ${verb(me, 'set')} a ${STONES[UI.pendingStone].name} down without effect. It passes.`, 'you');
+  announce(`${playerName(me)} ${verb(me, 'set')} a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone, me);
   UI.pendingStone = null;
   finishHumanStep();
 }
 
 function validWhiteTarget(card) {
-  return card.zone === 'board' && !isLocked(card) && !isOpponent(0, card.owner);
+  return card.zone === 'board' && !isLocked(card) && !isOpponent(G.viewer, card.owner);
 }
 
 function humanTargetCard(card) {
+  const me = G.viewer;
   const color = UI.pendingStone;
   if (UI.mode === 'target-own') {
     if (color === 'white') {
       if (!validWhiteTarget(card)) return;
     } else { // red
-      if (card.owner !== 0 || card.zone !== 'board' || isLocked(card) || hasRed(card)) return;
+      if (card.owner !== me || card.zone !== 'board' || isLocked(card) || hasRed(card)) return;
     }
-    consumeActive(0, color);
-    applyStone(0, color, { card });
+    consumeActive(me, color);
+    applyStone(me, color, { card });
     UI.pendingStone = null;
     finishHumanStep();
   } else if (UI.mode === 'target-blue-own') {
-    if (card.owner !== 0 || card.zone !== 'board' || isLocked(card)) return;
+    if (card.owner !== me || card.zone !== 'board' || isLocked(card)) return;
     UI.blueOwn = card;
     UI.mode = 'target-blue-opp';
     setPrompt(`Giving up your ${card.faceUp ? card.type : 'veiled card'} — now click the opponent card to seize.`);
     render();
   } else if (UI.mode === 'target-blue-opp') {
-    if (!isOpponent(0, card.owner) || card.zone !== 'board' || isLocked(card)) return;
-    consumeActive(0, 'blue');
-    applyStone(0, 'blue', { give: UI.blueOwn, take: card });
+    if (!isOpponent(me, card.owner) || card.zone !== 'board' || isLocked(card)) return;
+    consumeActive(me, 'blue');
+    applyStone(me, 'blue', { give: UI.blueOwn, take: card });
     UI.pendingStone = null; UI.blueOwn = null;
     finishHumanStep();
   } else if (UI.mode === 'target-black') {
     const ev = undoableEventFor(card);
     if (!ev) return;
-    consumeActive(0, 'black');
-    applyStone(0, 'black', { event: ev, card });
+    consumeActive(me, 'black');
+    applyStone(me, 'black', { event: ev, card });
     UI.pendingStone = null;
     finishHumanStep();
   }
@@ -619,13 +663,15 @@ function slumBlocked(who, color) {
   return G.slum[who].filter(e => e.color === color && e.until >= G.handNum).length;
 }
 
-// All card descriptions are written from the player's seat.
+// Card descriptions are written from the viewer's seat; hotseat
+// tables use plain names so the log reads the same for both players.
 function describeCard(card) {
-  const ownerWord = card.owner === 0 ? 'your' : `${playerName(card.owner)}’s`;
+  const useNames = G.humans.length > 1;
+  const ownerWord = (!useNames && card.owner === G.viewer) ? 'your' : `${playerName(card.owner)}’s`;
   return card.faceUp ? `${ownerWord} ${card.type}` : `${ownerWord} veiled card`;
 }
 
-function verb(actor, base) { return actor === 0 ? base : base + 's'; }
+function verb(actor, base) { return playerName(actor) === 'You' ? base : base + 's'; }
 
 function applyStone(actor, color, target) {
   const ev = { id: G.events.length, color, actor, undone: false };
@@ -633,13 +679,13 @@ function applyStone(actor, color, target) {
     case 'white':
       target.card.stones.push({ color: 'white', by: actor });
       ev.cards = [target.card];
-      log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a White Stone. Untouchable now.`, actor === 0 ? 'you' : 'ai');
+      log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a White Stone. Untouchable now.`, logClass(actor));
       announce(`White Stone — ${describeCard(target.card)} is locked`, 'white', actor);
       break;
     case 'red':
       target.card.stones.push({ color: 'red', by: actor });
       ev.cards = [target.card];
-      log(`${playerName(actor)} ${verb(actor, 'drop')} a Red Stone on ${describeCard(target.card)} — a phantom duplicate shimmers over it.`, actor === 0 ? 'you' : 'ai');
+      log(`${playerName(actor)} ${verb(actor, 'drop')} a Red Stone on ${describeCard(target.card)} — a phantom duplicate shimmers over it.`, logClass(actor));
       announce(`Red Stone — a phantom rises over ${describeCard(target.card)}`, 'red', actor);
       break;
     case 'blue': {
@@ -650,12 +696,12 @@ function applyStone(actor, color, target) {
       ev.give = give; ev.take = take;
       give.prov = { by: actor, partnerId: take.id };
       take.prov = { by: actor, partnerId: give.id };
-      log(`${playerName(actor)} ${verb(actor, 'drop')} a Blue Stone — ${giveDesc} trades places with ${takeDesc}. Whatever was hidden stays hidden.`, actor === 0 ? 'you' : 'ai');
-      announce(`Blue Stone — ${actor === 0 ? 'you seize' : playerName(actor) + ' seizes'} ${takeDesc} for ${giveDesc}`, 'blue', actor);
+      log(`${playerName(actor)} ${verb(actor, 'drop')} a Blue Stone — ${giveDesc} trades places with ${takeDesc}. Whatever was hidden stays hidden.`, logClass(actor));
+      announce(`Blue Stone — ${playerName(actor) === 'You' ? 'you seize' : playerName(actor) + ' seizes'} ${takeDesc} for ${giveDesc}`, 'blue', actor);
       // The receiver may secretly inspect a face-down arrival.
       if (!take.faceUp) {
         take.known[actor] = true;
-        if (actor === 0) toast(`You peek at your new veiled card: it is a ${take.type}.`);
+        if (isHuman(actor) && actor === G.viewer) toast(`You peek at your new veiled card: it is a ${take.type}.`);
       }
       if (!give.faceUp) give.known[give.owner] = true; // its new owner may inspect it
       break;
@@ -668,14 +714,14 @@ function applyStone(actor, color, target) {
       if (prev.color === 'red') {
         const idx = prev.cards[0].stones.findIndex(s => s.color === 'red' && s.by === prev.actor);
         if (idx >= 0) prev.cards[0].stones.splice(idx, 1);
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the phantom over ${describeCard(prev.cards[0])} gutters out.`, actor === 0 ? 'you' : 'ai');
+        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the phantom over ${describeCard(prev.cards[0])} gutters out.`, logClass(actor));
         announce('Black Stone — the phantom is snuffed out', 'black', actor);
       } else if (prev.color === 'blue') {
         // Reverse the trade. Stones travel with their cards.
         swapCards(prev.give, prev.take);
         prev.give.prov = null;
         prev.take.prov = null;
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, actor === 0 ? 'you' : 'ai');
+        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, logClass(actor));
         announce('Black Stone — the trade unwinds, stones and all', 'black', actor);
       }
       break;
@@ -685,6 +731,9 @@ function applyStone(actor, color, target) {
   UI.flashIds = ev.cards.map(c => c.id);
   render();
 }
+
+// In log lines, human actions read as 'you' lines for the player(s).
+function logClass(actor) { return isHuman(actor) ? 'you' : 'ai'; }
 
 function swapCards(a, b) {
   const pa = G.players[a.owner], pb = G.players[b.owner];
@@ -710,10 +759,11 @@ function anyUndoable() {
 }
 
 function stoneHasValidTarget(color) {
-  const mine = G.players[0].board.filter(c => !isLocked(c));
-  const theirs = opponentsOf(0).flatMap(i => G.players[i].board).filter(c => !isLocked(c));
+  const me = G.viewer;
+  const mine = G.players[me].board.filter(c => !isLocked(c));
+  const theirs = opponentsOf(me).flatMap(i => G.players[i].board).filter(c => !isLocked(c));
   switch (color) {
-    case 'white': return mine.length > 0 || alliesOf(0).some(i => G.players[i].board.some(c => !isLocked(c)));
+    case 'white': return mine.length > 0 || alliesOf(me).some(i => G.players[i].board.some(c => !isLocked(c)));
     case 'red': return mine.some(c => !hasRed(c));
     case 'blue': return mine.length > 0 && theirs.length > 0;
     case 'black': return anyUndoable();
@@ -1008,13 +1058,13 @@ function aiPlace(who) {
 /* ---------------- Showdown ---------------- */
 
 function entities() {
-  if (G.mode === 'teams') {
+  if (TEAM_MODES.has(G.mode)) {
     return [
-      { name: 'Your alliance', members: [0, 2] },
+      { name: G.humans.length === 1 ? 'Your alliance' : `${playerName(0)} & ${playerName(2)}`, members: [0, 2] },
       { name: `${playerName(1)} & ${playerName(3)}`, members: [1, 3] },
     ];
   }
-  return G.players.map(p => ({ name: playerName(p.idx), members: [p.idx] }));
+  return Array.from({ length: G.nPlayers }, (_, i) => ({ name: playerName(i), members: [i] }));
 }
 
 function showdown() {
@@ -1208,8 +1258,15 @@ function buildTableDOM() {
   // Score widget: track for two-sided modes, purse list for FFA.
   $('ledgerWrap').style.display = G.mode === 'ffa' ? 'none' : '';
   $('scoreList').style.display = G.mode === 'ffa' ? '' : 'none';
-  $('ledgerHeadAi').textContent = G.mode === 'teams' ? 'Them' : playerName(1).replace('The ', '');
-  $('ledgerHeadYou').textContent = G.mode === 'teams' ? 'Yours' : 'You';
+  if (G.mode !== 'ffa') {
+    const multiHuman = G.humans.length > 1;
+    $('ledgerHeadAi').textContent = TEAM_MODES.has(G.mode)
+      ? (multiHuman ? playerName(1).split(' ')[0] + ' & co.' : 'Them')
+      : playerName(1).replace('The ', '');
+    $('ledgerHeadYou').textContent = TEAM_MODES.has(G.mode)
+      ? (multiHuman ? playerName(0).split(' ')[0] + ' & co.' : 'Yours')
+      : (multiHuman ? playerName(0) : 'You');
+  }
 }
 
 /* ---------- Rendering ---------- */
@@ -1289,7 +1346,10 @@ function renderScore() {
     $('ledgerMarker').style.left = `${Math.max(0, Math.min(100, pct))}%`;
     $('ledgerEndAi').textContent = G.target;
     $('ledgerEndYou').textContent = G.target;
-    $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} your side` : G.ledger < 0 ? `+${-G.ledger} their side` : 'even';
+    const sides = G.humans.length > 1
+      ? [entities()[0].name, entities()[1].name]
+      : ['your side', 'their side'];
+    $('ledgerValue').textContent = G.ledger > 0 ? `+${G.ledger} ${sides[0]}` : G.ledger < 0 ? `+${-G.ledger} ${sides[1]}` : 'even';
   }
 }
 
@@ -1310,8 +1370,8 @@ function renderPanels() {
         dot.className = held ? `stonedot ${color}` : 'stonedot socket' + (isExhausted ? ' exhausted' : '');
         dot.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}` +
           (held ? '' : isExhausted ? ' (Slumlock: exhausted, returning soon)' : ' (telegraphed)');
-        // Your rack is the live pouch: declare stones from here too.
-        if (i === 0 && held && UI.mode === 'pickStone') {
+        // The viewer's rack is the live pouch: declare from here too.
+        if (i === G.viewer && held && UI.mode === 'pickStone') {
           dot.classList.add('targetable');
           dot.onclick = () => humanDeclare(color);
         }
@@ -1325,10 +1385,11 @@ function renderPanels() {
 
 function cardEl(card) {
   const el = document.createElement('div');
-  const visible = card.faceUp || card.known[0];
+  const V = G.viewer;
+  const visible = card.faceUp || card.known[V];
   // Allies' veiled cards stay hidden from you too — only your own
   // veiled cards (and revealed swaps) show their face.
-  const showFace = card.faceUp || (card.known[0] && card.owner === 0);
+  const showFace = card.faceUp || (card.known[V] && card.owner === V);
   el.className = 'card' + (showFace ? '' : ' back') + (card.faceUp ? ' faceup' : ' facedown');
   el.dataset.cardId = card.id;
   if (showFace) {
@@ -1357,7 +1418,7 @@ function cardEl(card) {
     for (const s of card.stones) {
       const dot = document.createElement('span');
       dot.className = `stonedot ${s.color}`;
-      dot.title = `${STONES[s.color].name} (${s.by === 0 ? 'yours' : playerName(s.by) + '’s'})`;
+      dot.title = `${STONES[s.color].name} (${s.by === G.viewer && G.humans.length === 1 ? 'yours' : playerName(s.by) + '’s'})`;
       row.appendChild(dot);
     }
     el.appendChild(row);
@@ -1371,9 +1432,9 @@ function cardEl(card) {
     el.appendChild(badge);
     const partnerId = card.prov.partnerId;
     const partner = G.cards.find(c => c.id === partnerId);
-    const partnerDesc = partner && (partner.faceUp || partner.known[0])
+    const partnerDesc = partner && (partner.faceUp || partner.known[G.viewer])
       ? `the ${partner.type}` : 'the veiled card';
-    el.title = `Changed hands via ${card.prov.by === 0 ? 'your' : playerName(card.prov.by) + '’s'} Blue Stone — traded for ${partnerDesc} (hover to see it).`;
+    el.title = `Changed hands via ${card.prov.by === G.viewer && G.humans.length === 1 ? 'your' : playerName(card.prov.by) + '’s'} Blue Stone — traded for ${partnerDesc} (hover to see it).`;
     el.addEventListener('mouseenter', () => {
       const pe = document.querySelector(`[data-card-id="${partnerId}"]`);
       if (pe) pe.classList.add('tradepair');
@@ -1411,15 +1472,16 @@ function renderBoard(who, container) {
 }
 
 function decorateTarget(card, el) {
+  const me = G.viewer;
   let targetable = false;
   if (UI.mode === 'target-own') {
     targetable = UI.pendingStone === 'white'
       ? validWhiteTarget(card)
-      : (card.owner === 0 && !isLocked(card) && !hasRed(card));
+      : (card.owner === me && !isLocked(card) && !hasRed(card));
   } else if (UI.mode === 'target-blue-own') {
-    targetable = card.owner === 0 && !isLocked(card);
+    targetable = card.owner === me && !isLocked(card);
   } else if (UI.mode === 'target-blue-opp') {
-    targetable = isOpponent(0, card.owner) && !isLocked(card);
+    targetable = isOpponent(me, card.owner) && !isLocked(card);
     if (UI.blueOwn === card) el.classList.add('selected');
   } else if (UI.mode === 'target-black') {
     targetable = !!undoableEventFor(card);
@@ -1433,7 +1495,9 @@ function decorateTarget(card, el) {
 function renderHand() {
   const wrap = $('hand');
   wrap.innerHTML = '';
-  for (const card of G.players[0].hand) {
+  $('handArea').querySelector('.arealabel').textContent =
+    G.humans.length > 1 ? `${playerName(G.viewer)}’s hand` : 'Your hand';
+  for (const card of G.players[G.viewer].hand) {
     const el = document.createElement('div');
     el.dataset.cardId = card.id;
     el.className = 'card hand-card' + (UI.selected.includes(card) ? ' selected' : '');
@@ -1447,7 +1511,7 @@ function renderHand() {
     }
     wrap.appendChild(el);
   }
-  $('handArea').style.display = G.players[0].hand.length ? '' : 'none';
+  $('handArea').style.display = G.players[G.viewer].hand.length ? '' : 'none';
 }
 
 // Contextual tray along the base of the play area: whenever a stone
@@ -1457,10 +1521,10 @@ function renderTray() {
   const tray = $('stoneTray');
   const stonesEl = $('trayStones');
   const label = $('trayLabel');
-  const p = G.players[0];
+  const p = G.players[G.viewer];
   let items = null;
   if (UI.mode === 'pickStone') {
-    label.textContent = 'Telegraph a stone';
+    label.textContent = G.humans.length > 1 ? `${playerName(G.viewer)} — telegraph a stone` : 'Telegraph a stone';
     items = [];
     for (const color of STONE_KEYS) {
       for (let k = 0; k < p.pool[color]; k++) {
@@ -1514,11 +1578,11 @@ function renderTelegraph(who, container) {
     s.className = `stone ${color}`;
     s.title = `${STONES[color].name} — ${STONES[color].power}`;
     if (p.removed !== null && !isUsableTelegraph(p, color, i)) s.classList.add('spent');
-    if (who === 0 && UI.mode === 'thin') {
+    if (who === G.viewer && UI.mode === 'thin') {
       s.classList.add('targetable');
       s.onclick = () => humanThin(i);
     }
-    if (who === 0 && UI.mode === 'placeChoose' && p.active.includes(color)) {
+    if (who === G.viewer && UI.mode === 'placeChoose' && p.active.includes(color)) {
       s.classList.add('targetable');
       s.onclick = () => humanChooseStone(color);
     }
@@ -1613,7 +1677,10 @@ function showShowdownModal(d, review) {
   }
   else if (push) verdict = 'A perfect mathematical tie. Nothing moves.';
   else if (structuralOnly) verdict = `${winner.name} wins on structure, but with no point difference nothing moves.`;
-  else verdict = `The Pivot Marker shifts <b>${diff}</b> toward ${winner.members.includes(0) ? 'your' : 'their'} side. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
+  else {
+    const sideWord = G.humans.length > 1 ? `${winner.name}’s side` : winner.members.includes(0) ? 'your side' : 'their side';
+    verdict = `The Pivot Marker shifts <b>${diff}</b> toward ${sideWord}. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
+  }
 
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
@@ -1624,19 +1691,24 @@ function showShowdownModal(d, review) {
 function showVictory() {
   if (typeof document === 'undefined') return;
   const m = $('victoryModal');
-  let won, name;
+  let winnerEnt;
   if (G.mode === 'ffa') {
     const w = G.scores.indexOf(Math.max(...G.scores));
-    won = w === 0;
-    name = playerName(w);
+    winnerEnt = entities()[w];
   } else {
-    won = G.ledger >= G.target;
-    name = won ? (G.mode === 'teams' ? 'Your alliance' : 'You') : (G.mode === 'teams' ? `${playerName(1)} & ${playerName(3)}` : playerName(1));
+    const e = entities();
+    winnerEnt = G.ledger >= G.target ? e.find(x => x.members.includes(0)) : e.find(x => !x.members.includes(0));
   }
-  $('victoryTitle').textContent = won ? 'The table is yours' : `${name} cleans the table`;
-  $('victoryText').textContent = won
-    ? `${G.mode === 'teams' ? 'Your alliance' : 'You'} reached ${G.target} after ${G.handNum} hands. Somewhere down the line, someone is already complaining about how it was done.`
-    : `${name} reached ${G.target} after ${G.handNum} hands. You keep your property — this was an honor table — but not your pride.`;
+  const won = winnerEnt.members.some(isHuman);
+  if (G.humans.length > 1) {
+    $('victoryTitle').textContent = `${winnerEnt.name} take${winnerEnt.members.length > 1 ? '' : 's'} the table`;
+    $('victoryText').textContent = `The match settles at ${G.target} after ${G.handNum} hands. Somewhere down the line, someone is already complaining about how it was done.`;
+  } else {
+    $('victoryTitle').textContent = won ? 'The table is yours' : `${winnerEnt.name} cleans the table`;
+    $('victoryText').textContent = won
+      ? `${TEAM_MODES.has(G.mode) ? 'Your alliance' : 'You'} reached ${G.target} after ${G.handNum} hands. Somewhere down the line, someone is already complaining about how it was done.`
+      : `${winnerEnt.name} reached ${G.target} after ${G.handNum} hands. You keep your property — this was an honor table — but not your pride.`;
+  }
   m.classList.add('open');
 }
 
@@ -1655,6 +1727,9 @@ const SETUP_STEPS = [
       { v: 'duel', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
       { v: 'ffa', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
       { v: 'teams', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
+      { v: 'hotseat', label: 'Hotseat Duel', desc: 'Two players, one device. The table passes between you with a confirmation screen; veiled cards stay private.' },
+      { v: 'hs-team', label: 'Hotseat Allies — 2v2', desc: 'You two against two of the regulars. Pass the device; lock each other’s cards; never trade against each other.' },
+      { v: 'hs-rivals', label: 'Hotseat Rivals — 2v2', desc: 'You two on opposite sides, each seated with one of the regulars as a partner.' },
     ],
   },
   {
@@ -1675,7 +1750,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', deal: 'small', target: 20 };
+  SETUP = { venue: 'tavern', mode: 'duel', deal: 'small', target: 20, names: ['', ''] };
   renderSetup();
   $('setupModal').classList.add('open');
 }
@@ -1703,6 +1778,26 @@ function renderSetup() {
     body.appendChild(grid);
   }
 
+  // Hotseat tables take player names.
+  if (['hotseat', 'hs-team', 'hs-rivals'].includes(SETUP.mode)) {
+    const row = document.createElement('div');
+    row.className = 'namerow';
+    const lab = document.createElement('span');
+    lab.className = 'arealabel';
+    lab.textContent = 'Who is playing?';
+    row.appendChild(lab);
+    [0, 1].forEach(k => {
+      const inp = document.createElement('input');
+      inp.className = 'nameinput';
+      inp.placeholder = k === 0 ? 'Player One' : 'Player Two';
+      inp.maxLength = 16;
+      inp.value = SETUP.names[k] || '';
+      inp.oninput = () => { SETUP.names[k] = inp.value; };
+      row.appendChild(inp);
+    });
+    body.appendChild(row);
+  }
+
   const r = REGIONS[VENUES[SETUP.venue].region];
   const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
   const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
@@ -1725,7 +1820,10 @@ function renderSetup() {
 function startFromSetup() {
   closeModal('setupModal');
   logEl.innerHTML = '';
-  newGame({ venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target });
+  newGame({
+    venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target,
+    names: SETUP.names.map(s => s.trim()).filter(Boolean).length ? SETUP.names.map(s => s.trim()) : [],
+  });
 }
 
 function boot() {
@@ -1749,6 +1847,7 @@ function boot() {
     }
   };
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
+  $('passBtn').onclick = passConfirm;
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = openSetup;
   $('fsBtn').onclick = () => {
