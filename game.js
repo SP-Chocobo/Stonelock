@@ -69,7 +69,8 @@ const PERSONALITIES = {
   'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, skill: 1.0, flavor: 'Anything on the river can be taken. Hide what you love.' },
   'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
   'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
-  'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a double board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
+  'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
+  'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.' },
   'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.' },
 };
@@ -324,12 +325,17 @@ function newGame(cfg) {
     target: cfg.target,
     venue,
     variant: raid ? null : venue.variant,
+    raidBoss: raid ? (cfg.raidBoss || 'magistrate') : null,
+    // Stone exhaustion: Slumlock venue = 2 hands; the Warden raid = 1.
+    exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
     open: !raid && cfg.targeting === 'open', // advanced: any stone, any layout
     cursedType: null,
     region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
     names: raid
-      ? (cfg.raidAlly === 'hotseat' ? [((cfg.names || [])[0] || 'Player One'), 'The Magistrate', ((cfg.names || [])[1] || 'Player Two')] : ['You', 'The Magistrate', 'The Old Hand'])
+      ? (cfg.raidAlly === 'hotseat'
+          ? [((cfg.names || [])[0] || 'Player One'), raidBossName(cfg.raidBoss), ((cfg.names || [])[1] || 'Player Two')]
+          : ['You', raidBossName(cfg.raidBoss), 'The Old Hand'])
       : buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
     humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : humansFor(cfg.mode),
     viewer: 0,
@@ -358,7 +364,8 @@ function newGame(cfg) {
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
   }[G.variant] || '';
   if (G.mode === 'raid') {
-    log(`The Magistrate takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; the Magistrate fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+    const bn = playerName(1);
+    log(`${bn} takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word.${G.exhaustHands ? ` Every stone spent is exhausted for ${G.exhaustHands} hand${G.exhaustHands === 1 ? '' : 's'} — for both sides.` : ''} It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else {
     log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
       ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
@@ -424,6 +431,7 @@ const RAID_DIFFS = {
   hard:     { stones: 7, label: 'Hardcore', order: [1, 0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1] },
 };
 function raidDiff() { return RAID_DIFFS[G.raidDiff] || RAID_DIFFS.standard; }
+function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
 function handSizeFor(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().handSize; }
@@ -459,9 +467,9 @@ function startHand() {
     let pool = { red: 2, white: 2, blue: 2, black: 2 };
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
-    // Slumlock: stones placed in recent hands are still exhausted.
-    if (G.variant === 'slumlock') {
-      for (const color of STONE_KEYS) pool[color] = Math.max(0, 2 - slumBlocked(p, color));
+    // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
+    if (G.exhaustHands) {
+      for (const color of STONE_KEYS) pool[color] = Math.max(0, pool[color] - slumBlocked(p, color));
     }
     G.players.push({
       idx: p,
@@ -937,8 +945,9 @@ function consumeActive(who, color) {
   const a = G.players[who].active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
-  // Slumlock: a placed stone is exhausted for the next two hands.
-  if (G.variant === 'slumlock') G.slum[who].push({ color, until: G.handNum + 2 });
+  // Exhaustion (Slumlock / the Warden): a placed stone is unavailable
+  // for the next G.exhaustHands hands.
+  if (G.exhaustHands) G.slum[who].push({ color, until: G.handNum + G.exhaustHands });
 }
 
 function slumBlocked(who, color) {
@@ -1103,7 +1112,8 @@ function sideSwing(me) {
 function aiDeclare(who) {
   const p = G.players[who];
   const plan = aiStonePreference(who);
-  const choice = plan.find(c => p.pool[c] > 0) || STONE_KEYS.find(c => p.pool[c] > 0);
+  let choice = plan.find(c => p.pool[c] > 0) || STONE_KEYS.find(c => p.pool[c] > 0);
+  if (!choice) return; // exhausted — nothing left to telegraph this hand
   p.pool[choice]--;
   p.declared.push(choice);
   log(`${playerName(who)} sets a ${STONES[choice].name} in the open. (${STONES[choice].power})`, 'ai');
@@ -1130,6 +1140,11 @@ function aiStonePreference(who) {
     blue: 2.2 * pers.blue,
     black: (enemiesShowedValue ? 2.0 : 1.2) * pers.black,
   };
+  // The Warden values having every tool, but only as a tiebreak: a
+  // gentle nudge toward colours it hasn't telegraphed yet.
+  if (G.raidBoss === 'warden' && isMagistrate(who)) {
+    for (const c of STONE_KEYS) if (!p.declared.includes(c)) weights[c] *= 1.25;
+  }
   return weightedOrder(STONE_KEYS, weights);
 }
 
@@ -1288,6 +1303,24 @@ function simulateUndo(ev, apply) {
   }
 }
 
+// What undoing an event is worth to `me`, even on a face-down card —
+// the stone itself is public, so a phantom on an enemy card is a known
+// threat (a Pair, or a Triad if it can pair with a real card).
+function denialValue(ev, me) {
+  if (ev.color === 'red') {
+    const card = ev.cards[0];
+    if (!isOpponent(me, card.owner)) return 0; // never snuff your own/ally's phantom
+    const t = (card.faceUp || card.known[me]) ? card.type : null;
+    if (t) {
+      const sameVisible = G.players[card.owner].board
+        .filter(c => c !== card && (c.faceUp || c.known[me]) && c.type === t).length;
+      return sameVisible >= 1 ? 6 : 2; // a real pair + phantom = Triad; else a Pair
+    }
+    return 3; // hidden: a phantom Pair is certain, with Triad upside
+  }
+  return 0; // blue trades are judged by the visible swing
+}
+
 function aiBestBlackTarget(who) {
   let best = null;
   const seen = new Set();
@@ -1295,7 +1328,9 @@ function aiBestBlackTarget(who) {
     const ev = undoableEventFor(card);
     if (!ev || seen.has(ev.id)) continue;
     seen.add(ev.id);
-    const delta = swingIfUndone(ev, who);
+    // Take the better of the measured swing and the structural denial,
+    // so an enemy red is worth answering even when its card is veiled.
+    const delta = Math.max(swingIfUndone(ev, who), denialValue(ev, who));
     if (!best || delta > best.delta) best = { event: ev, delta };
   }
   return best;
@@ -1598,7 +1633,7 @@ function buildTableDOM() {
   $('ledgerWrap').style.display = G.mode === 'ffa' ? 'none' : '';
   $('scoreList').style.display = G.mode === 'ffa' ? '' : 'none';
   if (G.mode === 'raid') {
-    $('ledgerHeadAi').textContent = 'Magistrate';
+    $('ledgerHeadAi').textContent = playerName(1).replace('The ', '');
     $('ledgerHeadYou').textContent = 'Party';
   } else if (G.mode !== 'ffa') {
     const multiHuman = G.humans.length > 1;
@@ -1883,14 +1918,15 @@ function renderPanels() {
     for (const color of STONE_KEYS) {
       const col = document.createElement('div');
       col.className = 'minicol';
-      const exhausted = G.variant === 'slumlock' ? slumBlocked(i, color) : 0;
-      for (let k = 0; k < 2; k++) {
+      const cap = (G.mode === 'raid' && isMagistrate(i)) ? 3 : 2; // the Magistrate's deep pouch
+      const exhausted = G.exhaustHands ? slumBlocked(i, color) : 0;
+      for (let k = 0; k < cap; k++) {
         const dot = document.createElement('span');
         const held = k < p.pool[color];
-        const isExhausted = !held && k >= 2 - exhausted;
+        const isExhausted = !held && k >= cap - exhausted;
         dot.className = held ? `stonedot ${color}` : 'stonedot socket' + (isExhausted ? ' exhausted' : '');
         dot.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}` +
-          (held ? '' : isExhausted ? ' (Slumlock: exhausted, returning soon)' : ' (telegraphed)');
+          (held ? '' : isExhausted ? ' (exhausted, returning soon)' : ' (telegraphed)');
         // The viewer's rack is the live pouch: declare from here too.
         if (i === G.viewer && held && UI.mode === 'pickStone') {
           dot.classList.add('targetable');
@@ -2355,6 +2391,7 @@ function seatRoles(mode) {
 function renderSetup() {
   // Single screen: every setting visible, defaults preselected,
   // one confirm button at the bottom.
+  $('setupModal').querySelector('h2').textContent = 'Set the Table';
   const body = $('setupBody');
   body.innerHTML = '';
   const K = aiSeatsFor(SETUP.mode).length;
@@ -2478,16 +2515,49 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { ally: 'bot', diff: 'standard', target: 12, names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 12, names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
 
+// Step 1: choose the boss. Each gets a lore card; picking one advances.
+const RAID_BOSSES = [
+  { v: 'magistrate', name: 'The Magistrate', lore: 'A wide, methodical board fielded face-up. It selects from a deep pouch, scores its two best hands, and never bluffs — powerful, and fair only in that. Difficulty sets how many stones it spends.' },
+  { v: 'warden', name: 'The Warden', lore: 'Keeps one of every stone within reach and spends without mercy — snuffing, stealing, locking. Every stone it plays is exhausted for a hand, and so is yours: ration your disruption, or be ground down. Viciously tactical.' },
+];
+
 function renderRaidSetup() {
   const body = $('setupBody');
-  body.innerHTML = `<p class="modalsub small">The Magistrate is a raid boss — it fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine against it. Drive the marker the full distance to break it — the Magistrate holds any tie.</p>`;
+  const btns = $('setupBtns');
+  body.innerHTML = '';
+  btns.innerHTML = '';
 
-  const section = (title, key, opts, render) => {
+  if (RAIDSET.step === 'boss') {
+    $('setupModal').querySelector('h2').textContent = 'Choose Your Boss';
+    body.innerHTML = '<p class="modalsub small">Two sit the high seat. Pick the one you mean to break.</p>';
+    const grid = document.createElement('div');
+    grid.className = 'optgrid';
+    for (const b of RAID_BOSSES) {
+      const el = document.createElement('div');
+      el.className = 'bigopt bosscard';
+      el.innerHTML = `<h3>${b.name}</h3><div class="bigoptdesc">${b.lore}</div>`;
+      el.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
+      grid.appendChild(el);
+    }
+    body.appendChild(grid);
+    const back = document.createElement('button');
+    back.className = 'btn'; back.textContent = '‹ Title';
+    back.onclick = () => { closeModal('setupModal'); showTitle(); };
+    btns.appendChild(back);
+    return;
+  }
+
+  // Step 2: the rest of the raid options.
+  $('setupModal').querySelector('h2').textContent = `Face ${raidBossName(RAIDSET.boss)}`;
+  const isWarden = RAIDSET.boss === 'warden';
+  body.innerHTML = `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.' : ''}</p>`;
+
+  const section = (title, key, opts) => {
     const h = document.createElement('div');
     h.className = 'steptitle'; h.textContent = title; body.appendChild(h);
     const grid = document.createElement('div'); grid.className = 'optgrid';
@@ -2523,7 +2593,7 @@ function renderRaidSetup() {
   }
 
   section('Difficulty', 'diff', [
-    { v: 'easy', label: 'Easy — 5 stones', desc: 'The Magistrate spends five stones. A coordinated party wins most fights.' },
+    { v: 'easy', label: 'Easy — 5 stones', desc: 'The boss spends five stones. A coordinated party wins most fights.' },
     { v: 'standard', label: 'Standard — 6 stones', desc: 'Six stones, answering every move. A true coin-flip against good play.' },
     { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
   ]);
@@ -2534,18 +2604,16 @@ function renderRaidSetup() {
     { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
   ]);
 
-  const btns = $('setupBtns');
-  btns.innerHTML = '';
   const back = document.createElement('button');
-  back.className = 'btn'; back.textContent = '‹ Title';
-  back.onclick = () => { closeModal('setupModal'); showTitle(); };
+  back.className = 'btn'; back.textContent = '‹ Boss';
+  back.onclick = () => { RAIDSET.step = 'boss'; renderRaidSetup(); };
   btns.appendChild(back);
   const begin = document.createElement('button');
-  begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = 'Face the Magistrate';
+  begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = `Face ${raidBossName(RAIDSET.boss)}`;
   begin.onclick = () => {
     closeModal('setupModal');
     logEl.innerHTML = '';
-    newGame({ mode: 'raid', raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
+    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
   };
   btns.appendChild(begin);
 }

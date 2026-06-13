@@ -392,6 +392,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .bosstg .stone.spent { opacity: 0.25; }
 .bosstg .stone.spent::after { content: '✓'; position: absolute; }
 
+.bosscard { padding: 16px 18px; }
+.bosscard h3 { font-size: 18px; margin-bottom: 6px; }
+.bosscard .bigoptdesc { font-size: 13px; }
+
 /* Raid showdown grouping */
 .raidteam { border: 1px solid var(--row-you); border-radius: 10px; padding: 6px 12px 10px; margin-bottom: 12px; }
 .raidlabel { font-family: 'Cinzel', Georgia, serif; font-size: 14px; color: var(--sage); margin: 2px 0 4px; }

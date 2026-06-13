@@ -8,8 +8,8 @@ const rnd0 = a => a.splice(Math.floor(Math.random() * a.length), 1)[0];
 function assert(c, m) { if (!c) { console.error('FAIL:', m); process.exit(1); } }
 
 let teamWins = 0, bossWins = 0, hands = 0;
-for (let i = 0; i < 30; i++) {
-  M.newGame({ mode: 'raid', raidAlly: i % 2 ? 'hotseat' : 'bot', target: 10 });
+for (let i = 0; i < 40; i++) {
+  M.newGame({ mode: 'raid', raidBoss: i % 2 ? 'warden' : 'magistrate', raidAlly: i % 3 === 0 ? 'hotseat' : 'bot', raidDiff: ['easy', 'standard', 'hard'][i % 3], target: 10 });
   let guard = 0;
   while (true) {
     if (guard++ > 40000) assert(false, 'raid did not terminate');
@@ -50,4 +50,4 @@ for (let i = 0; i < 30; i++) {
   assert(Math.abs(G.ledger) >= G.target, 'raid match ends at target');
   (G.ledger >= G.target) ? teamWins++ : bossWins++;
 }
-console.log(`OK raid: 30 co-op matches, ${hands} hands. party ${teamWins} / Magistrate ${bossWins}.`);
+console.log(`OK raid: 40 co-op matches, ${hands} hands. party ${teamWins} / Magistrate ${bossWins}.`);
