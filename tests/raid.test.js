@@ -26,11 +26,13 @@ for (let i = 0; i < 30; i++) {
     const step = G.queue[0];
     // In hotseat the engine waits on a pass screen for the second human.
     if (M._ui().mode === 'pass') { M.passConfirm(); continue; }
-    if (step.t === 'deploy') {
-      const seat = step.pendingHumans[0];
-      const p = G.players[seat], picks = p.hand.slice();
+    if (step.t === 'deploy1') {
+      const p = G.players[step.seat], picks = p.hand.slice();
       for (let k = 0; k < step.count; k++) M.humanToggleCard(rnd0(picks));
       M.humanConfirmDeploy();
+    } else if (step.t === 'declare') {
+      const p = G.players[step.who];
+      M.humanDeclare(rnd(STONE_KEYS.filter(c => p.pool[c] > 0)));
     } else if (step.t === 'place') {
       const seat = step.who; // a waiting human seat
       const p = G.players[seat];

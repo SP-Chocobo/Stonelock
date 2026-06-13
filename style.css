@@ -386,6 +386,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .bossseat { border: 1px solid var(--seatc, var(--edge)); border-top-width: 3px; border-radius: 10px; padding: 6px 12px 10px; background: rgba(110,32,24,0.07); box-shadow: inset 0 0 22px rgba(0,0,0,0.4); }
 .bossseat .board { max-width: 286px; margin: 0 auto; }
 .bossseat .seathead { color: var(--seatc); font-size: 13px; }
+.bosstglabel { text-align: center; font-size: 10px; font-style: italic; color: var(--parchment-dim); margin: 1px 0 3px; }
+.bosstg { display: flex; gap: 8px; justify-content: center; align-items: center; min-height: 30px; margin-bottom: 5px; flex-wrap: wrap; }
+.bosstg .stone { width: 24px; height: 24px; }
+.bosstg .stone.spent { opacity: 0.25; }
+.bosstg .stone.spent::after { content: '✓'; position: absolute; }
 
 /* Raid showdown grouping */
 .raidteam { border: 1px solid var(--row-you); border-radius: 10px; padding: 6px 12px 10px; margin-bottom: 12px; }

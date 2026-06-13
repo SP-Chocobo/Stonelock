@@ -333,6 +333,7 @@ function newGame(cfg) {
       : buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
     humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : humansFor(cfg.mode),
     viewer: 0,
+    raidDiff: raid ? (cfg.raidDiff || 'standard') : null,
     ledger: 0,                      // duel/teams: positive = your side
     scores: new Array(n).fill(0),   // ffa: banked margins
     dealer: Math.floor(Math.random() * n),
@@ -357,7 +358,7 @@ function newGame(cfg) {
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
   }[G.variant] || '';
   if (G.mode === 'raid') {
-    log(`The Magistrate takes the high seat — a raid table. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; the Magistrate fields ${RAID_BOSS_CARDS} cards, all face-up, and answers with ${RAID_BOSS_STONES} stones. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+    log(`The Magistrate takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; the Magistrate fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else {
     log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
       ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
@@ -412,8 +413,17 @@ function dealSpec() {
 // Raid Boss: seat 1 is The Magistrate, who fields a larger board, all
 // face-up, and scores its two best non-overlapping three-card hands.
 // Card/stone counts are tuned for a hard-but-winnable fight.
-const RAID_BOSS_CARDS = (typeof process !== 'undefined' && +(process.env.RAID_CARDS) ) || 7;
-const RAID_BOSS_STONES = (typeof process !== 'undefined' && +(process.env.RAID_STONES)) || 5;
+const RAID_BOSS_CARDS = 7;
+// Difficulty = how many stones the Magistrate spends, and the swing
+// order it spends them in (it always closes with the last word).
+// Party places three stones each (seats 0, 2); the boss 5/6/7.
+// Measured vs a greedy team: easy ~70%, standard ~50%, hard ~25%.
+const RAID_DIFFS = {
+  easy:     { stones: 5, label: 'Easy',     order: [0, 1, 2, 1, 0, 1, 2, 1, 0, 2, 1] },
+  standard: { stones: 6, label: 'Standard', order: [0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1] },
+  hard:     { stones: 7, label: 'Hardcore', order: [1, 0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1] },
+};
+function raidDiff() { return RAID_DIFFS[G.raidDiff] || RAID_DIFFS.standard; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
 function handSizeFor(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().handSize; }
@@ -442,12 +452,13 @@ function startHand() {
   const spec = dealSpec();
   const gauntlet = G.variant === 'gauntlet';
   const raid = G.mode === 'raid';
-  // Raid/Gauntlet: stones are placed freely (no telegraph or thinning),
-  // drawn from a 2-of-each pouch up to the round count the queue allows.
-  const freePlace = gauntlet || raid;
   G.players = [];
   for (let p = 0; p < G.nPlayers; p++) {
-    const pool = gauntlet ? { red: 1, white: 1, blue: 1, black: 1 } : { red: 2, white: 2, blue: 2, black: 2 };
+    // Gauntlet: one of each, all live. Raid: the Magistrate selects its
+    // stones from a deeper 3-of-each pouch; the party from the usual 2.
+    let pool = { red: 2, white: 2, blue: 2, black: 2 };
+    if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
+    else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
     // Slumlock: stones placed in recent hands are still exhausted.
     if (G.variant === 'slumlock') {
       for (const color of STONE_KEYS) pool[color] = Math.max(0, 2 - slumBlocked(p, color));
@@ -459,7 +470,7 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      active: freePlace ? STONE_KEYS.filter(c => pool[c] > 0) : [],
+      active: gauntlet ? STONE_KEYS.filter(c => pool[c] > 0) : [], // raid arms active after telegraphing
       aiPlan: null,
     });
   }
@@ -491,29 +502,35 @@ function startHand() {
   const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
 
   if (raid) {
-    // The Magistrate (seat 1) faces the party (seats 0 and 2). No
-    // telegraphing or thinning. Cards commit normally for the party,
-    // doubled and all face-up for the boss. Then each player places
-    // 3 stones and the boss 6, interleaved You→Boss→Ally→Boss × 3.
+    // The Magistrate (seat 1) faces the party (seats 0 and 2). Every
+    // action goes round the table You → Magistrate → Ally → Magistrate,
+    // so the boss's board and stone picks reveal between your turns.
+    // It fields its cards face-up; the party commits normally. Stones
+    // are telegraphed up front (no thinning) and then spent from that
+    // pool: the party three each, the Magistrate five.
+    const party = [0, 2];
+    const D = (seat, count, faceUp) => ({ t: 'deploy1', seat, count, faceUp });
     G.queue = [
       dealNote,
-      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up. The Magistrate matches the table, fielding double — and shows everything.' },
-      { t: 'deploy', count: dep[0].c, faceUp: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Foundation', note: 'In turn, commit two cards face-up. The Magistrate answers — fielding its board open for all to read.' },
+      D(0, 2, true), D(1, 2, true), D(2, 2, true), D(1, 2, true),
       { t: 'phase', label: 'The Veil', note: 'Commit one card face-down. The Magistrate fields its share face-up.' },
-      { t: 'deploy', count: dep[1].c, faceUp: false, pendingHumans: G.humans.slice(), choices: {} },
+      D(0, 1, false), D(1, 1, true), D(2, 1, false), D(1, 1, true),
       { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover party cards are discarded dead.' },
-      { t: 'deploy', count: dep[2].c, faceUp: false, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
-      { t: 'phase', label: 'The Reckoning', note: 'No telegraphing — place your stones. The Magistrate answers each placement with one of its own.' },
+      D(0, 1, false), D(1, 1, true), D(2, 1, false),
+      { t: 'discard' },
+      { t: 'phase', label: 'Choose Your Stones', note: 'Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; the Magistrate, five.' },
     ];
-    const party = [0, 2];
-    let bossLeft = RAID_BOSS_STONES;
-    for (let r = 0; r < 3; r++) {
-      for (const w of party) {
-        G.queue.push({ t: 'place', who: w });
-        if (bossLeft > 0) { G.queue.push({ t: 'place', who: 1 }); bossLeft--; }
-      }
-    }
-    while (bossLeft-- > 0) G.queue.push({ t: 'place', who: 1 });
+    // The chosen difficulty sets how many stones the Magistrate spends
+    // and the swing order — it always closes with the last word.
+    const RAID_ORDER = raidDiff().order;
+    const tn = { 0: 0, 1: 0, 2: 0 };
+    for (const w of RAID_ORDER) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
+    G.queue.push(
+      { t: 'raidarm' },
+      { t: 'phase', label: 'The Reckoning', note: 'Spend your telegraphed stones in turn. The Magistrate opens, answers between you, and has the last word.' }
+    );
+    for (const w of RAID_ORDER) G.queue.push({ t: 'place', who: w });
     G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
   } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
@@ -579,6 +596,7 @@ function preWait(step) {
     case 'phase': return 500;
     case 'declare': return !isHuman(step.who) ? 900 : 0;
     case 'deploy': return 700;
+    case 'deploy1': return !isHuman(step.seat) ? 800 : 0;
     case 'thin': return !isHuman(step.who) ? 900 : 0;
     case 'place': return (!isHuman(step.who) && G.players[step.who].active.length > 0) ? 1300 : 0;
     case 'beat': return step.ms || 900;
@@ -597,17 +615,18 @@ function run() {
       autoScrollToPrompt();
       return;
     }
+    const actingSeat = 'who' in step ? step.who : 'seat' in step ? step.seat : null;
     const wait = dramatic(preWait(step));
     if (wait > 0 && !step._waited) {
       step._waited = true;
       // Spotlight the seat that is about to act, through the pause.
-      G.activeSeat = ('who' in step) ? step.who : null;
+      G.activeSeat = actingSeat;
       render();
       runTimer = setTimeout(run, wait);
       return;
     }
     G.queue.shift();
-    G.activeSeat = ('who' in step) ? step.who : null;
+    G.activeSeat = actingSeat;
     executeStep(step);
   }
   G.activeSeat = null;
@@ -618,6 +637,7 @@ function stepNeedsHuman(step) {
   switch (step.t) {
     case 'declare': return isHuman(step.who);
     case 'deploy': return step.pendingHumans.length > 0;
+    case 'deploy1': return isHuman(step.seat) && !step.done;
     case 'thin': return isHuman(step.who);
     case 'place': return isHuman(step.who) && G.players[step.who].active.length > 0;
     default: return false;
@@ -660,6 +680,23 @@ function executeStep(step) {
       }
       break;
     }
+    case 'deploy1': {
+      // One seat commits, in the raid's round-the-table order.
+      const i = step.seat;
+      const cards = aiChooseDeploy(i, step.count, step.faceUp);
+      deployCards(i, cards, step.faceUp);
+      SFX.play(step.faceUp ? 'flip' : 'card');
+      log(`${playerName(i)} ${verb(i, 'commit')} ${cards.length} card${cards.length === 1 ? '' : 's'}${step.faceUp ? ': ' + cards.map(c => c.type).join(', ') : ', face-down'}.`, logClass(i));
+      announce(`${playerName(i)} ${verb(i, 'commit')} ${step.faceUp ? cards.map(c => c.type).join(', ') : 'a veiled card'}`, null, i);
+      break;
+    }
+    case 'discard':
+      for (const p of G.players) for (const c of p.hand.splice(0)) c.zone = 'discard';
+      log('Leftover party cards are discarded dead.');
+      break;
+    case 'raidarm':
+      for (const p of G.players) p.active = p.declared.slice(); // spend from the telegraphed pool
+      break;
     case 'thin':
       aiThin(step.who);
       break;
@@ -677,7 +714,7 @@ function executeStep(step) {
 /* ---------------- Human prompts ---------------- */
 
 function promptHuman(step) {
-  const seat = step.t === 'deploy' ? step.pendingHumans[0] : step.who;
+  const seat = step.t === 'deploy' ? step.pendingHumans[0] : step.t === 'deploy1' ? step.seat : step.who;
   // Hotseat: hide the table behind a pass screen until the right
   // player is holding the device.
   if (G.humans.length > 1 && G.viewer !== seat) {
@@ -699,11 +736,12 @@ function promptHuman(step) {
       setPrompt(`Telegraph stone ${step.n} of 3 — choose a stone from your pouch.`);
       break;
     case 'deploy':
+    case 'deploy1':
       UI.mode = 'pickCards';
       UI.selected = [];
       UI.needed = step.count;
       setPrompt(step.faceUp
-        ? `Choose ${step.count} cards from your hand to commit face-up.`
+        ? `Choose ${step.count} card${step.count === 1 ? '' : 's'} from your hand to commit face-up.`
         : `Choose ${step.count === 1 ? '1 card' : step.count + ' cards'} to commit face-down${step.discardRest ? ' (leftover cards will be discarded dead)' : ''}.`);
       break;
     case 'thin':
@@ -762,7 +800,23 @@ function humanToggleCard(card) {
 
 function humanConfirmDeploy() {
   const step = G.queue[0];
-  if (!step || step.t !== 'deploy' || UI.selected.length !== step.count) return;
+  if (!step || UI.selected.length !== step.count) return;
+  if (step.t === 'deploy1') {
+    // Raid: this one seat commits, then play passes on.
+    const seat = step.seat;
+    const cards = UI.selected.slice();
+    deployCards(seat, cards, step.faceUp);
+    SFX.play(step.faceUp ? 'flip' : 'card');
+    log(`${playerName(seat)} commit ${cards.length} card${cards.length === 1 ? '' : 's'}${step.faceUp ? ': ' + cards.map(c => c.type).join(', ') : ', face-down'}.`, 'you');
+    announce(`${playerName(seat)} commit ${step.faceUp ? cards.map(c => c.type).join(', ') : 'a veiled card'}`, null, seat);
+    step.done = true;
+    UI.selected = [];
+    UI.mode = 'idle';
+    G.queue.shift();
+    run();
+    return;
+  }
+  if (step.t !== 'deploy') return;
   const seat = step.pendingHumans.shift();
   step.choices[seat] = UI.selected.slice();
   UI.selected = [];
@@ -880,15 +934,7 @@ function finishHumanStep() {
 /* ---------------- Stone mechanics ---------------- */
 
 function consumeActive(who, color) {
-  const p = G.players[who];
-  // Raid: free placement from a 2-of-each pouch — spend the stone and
-  // recompute which colors remain legal. The queue caps the count.
-  if (G.mode === 'raid') {
-    if (p.pool[color] > 0) p.pool[color]--;
-    p.active = STONE_KEYS.filter(c => p.pool[c] > 0);
-    return;
-  }
-  const a = p.active;
+  const a = G.players[who].active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
   // Slumlock: a placed stone is exhausted for the next two hands.
@@ -1540,7 +1586,10 @@ function buildTableDOM() {
     seat.id = `seat-${i}`;
     seat.className = 'seat' + (isMagistrate(i) ? ' bossseat' : '');
     seat.style.setProperty('--seatc', seatColor(i));
-    seat.innerHTML = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div><div id="board-${i}" class="board"></div>`;
+    const bossStrip = isMagistrate(i)
+      ? `<div class="bosstglabel">Telegraphed stones — spent as it acts</div><div id="bosstg" class="bosstg"></div>`
+      : '';
+    seat.innerHTML = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div>${bossStrip}<div id="board-${i}" class="board"></div>`;
     if (isOpponent(0, i)) oppSeats.appendChild(seat);
     else youSeats.appendChild(seat);
   }
@@ -1598,6 +1647,7 @@ function render() {
   renderScore();
   renderPanels();
   for (const p of G.players) renderBoard(p.idx, $(`board-${p.idx}`));
+  if (G.mode === 'raid' && $('bosstg')) renderTelegraph(1, $('bosstg')); // central, spends as it acts
   renderHand();
   renderTray();
   renderControls();
@@ -2428,14 +2478,14 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { ally: 'bot', target: 12, names: ['', ''] };
+  RAIDSET = { ally: 'bot', diff: 'standard', target: 12, names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
 
 function renderRaidSetup() {
   const body = $('setupBody');
-  body.innerHTML = `<p class="modalsub small">The Magistrate is a raid boss — it fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, and <b>${RAID_BOSS_STONES} stones</b>, scoring its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine against it. Drive the marker the full distance to break it — the Magistrate holds any tie.</p>`;
+  body.innerHTML = `<p class="modalsub small">The Magistrate is a raid boss — it fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine against it. Drive the marker the full distance to break it — the Magistrate holds any tie.</p>`;
 
   const section = (title, key, opts, render) => {
     const h = document.createElement('div');
@@ -2472,6 +2522,12 @@ function renderRaidSetup() {
     body.appendChild(row);
   }
 
+  section('Difficulty', 'diff', [
+    { v: 'easy', label: 'Easy — 5 stones', desc: 'The Magistrate spends five stones. A coordinated party wins most fights.' },
+    { v: 'standard', label: 'Standard — 6 stones', desc: 'Six stones, answering every move. A true coin-flip against good play.' },
+    { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
+  ]);
+
   section('How far to break it', 'target', [
     { v: 10, label: 'Skirmish — to 10', desc: 'A quick clash. High variance; one good hand swings it.' },
     { v: 16, label: 'Siege — to 16', desc: 'The standard raid. Coordination starts to tell.' },
@@ -2489,7 +2545,7 @@ function renderRaidSetup() {
   begin.onclick = () => {
     closeModal('setupModal');
     logEl.innerHTML = '';
-    newGame({ mode: 'raid', raidAlly: RAIDSET.ally, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
+    newGame({ mode: 'raid', raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
   };
   btns.appendChild(begin);
 }
