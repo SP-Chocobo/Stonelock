@@ -55,6 +55,19 @@ const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 const AI_ROSTER = ['The Stranger', 'The Ferryman', 'The Clerk'];
 const PARTNER_NAME = 'The Old Hand';
 
+// Each regular at this table has habits — and at experienced tables,
+// players learn to recognize them. Multipliers shape stone weights;
+// `bluff` is the chance a telegraph means nothing; `risk` is how much
+// an unknown face-down card discourages a steal.
+const PERSONALITIES = {
+  'The Stranger': { red: 1.0, white: 1.0, blue: 1.2, black: 1.2, bluff: 0.30, risk: 1, flavor: 'Reads the table, and lies to it. His telegraphs mean less than they seem.' },
+  'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, flavor: 'Anything on the river can be taken. Hide what you love.' },
+  'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
+  'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
+};
+const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, flavor: '' };
+function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA; }
+
 const ICONS = {
   Crest: '<svg viewBox="0 0 40 40"><path d="M20 4 L33 9 V20 C33 29 27 34 20 37 C13 34 7 29 7 20 V9 Z" fill="#8a6d3b" stroke="#4d3a1e" stroke-width="2"/><path d="M20 10 L27 13 V20 C27 25 24 28.5 20 30.5 C16 28.5 13 25 13 20 V13 Z" fill="#e8d9b5"/></svg>',
   Coin:  '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="#d9a83d" stroke="#7a5a14" stroke-width="2"/><circle cx="20" cy="20" r="8.5" fill="none" stroke="#7a5a14" stroke-width="1.6"/><path d="M20 14 v12 M16 17 h8 M16 23 h8" stroke="#7a5a14" stroke-width="1.6"/></svg>',
@@ -301,6 +314,7 @@ function preWait(step) {
 
 function run() {
   clearTimeout(runTimer);
+  if (UI.reviewing) return; // the table waits while a showdown is reviewed
   while (G.queue.length && !G.over) {
     const step = G.queue[0];
     if (stepNeedsHuman(step)) {
@@ -720,11 +734,13 @@ function aiStonePreference(who) {
   const hasPair = Object.values(counts).some(v => v >= 2);
   const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
   const enemiesShowedValue = opponentsOf(who).some(o => G.players[o].declared.some(c => c === 'red' || c === 'blue'));
+  const pers = personaOf(who);
+  if (Math.random() < pers.bluff) return shuffle(STONE_KEYS.slice()); // a telegraph that means nothing
   const weights = {
-    red: hasPair ? 2.4 : 1.0,
-    white: threatened ? 2.6 : 1.3,
-    blue: 2.2,
-    black: enemiesShowedValue ? 2.0 : 1.2,
+    red: (hasPair ? 2.4 : 1.0) * pers.red,
+    white: (threatened ? 2.6 : 1.3) * pers.white,
+    blue: 2.2 * pers.blue,
+    black: (enemiesShowedValue ? 2.0 : 1.2) * pers.black,
   };
   return weightedOrder(STONE_KEYS, weights);
 }
@@ -788,6 +804,10 @@ function aiThin(who) {
 }
 
 function aiStoneValue(who, color) {
+  return personaOf(who)[color] * aiStoneBaseValue(who, color);
+}
+
+function aiStoneBaseValue(who, color) {
   const threatened = opponentsOf(who).some(o =>
     G.players[o].declared.includes('blue') || G.players[o].active.includes('blue'));
   switch (color) {
@@ -835,7 +855,7 @@ function aiBestBlueTarget(who) {
         swapCards(give, take);
         const swing = sideSwing(who) - baseSwing;
         swapCards(give, take);
-        const discount = take.known[who] || take.faceUp ? 0 : 1;
+        const discount = take.known[who] || take.faceUp ? 0 : personaOf(who).risk;
         const delta = swing - discount;
         if (!best || delta > best.delta) best = { give, take, delta };
       }
@@ -915,6 +935,7 @@ function aiPlace(who) {
       }
     }
   }
+  for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice
   options.sort((a, b) => b.value - a.value);
   const chosen = options[0];
   consumeActive(who, chosen.color);
@@ -1017,7 +1038,8 @@ function showdown() {
   }
 
   if (matchWinner) G.over = true;
-  showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner, gains);
+  G.lastShowdown = { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains, hand: G.handNum };
+  showShowdownModal(G.lastShowdown, false);
 }
 
 function nextHand() {
@@ -1107,8 +1129,11 @@ function buildTableDOM() {
     div.id = `panel-${i}`;
     div.className = 'playerpanel ' + (ally ? 'you' : 'opp');
     div.style.setProperty('--seatc', seatColor(i));
+    const flavor = personaOf(i).flavor;
+    div.title = flavor;
     div.innerHTML = `
       <div class="pname">${playerName(i)} <span id="dealer-${i}" class="dealertoken" title="Dealer Token">dealer</span>${i !== 0 && ally ? '<span class="allytag">partner</span>' : ''}</div>
+      ${flavor ? `<div class="epithet">${flavor}</div>` : ''}
       <div id="pinfo-${i}" class="pinfo"></div>
       <div class="tlabel">stone pouch</div>
       <div id="rack-${i}" class="minipouch"></div>
@@ -1186,6 +1211,7 @@ function render() {
     if (seat) seat.classList.toggle('acting', acting);
     if (panel) panel.classList.toggle('acting', acting);
   }
+  $('reviewBtn').disabled = !G.lastShowdown;
   UI.flashIds = []; // flash plays once per action, not per re-render
   animateMoves(prevRects);
 }
@@ -1496,13 +1522,15 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
-function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchWinner, gains) {
+function showShowdownModal(d, review) {
   if (typeof document === 'undefined') return;
+  const { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains } = d;
   const m = $('showdownModal');
   const body = $('showdownBody');
-  $('showdownTitle').textContent = push ? (G.mode === 'ffa' ? 'Dead heat at the top' : 'A Push')
+  $('showdownTitle').textContent = (review ? `Hand ${d.hand} — ` : '') +
+    (push ? (G.mode === 'ffa' ? 'Dead heat at the top' : 'A Push')
     : winner.members.includes(0) ? `${winner.name === 'You' ? 'You take' : winner.name + ' takes'} the showdown`
-    : `${winner.name} takes the showdown`;
+    : `${winner.name} takes the showdown`);
 
   function memberHtml(i) {
     const s = sel[i];
@@ -1534,7 +1562,8 @@ function showShowdownModal(sel, ents, winner, push, structuralOnly, diff, matchW
   else verdict = `The Pivot Marker shifts <b>${diff}</b> toward ${winner.members.includes(0) ? 'your' : 'their'} side. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
 
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
-  $('nextHandBtn').textContent = matchWinner ? 'See the result' : 'Next hand — the Dealer Token rotates';
+  $('nextHandBtn').textContent = review ? 'Back to the table'
+    : matchWinner ? 'See the result' : 'Next hand — the Dealer Token rotates';
   m.classList.add('open');
 }
 
@@ -1646,7 +1675,21 @@ function boot() {
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
   promptEl = $('prompt');
-  $('nextHandBtn').onclick = nextHand;
+  $('nextHandBtn').onclick = () => {
+    if (UI.reviewing) {
+      UI.reviewing = false;
+      closeModal('showdownModal');
+      run();
+    } else {
+      nextHand();
+    }
+  };
+  $('reviewBtn').onclick = () => {
+    if (G && G.lastShowdown && !$('showdownModal').classList.contains('open')) {
+      UI.reviewing = true;
+      showShowdownModal(G.lastShowdown, true);
+    }
+  };
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = openSetup;

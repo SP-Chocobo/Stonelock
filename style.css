@@ -116,6 +116,9 @@ h1 {
   padding: 0 6px;
 }
 .pinfo { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); margin-top: 2px; min-height: 14px; }
+.epithet { font-size: 10.5px; font-style: italic; color: #8d7f63; margin-top: 1px; line-height: 1.3; }
+body[data-compact="1"] .epithet { display: none; }
+.sidebtns { flex-wrap: wrap; }
 
 .minipouch { display: flex; gap: 12px; margin: 2px 0 2px; }
 .minicol { display: flex; flex-direction: column; gap: 6px; }
