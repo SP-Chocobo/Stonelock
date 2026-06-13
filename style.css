@@ -881,7 +881,36 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   box-shadow: 0 8px 30px rgba(0,0,0,0.8);
   padding: 14px 18px;
 }
-.coachtext { font-size: 15px; line-height: 1.5; color: var(--parchment); }
+.coachmin {
+  position: absolute; top: 8px; right: 10px;
+  width: 26px; height: 26px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.3);
+  color: var(--parchment);
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+}
+.coachmin:hover { border-color: var(--gold-bright); }
+.coachrestore {
+  position: fixed;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 130;
+  border: 1px solid var(--gold);
+  border-radius: 0 0 10px 10px;
+  border-top: none;
+  background: linear-gradient(180deg, #322819, #221a10);
+  color: var(--gold-bright);
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  padding: 6px 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+}
+.coachrestore:hover { filter: brightness(1.15); }
+.coachtext { font-size: 15px; line-height: 1.5; color: var(--parchment); padding-right: 26px; }
 .coachtext b { color: var(--gold-bright); }
 .coachbtns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
 

@@ -1479,7 +1479,7 @@ function requestQuitToTitle() {
 
 /* ---------- Tutorial ---------- */
 
-const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0 };
+const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0, minimized: false, current: null };
 
 const TUT_INTRO = [
   { sel: '.game', text: '<b>Welcome to Stonelock.</b> You are not building a careful recipe — you are seizing assets. Each hand, you field three cards and bend the board with stones. Let’s walk one hand together.' },
@@ -1494,6 +1494,8 @@ function startTutorial() {
   TUT.phase = 'intro';
   TUT.seen = new Set();
   TUT.introStep = 0;
+  TUT.minimized = false;
+  TUT.current = null;
   hideTitle();
   tutIntro();
 }
@@ -1563,6 +1565,15 @@ function tutHighlight(sel) {
 
 function coachShow(html, sel, opts = {}) {
   if (typeof document === 'undefined') return;
+  TUT.current = { html, sel, opts };
+  // Honor a minimized preference: stash the lesson behind the restore pill.
+  if (TUT.minimized) {
+    $('coach').style.display = 'none';
+    tutHighlight(null);
+    $('coachRestore').style.display = '';
+    return;
+  }
+  $('coachRestore').style.display = 'none';
   $('coachText').innerHTML = html;
   tutHighlight(sel);
   const next = $('coachNext');
@@ -1587,7 +1598,19 @@ function coachShow(html, sel, opts = {}) {
 function coachHide() {
   if (typeof document === 'undefined') return;
   $('coach').style.display = 'none';
+  $('coachRestore').style.display = 'none';
   tutHighlight(null);
+  TUT.current = null;
+}
+
+function coachMinimize() {
+  TUT.minimized = true;
+  if (TUT.current) coachShow(TUT.current.html, TUT.current.sel, TUT.current.opts);
+}
+
+function coachRestoreShow() {
+  TUT.minimized = false;
+  if (TUT.current) coachShow(TUT.current.html, TUT.current.sel, TUT.current.opts);
 }
 
 function renderScore() {
@@ -2208,6 +2231,8 @@ function boot() {
   $('titleTutorial').onclick = startTutorial;
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
+  $('coachMin').onclick = coachMinimize;
+  $('coachRestore').onclick = coachRestoreShow;
   showTitle();
 }
 
