@@ -431,6 +431,15 @@ const RAID_DIFFS = {
   hard:     { stones: 7, label: 'Hardcore', order: [1, 0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1] },
 };
 function raidDiff() { return RAID_DIFFS[G.raidDiff] || RAID_DIFFS.standard; }
+// Per-hand "holds back" roll: on specific tiers that ran too hard, the
+// boss occasionally spends one fewer stone, blending toward the next
+// stone count down. Scoped by boss+difficulty so other tiers are
+// untouched. (A die-roll that eases only where it's needed.)
+const envNum = (k, d) => (typeof process !== 'undefined' && process.env[k] !== undefined) ? +process.env[k] : d;
+const RAID_HOLDBACK = {
+  'magistrate-hard': envNum('MAG_HARD_HB', 0.25), // ~31% party (was ~20)
+  'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
+};
 function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
@@ -530,8 +539,14 @@ function startHand() {
       { t: 'phase', label: 'Choose Your Stones', note: 'Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; the Magistrate, five.' },
     ];
     // The chosen difficulty sets how many stones the Magistrate spends
-    // and the swing order — it always closes with the last word.
-    const RAID_ORDER = raidDiff().order;
+    // and the swing order — it always closes with the last word. On
+    // eased tiers the boss may "hold back" one stone this hand.
+    const RAID_ORDER = raidDiff().order.slice();
+    const holdback = RAID_HOLDBACK[`${G.raidBoss}-${G.raidDiff}`] || 0;
+    if (holdback && Math.random() < holdback) {
+      const i = RAID_ORDER.lastIndexOf(1); // drop the boss's last (unanswered) stone
+      if (i >= 0) RAID_ORDER.splice(i, 1);
+    }
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of RAID_ORDER) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
     G.queue.push(
