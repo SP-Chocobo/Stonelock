@@ -676,11 +676,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   display: none;
   align-items: center; justify-content: center;
   background: rgba(8,6,4,0.8);
-  z-index: 50;
+  z-index: 100; /* above the title screen (90) so Rules etc. open over it */
   padding: 20px;
 }
 .modal.open { display: flex; }
-.modal.pass { background: rgba(10,8,5,0.98); z-index: 70; }
+.modal.pass { background: rgba(10,8,5,0.98); z-index: 110; }
 
 .namerow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .nameinput {
@@ -873,7 +873,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   position: fixed;
   top: 14px; left: 50%;
   transform: translateX(-50%);
-  z-index: 95;
+  z-index: 130; /* above modals so it can overlay the showdown breakdown */
   width: min(560px, 92vw);
   background: linear-gradient(175deg, #322819, #221a10);
   border: 1px solid var(--gold);
@@ -888,7 +888,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* The element the tutorial is pointing at */
 .tut-spotlight {
   position: relative;
-  z-index: 93;
+  z-index: 120; /* above modal backdrops, below the coach panel */
   outline: 3px solid var(--gold-bright) !important;
   outline-offset: 3px;
   border-radius: 10px;
