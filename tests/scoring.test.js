@@ -66,6 +66,27 @@ r = bestSelection([
 ], bar);
 check('weak phantom left out of the set', [r.score, r.structure, r.picks.some(p => p.phantom)], [9, 'singles', false]);
 
+// Cursed Register: the cursed type scores nothing and builds nothing
+r = bestSelection([
+  { type: 'Bread', hasRed: false }, { type: 'Bread', hasRed: false },
+  { type: 'Bread', hasRed: false }, { type: 'Coin', hasRed: false },
+], bar, { cursed: 'Bread' });
+check('cursed type voided (no triad, no points)', [r.score, r.structure], [3, 'singles']);
+
+// Riverlock: no Road/Ferry in the final three docks the hand 2
+r = bestSelection([
+  { type: 'Bread', hasRed: false }, { type: 'Coin', hasRed: false },
+  { type: 'Quill', hasRed: false }, { type: 'Crest', hasRed: false },
+], bar, { riverlock: true });
+check('riverlock penalty applied', [r.score, r.penalty], [5, 2]); // 3+3+1−2
+
+// Riverlock satisfied when a Ferry makes the cut
+r = bestSelection([
+  { type: 'Bread', hasRed: false }, { type: 'Coin', hasRed: false },
+  { type: 'Ferry', hasRed: false }, { type: 'Quill', hasRed: false },
+], bar, { riverlock: true });
+check('riverlock satisfied by Ferry', [r.score, r.penalty], [8, 0]); // 3+3+2
+
 // House values sanity
 check('house values', [house.Chain, house.Crest, house.Quill, house.Ferry, house.Road, house.Bread, house.Coin, house.Sword], [3,3,3,2,2,1,1,1]);
 

@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
       <div class="phaserow">
         <span id="phaseLabel" class="phaselabel">Stonelock</span>
         <span id="phaseNote" class="phasenote"></span>
+        <span id="cursedBadge" class="cursedbadge" style="display:none" title="The Cursed Register — this card type is voided this hand"></span>
       </div>
       <div id="announce" class="announce"></div>
       <div class="promptrow">
@@ -122,10 +123,8 @@
   <div class="modalcard wide rules">
     <h2>How Stonelock Is Played</h2>
     <p>You are seizing assets. At the showdown you field <b>any three cards</b> from your final table
-    layout. Matching cards earn flat bonuses; Interaction Stones warp the board. This table plays
-    the commoner's valuation — <b>Bread, Coin, Road</b> high (3); <b>Sword, Ferry</b> mid (2);
-    <b>Quill, Crest, Chain</b> low (1). Other regions value cards differently, and will arrive with
-    their rule variants.</p>
+    layout. Matching cards earn flat bonuses; Interaction Stones warp the board. Card values shift
+    with the venue — see <b>The Venues</b> below.</p>
 
     <h3>The Hand</h3>
     <ol>
@@ -169,10 +168,19 @@
     <p>A locked card shields more than itself: if either card of a trade is later locked, a Black
     Stone can no longer unwind that trade.</p>
 
+    <h3>The Venues</h3>
+    <ul>
+      <li><b>The Roadside Tavern</b> — the Practical Common: Bread, Coin, Road high (3); Sword, Ferry mid (2); Quill, Crest, Chain low (1). No house rules.</li>
+      <li><b>The Sovereign Court</b> — statecraft values: Chain, Crest, Quill high; Ferry, Road mid; Bread, Coin, Sword low. Formal play, no deviations.</li>
+      <li><b>The River Docks</b> — the Fluvial Exchange: Road, Ferry, Coin high; Bread, Sword mid; Chain, Quill, Crest low. <b>Riverlock:</b> your final three must field a Road or Ferry, or the hand is docked 2 points after bonuses.</li>
+      <li><b>The Gambling Hall</b> — common values, under the <b>Cursed Register</b>: each hand one card type is drawn cursed — it scores nothing and builds no Pairs or Triads, though stones may still target it.</li>
+      <li><b>The Slum Tables</b> — common values, under <b>Slumlock</b>: a stone placed during resolution is exhausted for the next two hands before it returns to your pouch. Spend the pouch with a plan.</li>
+    </ul>
+
     <div class="modalbtns"><button id="rulesClose" class="btn primary">Back to the table</button></div>
   </div>
 </div>
 
-<script src="game.js?v=24"></script>
+<script src="game.js?v=25"></script>
 </body>
 </html>

@@ -37,11 +37,15 @@ const REGIONS = {
   },
 };
 
-// The table plays the Practical Common for now. The other regional
-// valuations return alongside the regional rule variants (Riverlock,
-// Slumlock, Cursed Register), where value shifts pair with real
-// rule changes.
-const TABLE_REGION = 'bar';
+// Venues bundle a regional valuation with its local house rule, so
+// the value shifts arrive paired with real rule changes.
+const VENUES = {
+  tavern: { region: 'bar', variant: null, label: 'The Roadside Tavern', desc: 'The Practical Common values. No house rules — the baseline game.' },
+  court: { region: 'house', variant: null, label: 'The Sovereign Court', desc: 'Statecraft values — Chain, Crest, Quill high. Formal play, no deviations.' },
+  docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.' },
+  hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.' },
+  slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.' },
+};
 
 const STONES = {
   red:   { name: 'Red Stone',   power: 'Duplication', desc: 'Places a phantom duplicate onto one of your cards. The phantom can stand as the second or third copy for a Pair or Triad bonus, but scores no point value of its own.' },
@@ -102,7 +106,7 @@ function shuffle(arr) {
    adds no regional point value of its own. A weak phantom may
    simply not make the scoring set. Best 3 units are selected. */
 
-function bestSelection(cards, values) {
+function bestSelection(cards, values, opts = {}) {
   let best = null;
   const n = cards.length;
   const contrib = new Array(n).fill(0);
@@ -121,17 +125,25 @@ function bestSelection(cards, values) {
     const picks = [];
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < contrib[i]; k++) {
-        counts[cards[i].type] = (counts[cards[i].type] || 0) + 1;
-        if (k === 0) raw += values[cards[i].type]; // phantoms score no raw value
-        picks.push({ type: cards[i].type, phantom: k > 0, cardIdx: i });
+        const t = cards[i].type;
+        const cursed = !!opts.cursed && t === opts.cursed; // scores nothing, builds nothing
+        if (!cursed) {
+          counts[t] = (counts[t] || 0) + 1;
+          if (k === 0) raw += values[t]; // phantoms score no raw value
+        }
+        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed });
       }
     }
     const struct = structure(counts);
     const bonus = struct === 'triad' ? 6 : struct === 'pair' ? 2 : 0;
-    const score = raw + bonus;
+    let penalty = 0;
+    if (opts.riverlock && !picks.some(p => (p.type === 'Road' || p.type === 'Ferry') && !p.cursed)) {
+      penalty = 2; // the Passage Requirement
+    }
+    const score = raw + bonus - penalty;
     if (!best || score > best.score ||
         (score === best.score && RANK[struct] > RANK[best.structure])) {
-      best = { score, raw, bonus, structure: struct, picks };
+      best = { score, raw, bonus, penalty, structure: struct, picks };
     }
   }
 
@@ -146,7 +158,14 @@ function bestSelection(cards, values) {
     contrib[i] = 0;
   }
   dfs(0, 0);
-  return best || { score: 0, raw: 0, bonus: 0, structure: 'singles', picks: [] };
+  return best || { score: 0, raw: 0, bonus: 0, penalty: 0, structure: 'singles', picks: [] };
+}
+
+function variantOpts() {
+  return {
+    cursed: G.cursedType || null,
+    riverlock: G.variant === 'riverlock',
+  };
 }
 
 const STRUCT_RANK = { triad: 2, pair: 1, singles: 0 };
@@ -161,11 +180,15 @@ let runTimer = null;
 function newGame(cfg) {
   clearTimeout(runTimer);
   const n = cfg.mode === 'duel' ? 2 : 4;
+  const venue = VENUES[cfg.venue || 'tavern'];
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams'
     deal: cfg.deal,                 // 'small' | 'house'
     target: cfg.target,
-    region: REGIONS[cfg.region || TABLE_REGION],
+    venue,
+    variant: venue.variant,         // null | 'riverlock' | 'cursed' | 'slumlock'
+    cursedType: null,
+    region: REGIONS[cfg.region || venue.region],
     nPlayers: n,
     names: buildNames(cfg.mode),
     ledger: 0,                      // duel/teams: positive = your side
@@ -178,10 +201,16 @@ function newGame(cfg) {
     events: [],
     cards: [],
   };
+  G.slum = Array.from({ length: n }, () => []); // Slumlock exhaustion ledger
   buildTableDOM();
   const fmt = G.mode === 'duel' ? 'a quiet duel' : G.mode === 'ffa' ? 'a four-seat free-for-all' : 'paired alliances, two against two';
   const dl = G.deal === 'house' ? 'House deep-draft deal, nine cards down' : 'small-game deal, five cards down';
-  log(`A table is set — ${fmt}, ${dl}, under ${G.region.name}. ${G.mode === 'ffa'
+  const variantNote = {
+    riverlock: ' Riverlock is declared: no Road or Ferry in your final three, and the hand is docked 2.',
+    cursed: ' The Cursed Register is declared: each hand, one card type is voided entirely.',
+    slumlock: ' Slumlock is declared: a stone placed this hand is exhausted for the two that follow.',
+  }[G.variant] || '';
+  log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
     ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
     : `First to push the Pivot Marker ${G.target} onto the other side takes the match.`}`, 'sys');
   startHand();
@@ -232,16 +261,27 @@ function startHand() {
   const spec = dealSpec();
   G.players = [];
   for (let p = 0; p < G.nPlayers; p++) {
+    const pool = { red: 2, white: 2, blue: 2, black: 2 };
+    // Slumlock: stones placed in recent hands are still exhausted.
+    if (G.variant === 'slumlock') {
+      for (const color of STONE_KEYS) pool[color] = Math.max(0, 2 - slumBlocked(p, color));
+    }
     G.players.push({
       idx: p,
       hand: [],
       board: [],
-      pool: { red: 2, white: 2, blue: 2, black: 2 },
+      pool,
       declared: [],
       removed: null,
       active: [],
       aiPlan: null,
     });
+  }
+
+  // The Cursed Register: one card type is drawn and voided this hand.
+  if (G.variant === 'cursed') {
+    G.cursedType = TYPES[Math.floor(Math.random() * TYPES.length)];
+    log(`The Cursed Card is drawn: every ${G.cursedType} is voided this hand — no points, no Pairs, no Triads.`, 'sys');
   }
   for (let p = 0; p < G.nPlayers; p++) {
     for (let k = 0; k < spec.handSize; k++) {
@@ -571,6 +611,12 @@ function consumeActive(who, color) {
   const a = G.players[who].active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
+  // Slumlock: a placed stone is exhausted for the next two hands.
+  if (G.variant === 'slumlock') G.slum[who].push({ color, until: G.handNum + 2 });
+}
+
+function slumBlocked(who, color) {
+  return G.slum[who].filter(e => e.color === color && e.until >= G.handNum).length;
 }
 
 // All card descriptions are written from the player's seat.
@@ -697,7 +743,7 @@ function estimate(ofPlayer, viewer) {
     return { type, hasRed: c.hasRed };
   });
   if (!cards.length) return 0;
-  return bestSelection(cards, values).score;
+  return bestSelection(cards, values, variantOpts()).score;
 }
 
 // My side's estimated total minus the best opposing side's, all
@@ -765,7 +811,8 @@ function aiChooseDeploy(who, step) {
     const spec = dealSpec();
     const counts = {};
     for (const c of p.hand) counts[c.type] = (counts[c.type] || 0) + 1;
-    const scoreCard = c => regionVal(c.type) + (counts[c.type] >= 2 ? 2.5 : 0);
+    const scoreCard = c => c.type === G.cursedType ? 0
+      : regionVal(c.type) + (counts[c.type] >= 2 ? 2.5 : 0);
     const sorted = p.hand.slice().sort((a, b) => scoreCard(b) - scoreCard(a));
     const keep = sorted.slice(0, spec.footprint);
     const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
@@ -982,7 +1029,8 @@ function showdown() {
 
   const sel = G.players.map(p => bestSelection(
     p.board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
-    G.region.values
+    G.region.values,
+    variantOpts()
   ));
 
   const ents = entities().map(e => ({
@@ -1218,7 +1266,10 @@ function render() {
 
 function renderScore() {
   $('handNum').textContent = `Hand ${G.handNum}`;
-  $('regionBadge').textContent = `${G.region.name} · ${G.region.subtitle}`;
+  $('regionBadge').textContent = `${G.venue.label} · ${G.region.subtitle}`;
+  const cb = $('cursedBadge');
+  cb.style.display = G.cursedType ? '' : 'none';
+  if (G.cursedType) cb.textContent = `Cursed: ${G.cursedType}`;
   if (G.mode === 'ffa') {
     const list = $('scoreList');
     list.innerHTML = '';
@@ -1251,11 +1302,14 @@ function renderPanels() {
     for (const color of STONE_KEYS) {
       const col = document.createElement('div');
       col.className = 'minicol';
+      const exhausted = G.variant === 'slumlock' ? slumBlocked(i, color) : 0;
       for (let k = 0; k < 2; k++) {
         const dot = document.createElement('span');
         const held = k < p.pool[color];
-        dot.className = held ? `stonedot ${color}` : 'stonedot socket';
-        dot.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}` + (held ? '' : ' (telegraphed)');
+        const isExhausted = !held && k >= 2 - exhausted;
+        dot.className = held ? `stonedot ${color}` : 'stonedot socket' + (isExhausted ? ' exhausted' : '');
+        dot.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}` +
+          (held ? '' : isExhausted ? ' (Slumlock: exhausted, returning soon)' : ' (telegraphed)');
         // Your rack is the live pouch: declare stones from here too.
         if (i === 0 && held && UI.mode === 'pickStone') {
           dot.classList.add('targetable');
@@ -1535,14 +1589,14 @@ function showShowdownModal(d, review) {
   function memberHtml(i) {
     const s = sel[i];
     const picksHtml = s.picks.map(p => `
-      <div class="pickcard${p.phantom ? ' phantom' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : ''}>
+      <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
         <div class="cicon">${ICONS[p.type]}</div>
         <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
-        <div class="cval">${p.phantom ? '✧' : regionVal(p.type)}</div>
+        <div class="cval">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
       </div>`).join('');
     const caption = ents.length === G.players.length ? '' : `<div class="membername">${playerName(i)}</div>`;
     return `${caption}<div class="pickrow">${picksHtml}</div>
-      <div class="mathline">${s.raw} raw ${s.bonus ? `+ ${s.bonus} ${s.structure === 'triad' ? 'Triad' : 'Pair'} bonus` : ''} — ${STRUCT_LABEL[s.structure]} (${s.score})</div>`;
+      <div class="mathline">${s.raw} raw ${s.bonus ? `+ ${s.bonus} ${s.structure === 'triad' ? 'Triad' : 'Pair'} bonus` : ''}${s.penalty ? ` − ${s.penalty} Riverlock` : ''} — ${STRUCT_LABEL[s.structure]} (${s.score})</div>`;
   }
 
   body.innerHTML = ents.map(e => `
@@ -1593,6 +1647,10 @@ function showVictory() {
 
 const SETUP_STEPS = [
   {
+    key: 'venue', title: 'Choose the venue', options:
+      Object.entries(VENUES).map(([v, info]) => ({ v, label: info.label, desc: info.desc })),
+  },
+  {
     key: 'mode', title: 'Choose the table', options: [
       { v: 'duel', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
       { v: 'ffa', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
@@ -1617,7 +1675,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { mode: 'duel', deal: 'small', target: 20 };
+  SETUP = { venue: 'tavern', mode: 'duel', deal: 'small', target: 20 };
   renderSetup();
   $('setupModal').classList.add('open');
 }
@@ -1645,14 +1703,14 @@ function renderSetup() {
     body.appendChild(grid);
   }
 
-  const r = REGIONS[TABLE_REGION];
+  const r = REGIONS[VENUES[SETUP.venue].region];
   const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
   const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
   // insertAdjacentHTML keeps the option cards' click handlers alive
   // (innerHTML += would re-parse the container and strip them).
   body.insertAdjacentHTML('beforeend', `
     <div class="valstrip">${r.name} — card values: ${vals}</div>
-    <div class="setupsummary">${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`);
+    <div class="setupsummary">${labelOf('venue')} · ${labelOf('mode')} · ${labelOf('deal')} · ${labelOf('target')}</div>`);
 
   const btns = $('setupBtns');
   btns.innerHTML = '';
@@ -1667,7 +1725,7 @@ function renderSetup() {
 function startFromSetup() {
   closeModal('setupModal');
   logEl.innerHTML = '';
-  newGame({ mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target });
+  newGame({ venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target });
 }
 
 function boot() {

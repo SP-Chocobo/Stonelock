@@ -133,6 +133,17 @@ body[data-compact="1"] .epithet { display: none; }
   border: 1.5px dashed rgba(232,220,190,0.22);
   box-shadow: none;
 }
+.stonedot.socket.exhausted { border-color: rgba(168,57,46,0.6); background: rgba(110,32,24,0.18); }
+
+.cursedbadge {
+  font-size: 11px;
+  font-style: italic;
+  color: #d96a5b;
+  border: 1px solid #6e2018;
+  border-radius: 9px;
+  padding: 1px 9px;
+}
+.pickcard.cursedpick { opacity: 0.55; border-color: #6e2018; }
 .dealertoken {
   font-size: 10px;
   font-family: 'IM Fell English', serif;

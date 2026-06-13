@@ -110,14 +110,14 @@ function placeTargets(color) {
 }
 
 const matrix = [
-  { mode: 'duel', deal: 'small' },
-  { mode: 'duel', deal: 'house' },
-  { mode: 'ffa', deal: 'small' },
-  { mode: 'ffa', deal: 'house' },
-  { mode: 'teams', deal: 'small' },
-  { mode: 'teams', deal: 'house' },
+  { mode: 'duel', deal: 'small', venue: 'tavern' },
+  { mode: 'duel', deal: 'house', venue: 'docks' },
+  { mode: 'ffa', deal: 'small', venue: 'hall' },
+  { mode: 'ffa', deal: 'house', venue: 'slums' },
+  { mode: 'teams', deal: 'small', venue: 'court' },
+  { mode: 'teams', deal: 'house', venue: 'slums' },
 ];
 for (let i = 0; i < 60; i++) {
-  driveOne({ ...matrix[i % matrix.length], target: 10, region: 'bar' });
+  driveOne({ ...matrix[i % matrix.length], target: 10 });
 }
-console.log(`OK: 60 full matches across 6 format combos. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
+console.log(`OK: 60 full matches across 6 format/venue combos. showdowns=${showdowns} blue-placed=${bluesUsed} black-undos=${blacksUsed}`);
