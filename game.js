@@ -2064,7 +2064,7 @@ function renderTableSummary() {
     rows.push(['Players', h <= 1 ? `You + ${bots} bot${bots === 1 ? '' : 's'}` : `${h} players + ${bots} bot${bots === 1 ? '' : 's'}`]);
   }
   rows.push(['Targeting', G.open ? 'Advanced' : 'Simplified']);
-  rows.push(['Deal', G.deal === 'house' ? 'House Deep Draft (9 cards)' : 'Small Game (5 cards)']);
+  if (G.mode !== 'raid') rows.push(['Deal', G.deal === 'house' ? 'House Deep Draft (9 cards)' : 'Small Game (5 cards)']);
   rows.push(['Race to', String(G.target)]);
   el.innerHTML = '<div class="tstitle">This table</div>' +
     rows.map(([k, v]) => `<div class="tsrow"><span class="tskey">${k}</span><span class="tsval">${v}</span></div>`).join('');
