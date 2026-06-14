@@ -557,6 +557,19 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.6);
 }
+/* Numbered value-stone art (1-3) replaces the gold badge; the digit
+   becomes the baked-in number (text hidden). Phantom (✧) and cursed
+   (0) keep the plain badge + text. The gold gradient stays beneath as
+   a fallback if a file is missing. */
+.cval.val-1, .cval.val-2, .cval.val-3 {
+  color: transparent;
+  background-size: cover, auto;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.cval.val-1 { background-image: url('assets/card-value-1.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
+.cval.val-2 { background-image: url('assets/card-value-2.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
+.cval.val-3 { background-image: url('assets/card-value-3.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
 
 .card.back {
   /* Weathered panel art (assets/card-back.png) over the woodgrain
@@ -859,9 +872,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   position: fixed; inset: 0;
   z-index: 90;
   display: flex; align-items: center; justify-content: center;
+  /* A dark vignette over the uploaded texture keeps the title legible;
+     the gem glow + base colour remain as fallback if the file is gone. */
   background:
+    radial-gradient(ellipse at 50% 38%, rgba(10,8,5,0.35), rgba(10,8,5,0.78) 80%),
+    url('assets/title-bg.jpg') center/cover no-repeat,
     radial-gradient(ellipse at 50% 35%, rgba(201,160,80,0.12), transparent 60%),
-    radial-gradient(ellipse at 50% 120%, rgba(201,160,80,0.06), transparent 55%),
     var(--bg);
   overflow-y: auto;
 }
