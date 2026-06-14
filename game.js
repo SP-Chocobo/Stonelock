@@ -84,17 +84,6 @@ function fumbles(who) { return Math.random() > personaOf(who).skill; }
 const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand'];
 
 // Which seats are AI-held, in seat order, per mode.
-function aiSeatsFor(mode) {
-  switch (mode) {
-    case 'duel': return [1];
-    case 'ffa': return [1, 2, 3];
-    case 'teams': return [1, 2, 3];
-    case 'hs-team': return [1, 3];
-    case 'hs-rivals': return [2, 3];
-    default: return []; // hotseat
-  }
-}
-
 function slotName(i, footprint) {
   if (footprint === 5) return ['Foundation I', 'Foundation II', 'Veil I', 'Veil II', 'Final'][i] || '';
   return ['Foundation I', 'Foundation II', 'The Veil', 'Final'][i] || '';
@@ -306,7 +295,8 @@ function newGame(cfg) {
   INGAME = true;
   hideTitle();
   const raid = cfg.mode === 'raid';
-  const n = raid ? 3 : (cfg.mode === 'duel' || cfg.mode === 'hotseat') ? 2 : 4;
+  const n = raid ? 3 : seatCountOf(cfg.mode);
+  const cfgHumans = raid ? null : (cfg.humans || humansFor(cfg.mode));
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
@@ -325,8 +315,8 @@ function newGame(cfg) {
       ? (cfg.raidAlly === 'hotseat'
           ? [((cfg.names || [])[0] || 'Player One'), raidBossName(cfg.raidBoss), ((cfg.names || [])[1] || 'Player Two')]
           : ['You', raidBossName(cfg.raidBoss), 'The Old Hand'])
-      : buildNames(cfg.mode, cfg.names || [], cfg.companyNames || null),
-    humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : humansFor(cfg.mode),
+      : buildNames(cfg.mode, cfgHumans, cfg.names || [], cfg.companyNames || null),
+    humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : cfgHumans,
     viewer: 0,
     raidDiff: raid ? (cfg.raidDiff || 'standard') : null,
     ledger: 0,                      // duel/teams: positive = your side
@@ -344,7 +334,7 @@ function newGame(cfg) {
   const fmt = G.mode === 'duel' ? 'a quiet duel' : G.mode === 'ffa' ? 'a four-seat free-for-all' : 'paired alliances, two against two';
   const dl = G.deal === 'house' ? 'House deep-draft deal, nine cards down' : 'small-game deal, five cards down';
   if (cfg.drewLots) {
-    log(`Lots are drawn for the seats: ${aiSeatsFor(cfg.mode).map(s => G.names[s]).join(', ')} sit down at the table.`, 'sys');
+    log(`Lots are drawn for the seats: ${botSeatsOf(cfg.mode, cfgHumans).map(s => G.names[s]).join(', ')} sit down at the table.`, 'sys');
   }
   const variantNote = {
     riverlock: ' Riverlock is declared: no Road or Ferry in your final three, and the hand is docked 2.',
@@ -363,20 +353,26 @@ function newGame(cfg) {
   startHand();
 }
 
-function buildNames(mode, entered, company) {
-  const n1 = entered[0] || 'Player One';
-  const n2 = entered[1] || 'Player Two';
-  let base;
-  if (mode === 'teams') base = ['You', AI_ROSTER[0], PARTNER_NAME, AI_ROSTER[1]];
-  else if (mode === 'ffa') base = ['You', ...AI_ROSTER];
-  else if (mode === 'hotseat') base = [n1, n2];
-  // Seats alternate teams: {0,2} vs {1,3}.
-  else if (mode === 'hs-team') base = [n1, AI_ROSTER[0], n2, AI_ROSTER[1]];   // humans allied
-  else if (mode === 'hs-rivals') base = [n1, n2, PARTNER_NAME, AI_ROSTER[2]]; // humans opposed, AI partners
-  else base = ['You', AI_ROSTER[0]];
-  if (company) {
-    aiSeatsFor(mode).forEach((seat, i) => { if (company[i]) base[seat] = company[i]; });
+// Seat-by-seat names: humans take entered names in seat order; bots take
+// the roster (in teams, the seat partnered with seat 0 is the Old Hand).
+// Seats alternate teams: {0,2} vs {1,3}.
+function buildNames(shape, humans, entered, company) {
+  const n = seatCountOf(shape);
+  const base = new Array(n);
+  const botSeats = [];
+  let hi = 0;
+  for (let s = 0; s < n; s++) {
+    if (humans.includes(s)) {
+      const nm = (entered[hi] || '').trim();
+      base[s] = nm || (humans.length > 1 ? `Player ${hi + 1}` : 'You');
+      hi++;
+    } else botSeats.push(s);
   }
+  const roster = [...AI_ROSTER];
+  for (const s of botSeats) {
+    base[s] = (shape === 'teams' && s === 2) ? PARTNER_NAME : (roster.shift() || 'The Stranger');
+  }
+  if (company) botSeats.forEach((seat, i) => { if (company[i]) base[seat] = company[i]; });
   return base;
 }
 
@@ -2337,14 +2333,14 @@ const SETUP_STEPS = [
       Object.entries(VENUES).map(([v, info]) => ({ v, label: info.label, desc: info.desc })),
   },
   {
-    key: 'mode', title: 'Choose the table', hint: 'Players & format — solo vs bots, or hotseat', options: [
-      { v: 'duel', group: 'Against the house (bots)', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Ledger Stone races by the net difference of each showdown.' },
-      { v: 'ffa', group: 'Against the house (bots)', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
-      { v: 'teams', group: 'Against the house (bots)', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
-      { v: 'hotseat', group: 'Hotseat — real players, pass the device', label: 'Hotseat Duel', desc: 'Two players, one device. The table passes between you with a confirmation screen; veiled cards stay private.' },
-      { v: 'hs-team', group: 'Hotseat — real players, pass the device', label: 'Hotseat Allies — 2v2', desc: 'You two against two of the regulars. Pass the device; lock each other’s cards; never trade against each other.' },
-      { v: 'hs-rivals', group: 'Hotseat — real players, pass the device', label: 'Hotseat Rivals — 2v2', desc: 'You two on opposite sides, each seated with one of the regulars as a partner.' },
+    key: 'mode', title: 'Choose the table', hint: 'The shape of the contest', options: [
+      { v: 'duel', label: 'Solo Duel — 1v1', desc: 'Two seats, head to head. The Ledger Stone races by the net difference of each showdown.' },
+      { v: 'ffa', label: 'Free-for-All — 4 seats', desc: 'Four seats, every seat for itself. Each showdown banks your margin over the lowest hand; first to the target, standing alone, wins.' },
+      { v: 'teams', label: 'Paired Teams — 2v2', desc: 'Four seats in two alliances. Team totals decide the showdown, and partners may shelter each other.' },
     ],
+  },
+  {
+    key: 'players', title: 'Choose the players', hint: 'How many seats are real people at this device', dynamic: true,
   },
   {
     key: 'company', title: 'Choose the company', hint: 'Which regulars take the other seats', options: [
@@ -2377,20 +2373,49 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', ''], picks: [], _open: null };
+  SETUP = { venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
 }
 
-function seatRoles(mode) {
-  switch (mode) {
-    case 'duel': return ['your opponent'];
-    case 'ffa': return ['rival', 'rival', 'rival'];
-    case 'teams': return ['rival', 'your partner', 'rival'];
-    case 'hs-team': return ['rival', 'rival'];
-    case 'hs-rivals': return ['Player One’s partner', 'Player Two’s partner'];
-    default: return [];
-  }
+// A table shape has a fixed seat count; the chosen "players" option says
+// which seats are real people (the rest are filled by bots).
+function seatCountOf(shape) { return shape === 'duel' ? 2 : 4; }
+
+const PLAYERS_OPTIONS = {
+  duel: [
+    { v: 'solo', humans: [0], label: 'Solo — you vs a bot', desc: 'You against one of the regulars across a quiet table.' },
+    { v: 'hot2', humans: [0, 1], label: 'Hotseat — two players', desc: 'Two players share one device; veiled cards stay private as it passes between you.' },
+  ],
+  ffa: [
+    { v: 'h1', humans: [0], label: '1 player + 3 bots', desc: 'You alone against three of the regulars.' },
+    { v: 'h2', humans: [0, 1], label: '2 players + 2 bots', desc: 'Two real players and two bots — every seat for itself.' },
+    { v: 'h3', humans: [0, 1, 2], label: '3 players + 1 bot', desc: 'Three real players and a single bot at the fourth seat.' },
+    { v: 'h4', humans: [0, 1, 2, 3], label: '4 players — full table', desc: 'All four seats are real players, passing the device.' },
+  ],
+  teams: [
+    { v: 'solo', humans: [0], label: '1 player + 3 bots', desc: 'You and a bot partner (the Old Hand) against two bots.' },
+    { v: 'allies', humans: [0, 2], label: '2 players — allies', desc: 'You two partnered on one side, against two bots.' },
+    { v: 'rivals', humans: [0, 1], label: '2 players — rivals', desc: 'Two real players on opposite sides, each with a bot partner.' },
+    { v: 'h4', humans: [0, 1, 2, 3], label: '4 players — 2v2', desc: 'All four seats are real players, two against two.' },
+  ],
+};
+function playersOptions(shape) { return PLAYERS_OPTIONS[shape] || PLAYERS_OPTIONS.duel; }
+function humansFromSetup() {
+  const opts = playersOptions(SETUP.mode);
+  return (opts.find(o => o.v === SETUP.players) || opts[0]).humans;
+}
+function botSeatsOf(shape, humans) {
+  const out = [];
+  for (let s = 0; s < seatCountOf(shape); s++) if (!humans.includes(s)) out.push(s);
+  return out;
+}
+// Describe each bot seat, in order, for the lineup picker.
+function seatRoles(shape, humans) {
+  return botSeatsOf(shape, humans).map(s =>
+    shape === 'duel' ? 'your opponent'
+      : shape === 'teams' ? (s % 2 === 0 ? 'your partner' : 'a rival')
+        : 'a rival');
 }
 
 function renderSetup() {
@@ -2399,12 +2424,17 @@ function renderSetup() {
   $('setupModal').querySelector('h2').textContent = 'Set the Table';
   const body = $('setupBody');
   body.innerHTML = '';
-  const K = aiSeatsFor(SETUP.mode).length;
+  // Keep the players choice valid for the current shape.
+  if (!playersOptions(SETUP.mode).some(o => o.v === SETUP.players)) SETUP.players = playersOptions(SETUP.mode)[0].v;
+  const humans = humansFromSetup();
+  const K = botSeatsOf(SETUP.mode, humans).length; // bot seats to cast
   SETUP.picks = SETUP.picks.slice(0, K);
   if (SETUP._open === undefined) SETUP._open = null;
+  const optionsOf = section => section.dynamic ? playersOptions(SETUP.mode) : section.options;
   const labelOf = key => {
     const s = SETUP_STEPS.find(s => s.key === key);
-    const o = s && s.options.find(o => o.v === SETUP[key]);
+    if (!s) return '';
+    const o = optionsOf(s).find(o => o.v === SETUP[key]);
     return o ? o.label : '';
   };
 
@@ -2435,7 +2465,10 @@ function renderSetup() {
         el.innerHTML = `<h3>${opt.label}</h3><div class="bigoptdesc">${opt.desc}</div>`;
         el.onclick = () => {
           SETUP[section.key] = opt.v;
-          if (section.key === 'mode') SETUP.picks = [];
+          // Changing the shape resets the players choice to that shape's
+          // default; either change can alter how many bot seats remain.
+          if (section.key === 'mode') SETUP.players = playersOptions(opt.v)[0].v;
+          if (section.key === 'mode' || section.key === 'players') SETUP.picks = [];
           // Keep company open so the seat picker shows; otherwise the pick
           // collapses the row to its summary.
           SETUP._open = (section.key === 'company' && opt.v === 'choose') ? 'company' : null;
@@ -2443,10 +2476,10 @@ function renderSetup() {
         };
         return el;
       };
-      // Options may carry a `group` label (e.g. vs-bots vs hotseat); render
-      // each group under its own subheading, preserving order.
+      // Options may carry a `group` label; render each group under its own
+      // subheading, preserving order.
       const groups = [];
-      for (const opt of section.options) {
+      for (const opt of optionsOf(section)) {
         const g = opt.group || '';
         let bucket = groups.find(x => x.name === g);
         if (!bucket) { bucket = { name: g, opts: [] }; groups.push(bucket); }
@@ -2489,7 +2522,7 @@ function renderSetup() {
         }
         const roles = document.createElement('div');
         roles.className = 'rolesline';
-        roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode).map((r, i) => `${i + 1} — ${r}`).join(' · ');
+        roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode, humans).map((r, i) => `${i + 1} — ${r}`).join(' · ');
         row.appendChild(roles);
         accbody.appendChild(row);
       }
@@ -2498,23 +2531,23 @@ function renderSetup() {
     body.appendChild(acc);
   }
 
-  // Hotseat tables take player names — always visible, not an accordion row.
-  if (['hotseat', 'hs-team', 'hs-rivals'].includes(SETUP.mode)) {
+  // Two or more real players: take a name for each, always visible.
+  if (humans.length > 1) {
     const row = document.createElement('div');
     row.className = 'namerow';
     const lab = document.createElement('span');
     lab.className = 'arealabel';
     lab.textContent = 'Who is playing?';
     row.appendChild(lab);
-    [0, 1].forEach(k => {
+    for (let k = 0; k < humans.length; k++) {
       const inp = document.createElement('input');
       inp.className = 'nameinput';
-      inp.placeholder = k === 0 ? 'Player One' : 'Player Two';
+      inp.placeholder = `Player ${k + 1}`;
       inp.maxLength = 16;
       inp.value = SETUP.names[k] || '';
       inp.oninput = () => { SETUP.names[k] = inp.value; };
       row.appendChild(inp);
-    });
+    }
     body.appendChild(row);
   }
 
@@ -2544,7 +2577,8 @@ function renderSetup() {
 function startFromSetup() {
   closeModal('setupModal');
   logEl.innerHTML = '';
-  const K = aiSeatsFor(SETUP.mode).length;
+  const humans = humansFromSetup();
+  const K = botSeatsOf(SETUP.mode, humans).length;
   let companyNames = null, drewLots = false;
   if (K > 0 && SETUP.company === 'lottery') {
     companyNames = shuffle(BOT_POOL.slice()).slice(0, K);
@@ -2553,8 +2587,8 @@ function startFromSetup() {
     companyNames = SETUP.picks.slice(0, K);
   }
   newGame({
-    venue: SETUP.venue, mode: SETUP.mode, deal: SETUP.deal, target: SETUP.target, targeting: SETUP.targeting,
-    names: SETUP.names.map(s => s.trim()).filter(Boolean).length ? SETUP.names.map(s => s.trim()) : [],
+    venue: SETUP.venue, mode: SETUP.mode, humans, deal: SETUP.deal, target: SETUP.target, targeting: SETUP.targeting,
+    names: SETUP.names.map(s => (s || '').trim()),
     companyNames, drewLots,
   });
 }

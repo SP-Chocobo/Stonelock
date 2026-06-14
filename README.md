@@ -37,9 +37,9 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
   scores combine; the marker moves by (party − Magistrate) and the boss holds
   any tie. Difficulty sets the boss's stone count — Easy (5) / Standard (6) /
   Hardcore (7) — measured against a greedy team at roughly 80% / 45% / 30%.
-- **Hotseat play**: two humans on one device — duel, allied 2v2, or rival 2v2
-  with AI partners — with name entry and a pass-confirmation screen guarding
-  hidden information between turns.
+- **Hotseat play**: pick how many seats are real players (2–4) on one device for
+  any table shape — bots fill the rest. Duel, FFA, or 2v2 (allied / rival), with
+  name entry and a pass-confirmation screen guarding hidden information between turns.
 - **Three table formats**: Solo 1v1, 4-player Free-for-All, and Paired Teams
   (2v2 — your AI partner sits opposite; team totals decide the showdown, but
   multiples never pool across layouts; partners may Lock each other's cards
