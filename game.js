@@ -2344,11 +2344,11 @@ function showVictory() {
 
 const SETUP_STEPS = [
   {
-    key: 'venue', title: 'Choose the venue', options:
+    key: 'venue', title: 'Choose the venue', hint: 'Rules variant — regional card values & house rules', options:
       Object.entries(VENUES).map(([v, info]) => ({ v, label: info.label, desc: info.desc })),
   },
   {
-    key: 'mode', title: 'Choose the table', options: [
+    key: 'mode', title: 'Choose the table', hint: 'Players & format — solo vs bots, or hotseat', options: [
       { v: 'duel', group: 'Against the house (bots)', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
       { v: 'ffa', group: 'Against the house (bots)', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
       { v: 'teams', group: 'Against the house (bots)', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
@@ -2358,26 +2358,26 @@ const SETUP_STEPS = [
     ],
   },
   {
-    key: 'company', title: 'Choose the company', options: [
+    key: 'company', title: 'Choose the company', hint: 'Which regulars take the other seats', options: [
       { v: 'usual', label: 'The Usual Table', desc: 'The regulars take their accustomed seats.' },
       { v: 'lottery', label: 'Draw Lots', desc: 'Seats are filled at random from whoever is in the room tonight.' },
       { v: 'choose', label: 'Choose Your Company', desc: 'Pick exactly who sits down, seat by seat.' },
     ],
   },
   {
-    key: 'targeting', title: 'Choose the targeting', options: [
+    key: 'targeting', title: 'Choose the targeting', hint: 'How far stones may reach across layouts', options: [
       { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout against your rivals’; White may shelter an ally. The cleaner game.' },
       { v: 'open', label: 'Advanced', desc: 'Any stone may target any layout, allies included: red an ally’s pair, lock a rival’s dead card, trade between any two seats.' },
     ],
   },
   {
-    key: 'deal', title: 'Choose the deal', options: [
+    key: 'deal', title: 'Choose the deal', hint: 'Cards dealt & the scoring footprint', options: [
       { v: 'small', label: 'Small Game', desc: '5 cards dealt, a 2-1-1 footprint, best 3 of 4 scored. The roadside standard.' },
       { v: 'house', label: 'House Deep Draft', desc: '9 cards dealt, a 2-2-1 footprint, best 3 of 5 scored. Leftovers are discarded dead.' },
     ],
   },
   {
-    key: 'target', title: 'Choose the match length', options: [
+    key: 'target', title: 'Choose the match length', hint: 'How far the Pivot Marker must travel to win', options: [
       { v: 10, label: 'Quick — to 10', desc: 'A fast settling of scores.' },
       { v: 20, label: 'Standard — to 20', desc: 'The common evening match.' },
       { v: 40, label: 'Full Sovereign Race — to 40', desc: 'The long campaign, as the nobles play it.' },
@@ -2430,7 +2430,8 @@ function renderSetup() {
     head.dataset.k = section.key;
     const heading = section.title.replace('Choose the ', 'The ').replace('Choose ', '');
     head.innerHTML =
-      `<span class="acclabel">${heading}</span>` +
+      `<span class="acclabelwrap"><span class="acclabel">${heading}</span>` +
+      (section.hint ? `<span class="accsub">${section.hint}</span>` : '') + `</span>` +
       `<span class="accpick">${labelOf(section.key)}<span class="accchev">›</span></span>`;
     head.onclick = () => { SETUP._open = open ? null : section.key; renderSetup(); };
     acc.appendChild(head);
