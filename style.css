@@ -834,7 +834,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   font-family: 'Alegreya', Georgia, serif;
   font-size: 12px; font-style: italic;
   text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--gold-dim);
+  color: var(--parchment-dim);
   margin: 4px 2px 7px;
 }
 .optgroup + .optgrid { margin-bottom: 12px; }
