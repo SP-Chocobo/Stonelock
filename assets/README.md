@@ -23,3 +23,8 @@ Guidance:
   (~3:4). A portrait image crops nicely; the central timber reads best.
 - Downscaling before committing keeps the repo light (a 1 MB MidJourney export
   is overkill for a 50px stone — ~256px / <100 KB each is ideal).
+
+Added later:
+- `card-value-1.png` / `-2` / `-3` — numbered value tokens shown as the card's
+  value badge (the gold badge + digit is the fallback).
+- `title-bg.jpg` — the title screen background texture (under a dark vignette).
