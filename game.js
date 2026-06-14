@@ -563,9 +563,9 @@ function startHand() {
     for (const w of RAID_ORDER) G.queue.push({ t: 'place', who: w });
     if (G.raidBoss === 'apothecary') {
       // Pause on the scalpel so you can watch it land before the results.
-      G.queue.push({ t: 'beat', ms: 700 }, { t: 'apothcut' }, { t: 'beat', ms: 1800 }, { t: 'showdown' });
+      G.queue.push({ t: 'beat', ms: 800 }, { t: 'apothcut' }, { t: 'beat', ms: 2800 }, { t: 'showdown' });
     } else {
-      G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+      G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
     }
   } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
@@ -585,7 +585,7 @@ function startHand() {
       const order = r % 2 === 0 ? dOrd : rOrd; // serpentine: balances tempo across the four placements
       for (const w of order) G.queue.push({ t: 'place', who: w, gaunt: r + 1 });
     }
-    G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+    G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
   } else {
     G.queue = [
       dealNote,
@@ -604,7 +604,7 @@ function startHand() {
       ...dOrd.map(w => ({ t: 'place', who: w })),
       { t: 'phase', label: 'Phase 7 — Second Stone & Showdown', note: 'Final stones drop, then all veiled cards are flipped.' },
       ...dOrd.map(w => ({ t: 'place', who: w })),
-      { t: 'beat', ms: 900 },
+      { t: 'beat', ms: 1700 },
       { t: 'showdown' },
     ];
   }
