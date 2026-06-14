@@ -178,13 +178,17 @@ body[data-compact="1"] .epithet { display: none; }
 }
 .ledgerheads {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
   font-size: 10px;
   color: var(--parchment-dim);
   margin-bottom: 4px;
 }
-.ledgerheads .lcap { font-style: italic; color: var(--gold-dim); }
+/* Equal thirds so the centre label sits on the true centreline (the marker's
+   zero), not in the uneven gap between side names of different widths. */
+.ledgerheads > span { flex: 1 1 0; min-width: 0; }
+.ledgerheads > span:first-child { text-align: left; }
+.ledgerheads > span:last-child { text-align: right; }
+.ledgerheads .lcap { text-align: center; font-style: italic; color: var(--gold-dim); }
 
 .ledgerrow { display: flex; align-items: center; gap: 7px; }
 .ledgerend { font-size: 11px; color: var(--parchment-dim); min-width: 16px; text-align: center; }
