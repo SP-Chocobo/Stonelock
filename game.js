@@ -550,8 +550,12 @@ function startHand() {
       { t: 'phase', label: 'The Reckoning', note: `Spend your telegraphed stones in turn. ${bn} answers between you${G.raidBoss === 'apothecary' ? ', and closes with the Green cut — its scalpel on your best unlocked card' : ', and has the last word'}.` }
     );
     for (const w of RAID_ORDER) G.queue.push({ t: 'place', who: w });
-    if (G.raidBoss === 'apothecary') G.queue.push({ t: 'beat', ms: 700 }, { t: 'apothcut' });
-    G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+    if (G.raidBoss === 'apothecary') {
+      // Pause on the scalpel so you can watch it land before the results.
+      G.queue.push({ t: 'beat', ms: 700 }, { t: 'apothcut' }, { t: 'beat', ms: 1800 }, { t: 'showdown' });
+    } else {
+      G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
+    }
   } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
     // four stones across four serpentine rounds (deal / reverse / …).
@@ -1783,6 +1787,7 @@ function showTitle() {
   TUT.active = false;
   coachHide();
   for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
+  if (typeof document !== 'undefined') $('showdownResume').style.display = 'none';
   G = null;
   $('titleScreen').classList.remove('hidden');
 }
@@ -2329,6 +2334,7 @@ function showShowdownModal(d, review) {
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand — the Dealer Token rotates';
+  $('showdownResume').style.display = 'none';
   m.classList.add('open');
 }
 
@@ -2358,6 +2364,7 @@ function showRaidShowdown(d, review) {
     `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand';
+  $('showdownResume').style.display = 'none';
   $('showdownModal').classList.add('open');
 }
 
@@ -2823,6 +2830,7 @@ function boot() {
   phaseNoteEl = $('phaseNote');
   promptEl = $('prompt');
   $('nextHandBtn').onclick = () => {
+    $('showdownResume').style.display = 'none';
     if (UI.reviewing) {
       UI.reviewing = false;
       closeModal('showdownModal');
@@ -2868,6 +2876,10 @@ function boot() {
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
   $('coachMin').onclick = coachMinimize;
   $('coachRestore').onclick = coachRestoreShow;
+  // Peek at the board behind a showdown (e.g. to see where the Apothecary cut),
+  // then come back to the results — like minimizing the tutorial coach.
+  $('showdownPeek').onclick = () => { closeModal('showdownModal'); $('showdownResume').style.display = ''; render(); };
+  $('showdownResume').onclick = () => { $('showdownResume').style.display = 'none'; $('showdownModal').classList.add('open'); };
   showTitle();
 }
 

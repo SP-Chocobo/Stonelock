@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=73">
+<link rel="stylesheet" href="style.css?v=74">
 </head>
 <body>
 
@@ -194,9 +194,13 @@
   <div class="modalcard wide">
     <h2 id="showdownTitle"></h2>
     <div id="showdownBody"></div>
-    <div class="modalbtns"><button id="nextHandBtn" class="btn primary big"></button></div>
+    <div class="modalbtns">
+      <button id="showdownPeek" class="btn">⤢ View the board</button>
+      <button id="nextHandBtn" class="btn primary big"></button>
+    </div>
   </div>
 </div>
+<button id="showdownResume" class="coachrestore" style="display:none" title="Back to the showdown results">▸ Back to the results</button>
 
 <!-- Victory modal -->
 <div id="victoryModal" class="modal">
@@ -298,6 +302,6 @@
   </div>
 </div>
 
-<script src="game.js?v=73"></script>
+<script src="game.js?v=74"></script>
 </body>
 </html>
