@@ -46,8 +46,8 @@ It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch
   and never trade against each other).
 - **Two deals**: Small Game (5 cards, 2–1–1 footprint, best 3 of 4) or House
   Deep Draft (9 cards, 2–2–1 footprint, best 3 of 5, leftovers dead).
-- **Sovereign Honor scoring** (no betting): two-sided tables race the Pivot
-  Marker by the net difference of each showdown; the Free-for-All table is a
+- **Sovereign Honor scoring** (no betting): two-sided tables race the Ledger
+  Stone by the net difference of each showdown; the Free-for-All table is a
   purse race where every seat banks its margin over the lowest hand each
   showdown. Match length selectable (10 / 20 / full 40).
 - **The Academy Gauntlet** venue replaces telegraphing and thinning with a

@@ -369,7 +369,7 @@ function newGame(cfg) {
   } else {
     log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
       ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
-      : `First to push the Pivot Marker ${G.target} onto the other side takes the match.`}`, 'sys');
+      : `First to push the Ledger Stone ${G.target} onto the other side takes the match.`}`, 'sys');
   }
   startHand();
 }
@@ -1494,7 +1494,7 @@ function showdown() {
     } else if (structuralOnly) {
       log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown on structure (${STRUCT_LABEL[['singles','pair','triad'][winner.rank]]}), but with no point difference nothing moves.`, 'sys');
     } else {
-      log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown, ${top.score} to ${second.score}. The Pivot Marker shifts ${diff}.`, 'sys');
+      log(`${winner.name} take${winner.members.includes(0) ? '' : 's'} the showdown, ${top.score} to ${second.score}. The Ledger Stone shifts ${diff}.`, 'sys');
     }
   }
 
@@ -1745,7 +1745,7 @@ const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0, minim
 
 const TUT_INTRO = [
   { sel: '.game', text: '<b>Welcome to Stonelock.</b> You are not building a careful recipe — you are seizing assets. Each hand, you field three cards and bend the board with stones. Let’s walk one hand together.' },
-  { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the Pivot Marker slides toward your side by the point difference. Push it the whole way — here, to 10 — and the match is yours.' },
+  { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the Ledger Stone slides toward your side by the point difference. Push it the whole way — here, to 10 — and the match is yours.' },
   { sel: '#youSeats', text: 'This is <b>your layout</b>. Cards you commit land here in numbered slots. The Stranger’s layout sits across the table, above.' },
   { sel: '#panels', text: 'The sidebar tracks every seat: who holds the <b>Dealer Token</b>, the stones still in their pouch, and the stones they’ve <b>telegraphed</b> (shown but not yet used).' },
   { sel: '.game', text: 'A hand runs in phases: telegraph stones, commit cards (some open, some veiled), thin your stones to two, then resolve them and reach the showdown. Ready — the deal begins.' },
@@ -2265,7 +2265,7 @@ function showShowdownModal(d, review) {
   else if (structuralOnly) verdict = `${winner.name} wins on structure, but with no point difference nothing moves.`;
   else {
     const sideWord = G.humans.length > 1 ? `${winner.name}’s side` : winner.members.includes(0) ? 'your side' : 'their side';
-    verdict = `The Pivot Marker shifts <b>${diff}</b> toward ${sideWord}. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
+    verdict = `The Ledger Stone shifts <b>${diff}</b> toward ${sideWord}. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`;
   }
 
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
@@ -2349,7 +2349,7 @@ const SETUP_STEPS = [
   },
   {
     key: 'mode', title: 'Choose the table', hint: 'Players & format — solo vs bots, or hotseat', options: [
-      { v: 'duel', group: 'Against the house (bots)', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
+      { v: 'duel', group: 'Against the house (bots)', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Ledger Stone races by the net difference of each showdown.' },
       { v: 'ffa', group: 'Against the house (bots)', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
       { v: 'teams', group: 'Against the house (bots)', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
       { v: 'hotseat', group: 'Hotseat — real players, pass the device', label: 'Hotseat Duel', desc: 'Two players, one device. The table passes between you with a confirmation screen; veiled cards stay private.' },
@@ -2377,7 +2377,7 @@ const SETUP_STEPS = [
     ],
   },
   {
-    key: 'target', title: 'Choose the match length', hint: 'How far the Pivot Marker must travel to win', options: [
+    key: 'target', title: 'Choose the match length', hint: 'How far the Ledger Stone must travel to win', options: [
       { v: 10, label: 'Quick — to 10', desc: 'A fast settling of scores.' },
       { v: 20, label: 'Standard — to 20', desc: 'The common evening match.' },
       { v: 40, label: 'Full Sovereign Race — to 40', desc: 'The long campaign, as the nobles play it.' },
