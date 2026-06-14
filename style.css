@@ -522,7 +522,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
      the value stone. A soft overlay keeps the icon and name legible. */
   background:
     linear-gradient(160deg, rgba(18,13,8,0.18), rgba(18,13,8,0.5)),
-    url('assets/card-back.png') left top/cover no-repeat,
+    url('assets/card-face.png') left top/cover no-repeat,
     linear-gradient(170deg, #352b1f, #241d14 65%, #1d160f);
   border: 2px solid var(--gold-dim);
   box-shadow: 0 3px 7px rgba(0,0,0,0.6);
@@ -579,10 +579,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cval.val-3 { background-image: url('assets/card-value-3.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
 
 .card.back {
-  /* Face-down: plain dark woodgrain, no porthole/circle (the porthole
-     panel is the FACE now). */
+  /* Face-down: the dedicated card-back art (assets/card-back.png) over
+     a woodgrain fallback. No porthole/circle — that's the face. */
   background:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 9px),
+    url('assets/card-back.png') center/cover no-repeat,
     linear-gradient(170deg, #322a1d, #1d160f);
   border-color: var(--edge);
 }
