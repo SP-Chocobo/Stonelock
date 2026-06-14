@@ -643,6 +643,16 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   border-color: var(--edge);
 }
 .backsigil { display: none; } /* no circle on the back */
+/* An opponent's hidden card — a gentle "?" and glow mark the unknown. */
+.card.mystery { box-shadow: 0 0 0 1px rgba(232,196,119,0.28), 0 0 11px rgba(232,196,119,0.18), 0 3px 7px rgba(0,0,0,0.6); }
+.card.mystery .backsigil {
+  display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0;
+  font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 26px;
+  color: rgba(243,236,216,0.5); text-shadow: 0 1px 5px rgba(0,0,0,0.85);
+  animation: mysterypulse 2.6s ease-in-out infinite;
+}
+@keyframes mysterypulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
 .veilband, .knownband {
   position: absolute; bottom: 4px; left: 4px; right: 4px;
   font-size: 9px; text-align: center; font-style: italic;

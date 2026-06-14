@@ -2185,7 +2185,15 @@ function cardEl(card) {
       el.appendChild(v);
     }
   } else {
-    el.innerHTML = `<div class="backsigil"></div>`;
+    // An opponent's face-down card is unknown to you — flag it as a mystery.
+    // Why is it hidden? Bait, or something they mean to protect? That read is
+    // part of the game.
+    const mystery = !visible && isOpponent(G.viewer, card.owner);
+    el.innerHTML = `<div class="backsigil">${mystery ? '?' : ''}</div>`;
+    if (mystery) {
+      el.classList.add('mystery');
+      el.title = 'A hidden card — you can’t see what it is. Bait, or a card they mean to protect?';
+    }
     if (visible) {
       const k = document.createElement('div');
       k.className = 'knownband';
