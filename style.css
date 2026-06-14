@@ -829,6 +829,15 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .acchead.open .accchev { transform: rotate(90deg); color: var(--gold-bright); }
 .accbody { padding: 13px 14px 15px; }
 .accbody .namerow { margin-top: 12px; }
+/* Subheading that splits an accordion's options into families */
+.optgroup {
+  font-family: 'Alegreya', Georgia, serif;
+  font-size: 12px; font-style: italic;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-dim);
+  margin: 4px 2px 7px;
+}
+.optgroup + .optgrid { margin-bottom: 12px; }
 
 .steptitle {
   font-family: 'Cinzel', Georgia, serif;

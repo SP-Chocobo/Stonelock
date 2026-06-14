@@ -2349,12 +2349,12 @@ const SETUP_STEPS = [
   },
   {
     key: 'mode', title: 'Choose the table', options: [
-      { v: 'duel', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
-      { v: 'ffa', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
-      { v: 'teams', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
-      { v: 'hotseat', label: 'Hotseat Duel', desc: 'Two players, one device. The table passes between you with a confirmation screen; veiled cards stay private.' },
-      { v: 'hs-team', label: 'Hotseat Allies — 2v2', desc: 'You two against two of the regulars. Pass the device; lock each other’s cards; never trade against each other.' },
-      { v: 'hs-rivals', label: 'Hotseat Rivals — 2v2', desc: 'You two on opposite sides, each seated with one of the regulars as a partner.' },
+      { v: 'duel', group: 'Against the house (bots)', label: 'Solo 1v1', desc: 'You against the Stranger across a quiet table. The Pivot Marker races by the net difference of each showdown.' },
+      { v: 'ffa', group: 'Against the house (bots)', label: 'Free-for-All — 4 seats', desc: 'Every showdown, each seat banks its margin over the lowest hand. First to the target, standing alone, takes the match.' },
+      { v: 'teams', group: 'Against the house (bots)', label: 'Paired Teams — 2v2', desc: 'The Old Hand sits opposite as your partner. Team totals decide the showdown; multiples never pool across layouts.' },
+      { v: 'hotseat', group: 'Hotseat — real players, pass the device', label: 'Hotseat Duel', desc: 'Two players, one device. The table passes between you with a confirmation screen; veiled cards stay private.' },
+      { v: 'hs-team', group: 'Hotseat — real players, pass the device', label: 'Hotseat Allies — 2v2', desc: 'You two against two of the regulars. Pass the device; lock each other’s cards; never trade against each other.' },
+      { v: 'hs-rivals', group: 'Hotseat — real players, pass the device', label: 'Hotseat Rivals — 2v2', desc: 'You two on opposite sides, each seated with one of the regulars as a partner.' },
     ],
   },
   {
@@ -2365,9 +2365,9 @@ const SETUP_STEPS = [
     ],
   },
   {
-    key: 'targeting', title: 'Choose the targeting custom', options: [
-      { v: 'standard', label: 'Standard Custom', desc: 'Stones bind as written: Red and Blue work your own layout against your rivals’; White may shelter an ally.' },
-      { v: 'open', label: 'Open Table — advanced', desc: 'Any stone may target any layout, allies included: red an ally’s pair, lock a rival’s dead card, trade between any two seats.' },
+    key: 'targeting', title: 'Choose the targeting', options: [
+      { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout against your rivals’; White may shelter an ally. The cleaner game.' },
+      { v: 'open', label: 'Advanced', desc: 'Any stone may target any layout, allies included: red an ally’s pair, lock a rival’s dead card, trade between any two seats.' },
     ],
   },
   {
@@ -2438,9 +2438,7 @@ function renderSetup() {
     if (open) {
       const accbody = document.createElement('div');
       accbody.className = 'accbody';
-      const grid = document.createElement('div');
-      grid.className = 'optgrid';
-      for (const opt of section.options) {
+      const buildOpt = (opt) => {
         const el = document.createElement('div');
         el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '');
         el.dataset.v = opt.v;
@@ -2453,9 +2451,29 @@ function renderSetup() {
           SETUP._open = (section.key === 'company' && opt.v === 'choose') ? 'company' : null;
           renderSetup();
         };
-        grid.appendChild(el);
+        return el;
+      };
+      // Options may carry a `group` label (e.g. vs-bots vs hotseat); render
+      // each group under its own subheading, preserving order.
+      const groups = [];
+      for (const opt of section.options) {
+        const g = opt.group || '';
+        let bucket = groups.find(x => x.name === g);
+        if (!bucket) { bucket = { name: g, opts: [] }; groups.push(bucket); }
+        bucket.opts.push(opt);
       }
-      accbody.appendChild(grid);
+      for (const bucket of groups) {
+        if (bucket.name) {
+          const gl = document.createElement('div');
+          gl.className = 'optgroup';
+          gl.textContent = bucket.name;
+          accbody.appendChild(gl);
+        }
+        const grid = document.createElement('div');
+        grid.className = 'optgrid';
+        for (const opt of bucket.opts) grid.appendChild(buildOpt(opt));
+        accbody.appendChild(grid);
+      }
 
       // The seat-by-seat picker, right under the company choice.
       if (section.key === 'company' && SETUP.company === 'choose' && K > 0) {
