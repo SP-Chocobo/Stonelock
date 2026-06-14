@@ -676,6 +676,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   box-shadow: 0 3px 7px rgba(0,0,0,0.6);
 }
 
+/* A poisoned (Green-cut) card: drained, with a sickly green cast. */
+.card.poisoned { border-color: #3fa050; box-shadow: 0 0 10px rgba(63,160,80,0.4), 0 3px 7px rgba(0,0,0,0.6); }
+.card.poisoned .cicon { filter: grayscale(0.55) brightness(0.78) sepia(0.3) hue-rotate(60deg); }
+.card.poisoned .cname { color: #9ccb97; }
+
 .card.flash { animation: cardflash 1.5s ease-out; }
 @keyframes cardflash {
   0%   { box-shadow: 0 0 0 4px var(--ember), 0 0 26px 6px rgba(217,138,61,0.85); }
@@ -715,6 +720,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .stone.white, .stonedot.white { background: url('assets/stone-white.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #ffffff, var(--white-s) 60%, #a9a290); }
 .stone.blue, .stonedot.blue { background: url('assets/stone-blue.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #7aa6c6, var(--blue) 60%, #1f3d54); }
 .stone.black, .stonedot.black { background: url('assets/stone-black.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #5a544e, var(--black-s) 60%, #000); }
+.stone.green, .stonedot.green { background: url('assets/stone-green.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #8fd585, #3fa050 58%, #1d5226); }
 
 .stone.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .stone.targetable:hover { transform: scale(1.18); }

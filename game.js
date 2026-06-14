@@ -53,6 +53,7 @@ const STONES = {
   white: { name: 'White Stone', power: 'Lock',        desc: 'Protects a card. A locked card cannot be altered, stolen, or neutralized for the rest of the hand.' },
   blue:  { name: 'Blue Stone',  power: 'Exchange',    desc: 'Forcibly swaps one of your cards with an unprotected card in an opponent’s layout. Visibility states stay as they were.' },
   black: { name: 'Black Stone', power: 'Disruption',  desc: 'Undoes the last stone effect upon a card. Played on your turn like any other stone; it cannot itself be undone.' },
+  green: { name: 'Green Stone', power: 'Poison',      desc: 'Poisons a card: it scores nothing and joins no Pair or Triad, and any phantom riding it dies with it. The Apothecary’s scalpel — always its last word, cutting your best unlocked card. Only a White lock set in time can shield against it.' },
 };
 
 const STONE_KEYS = ['red', 'white', 'blue', 'black'];
@@ -203,7 +204,8 @@ function bestSelection(cards, values, opts = {}) {
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < contrib[i]; k++) {
         const t = cards[i].type;
-        const cursed = !!opts.cursed && t === opts.cursed; // scores nothing, builds nothing
+        // A poisoned card behaves exactly like a cursed one: no value, no structure.
+        const cursed = cards[i].poisoned || (!!opts.cursed && t === opts.cursed); // scores nothing, builds nothing
         if (!cursed) {
           counts[t] = (counts[t] || 0) + 1;
           if (k === 0) raw += values[t]; // phantoms score no raw value
@@ -427,7 +429,7 @@ const RAID_HOLDBACK = {
   'magistrate-hard': envNum('MAG_HARD_HB', 0.25), // ~31% party (was ~20)
   'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
 };
-function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : 'The Magistrate'; }
+function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
 function handSizeFor(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().handSize; }
@@ -514,16 +516,17 @@ function startHand() {
     // pool: the party three each, the Magistrate five.
     const party = [0, 2];
     const D = (seat, count, faceUp) => ({ t: 'deploy1', seat, count, faceUp });
+    const bn = playerName(1);
     G.queue = [
       dealNote,
-      { t: 'phase', label: 'The Foundation', note: 'In turn, commit two cards face-up. The Magistrate answers — fielding its board open for all to read.' },
+      { t: 'phase', label: 'The Foundation', note: `In turn, commit two cards face-up. ${bn} answers — fielding its board open for all to read.` },
       D(0, 2, true), D(1, 2, true), D(2, 2, true), D(1, 2, true),
-      { t: 'phase', label: 'The Veil', note: 'Commit one card face-down. The Magistrate fields its share face-up.' },
+      { t: 'phase', label: 'The Veil', note: `Commit one card face-down. ${bn} fields its share face-up.` },
       D(0, 1, false), D(1, 1, true), D(2, 1, false), D(1, 1, true),
       { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover party cards are discarded dead.' },
       D(0, 1, false), D(1, 1, true), D(2, 1, false),
       { t: 'discard' },
-      { t: 'phase', label: 'Choose Your Stones', note: 'Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; the Magistrate, five.' },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; ${bn}, ${raidDiff().stones - (G.raidBoss === 'apothecary' ? 1 : 0)}${G.raidBoss === 'apothecary' ? ' plus the Green cut' : ''}.` },
     ];
     // The chosen difficulty sets how many stones the Magistrate spends
     // and the swing order — it always closes with the last word. On
@@ -534,13 +537,20 @@ function startHand() {
       const i = RAID_ORDER.lastIndexOf(1); // drop the boss's last (unanswered) stone
       if (i >= 0) RAID_ORDER.splice(i, 1);
     }
+    // The Apothecary's last word is its Green cut, not a regular stone — so it
+    // spends one fewer telegraphed stone and closes with the scalpel.
+    if (G.raidBoss === 'apothecary') {
+      const i = RAID_ORDER.lastIndexOf(1);
+      if (i >= 0) RAID_ORDER.splice(i, 1);
+    }
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of RAID_ORDER) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
     G.queue.push(
       { t: 'raidarm' },
-      { t: 'phase', label: 'The Reckoning', note: 'Spend your telegraphed stones in turn. The Magistrate opens, answers between you, and has the last word.' }
+      { t: 'phase', label: 'The Reckoning', note: `Spend your telegraphed stones in turn. ${bn} answers between you${G.raidBoss === 'apothecary' ? ', and closes with the Green cut — its scalpel on your best unlocked card' : ', and has the last word'}.` }
     );
     for (const w of RAID_ORDER) G.queue.push({ t: 'place', who: w });
+    if (G.raidBoss === 'apothecary') G.queue.push({ t: 'beat', ms: 700 }, { t: 'apothcut' });
     G.queue.push({ t: 'beat', ms: 900 }, { t: 'showdown' });
   } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
@@ -589,6 +599,10 @@ function startHand() {
 
 function isLocked(card) { return card.stones.some(s => s.color === 'white'); }
 function hasRed(card) { return card.stones.some(s => s.color === 'red'); }
+// Green Stone (the Apothecary's poison): the card scores nothing and joins no
+// Pair or Triad — and since it zeroes the whole card, any Red phantom on it
+// dies with it (green overrides red).
+function isPoisoned(card) { return card.stones.some(s => s.color === 'green'); }
 
 /* ---------------- Queue runner ---------------- */
 
@@ -712,6 +726,9 @@ function executeStep(step) {
       break;
     case 'place':
       if (!isHuman(step.who) && G.players[step.who].active.length > 0) aiPlace(step.who);
+      break;
+    case 'apothcut':
+      apothecaryCut();
       break;
     case 'beat':
       break;
@@ -982,6 +999,12 @@ function applyStone(actor, color, target) {
       log(`${playerName(actor)} ${verb(actor, 'drop')} a Red Stone on ${describeCard(target.card)} — a phantom duplicate shimmers over it.`, logClass(actor));
       announce(`Red Stone — a phantom rises over ${describeCard(target.card)}`, 'red', actor);
       break;
+    case 'green':
+      target.card.stones.push({ color: 'green', by: actor });
+      ev.cards = [target.card];
+      log(`${playerName(actor)} ${verb(actor, 'drop')} a Green Stone on ${describeCard(target.card)} — its worth bleeds away to nothing.`, logClass(actor));
+      announce(`Green Stone — ${describeCard(target.card)} is poisoned to nothing`, 'green', actor);
+      break;
     case 'blue': {
       const { give, take } = target;
       const giveDesc = describeCard(give), takeDesc = describeCard(take);
@@ -1018,6 +1041,11 @@ function applyStone(actor, color, target) {
         prev.take.prov = null;
         log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, logClass(actor));
         announce('Black Stone — the trade unwinds, stones and all', 'black', actor);
+      } else if (prev.color === 'green') {
+        const gi = prev.cards[0].stones.findIndex(s => s.color === 'green' && s.by === prev.actor);
+        if (gi >= 0) prev.cards[0].stones.splice(gi, 1);
+        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the poison in ${describeCard(prev.cards[0])} is drawn out, its worth restored.`, logClass(actor));
+        announce('Black Stone — the poison is drawn out', 'black', actor);
       }
       break;
     }
@@ -1077,16 +1105,19 @@ function stoneHasValidTarget(color) {
 function regionVal(type) { return G.region.values[type]; }
 // The card's value badge. Under the Cursed Register, the voided type reads 0
 // (the cursed value-stone), since it scores nothing this hand.
-function cvalHtml(type) {
-  const cursed = G.cursedType && type === G.cursedType;
-  const v = cursed ? 0 : regionVal(type);
-  return `<div class="cval val-${v}"${cursed ? ' title="Cursed — voided this hand"' : ''}>${v}</div>`;
+function cvalHtml(card) {
+  const poisoned = isPoisoned(card);
+  const cursed = poisoned || (G.cursedType && card.type === G.cursedType);
+  const v = cursed ? 0 : regionVal(card.type);
+  const tip = poisoned ? ' title="Poisoned — scores nothing this hand"' : cursed ? ' title="Cursed — voided this hand"' : '';
+  return `<div class="cval val-${v}"${tip}>${v}</div>`;
 }
 
 function knownBoardFor(viewer, ofPlayer) {
   return G.players[ofPlayer].board.map(c => ({
     type: (c.known[viewer] || c.faceUp) ? c.type : null,
     hasRed: hasRed(c),
+    poisoned: isPoisoned(c),
   }));
 }
 
@@ -1098,7 +1129,7 @@ function estimate(ofPlayer, viewer) {
   const cards = knownBoardFor(viewer, ofPlayer).map((c, i) => {
     const type = c.type || ('_u' + i);
     if (!c.type) values[type] = 2;
-    return { type, hasRed: c.hasRed };
+    return { type, hasRed: c.hasRed, poisoned: c.poisoned };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
@@ -1403,6 +1434,33 @@ function aiPlace(who) {
   }
 }
 
+// The Apothecary's last word: poison the party card whose loss cuts the most
+// from their combined best hands — among unlocked cards only, since a White
+// lock set in time is the one shield against the scalpel.
+function apothecaryCut() {
+  const opts = variantOpts();
+  const scoreOf = (board, poisonIdx) => bestSelection(
+    board.map((c, i) => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) || i === poisonIdx })),
+    G.region.values, opts).score;
+  let best = null;
+  for (const seat of [0, 2]) {
+    const board = G.players[seat].board;
+    const base = scoreOf(board, -1);
+    board.forEach((card, idx) => {
+      if (isLocked(card) || isPoisoned(card)) return;
+      const drop = base - scoreOf(board, idx);
+      const key = drop * 100 + regionVal(card.type); // biggest cut first, then the richest card
+      if (!best || key > best.key) best = { card, key };
+    });
+  }
+  if (!best) {
+    log(`${playerName(1)} lifts the scalpel — but every prize is locked away, and the cut finds nothing.`, 'ai');
+    announce(`${playerName(1)} finds nothing to cut`, 'green', 1);
+    return;
+  }
+  applyStone(1, 'green', { card: best.card });
+}
+
 /* ---------------- Showdown ---------------- */
 
 function entities() {
@@ -1433,7 +1491,7 @@ function showdown() {
   SFX.play('sting');
 
   const sel = G.players.map(p => bestSelection(
-    p.board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
+    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) })),
     G.region.values,
     variantOpts()
   ));
@@ -1501,7 +1559,7 @@ function raidShowdown(sel) {
   const party = [0, 2];
   const teamScore = party.reduce((s, m) => s + sel[m].score, 0);
   const boss = twoBestHands(
-    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c) })),
+    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) })),
     G.region.values, variantOpts()
   );
   const diff = teamScore - boss.score; // positive = the party out-scored the Magistrate
@@ -1511,9 +1569,10 @@ function raidShowdown(sel) {
   if (G.ledger >= G.target) matchWinner = 'party';
   else if (G.ledger <= -G.target) matchWinner = 'magistrate';
 
-  if (diff > 0) log(`The party fields ${teamScore} to the Magistrate's ${boss.score} — you press the advantage by ${diff}.`, 'sys');
-  else if (diff < 0) log(`The Magistrate fields ${boss.score} to the party's ${teamScore}. It gains ${-diff} ground.`, 'sys');
-  else log(`Dead level at ${teamScore}. The Magistrate holds — the marker doesn't move.`, 'sys');
+  const bn = playerName(1);
+  if (diff > 0) log(`The party fields ${teamScore} to ${bn}'s ${boss.score} — you press the advantage by ${diff}.`, 'sys');
+  else if (diff < 0) log(`${bn} fields ${boss.score} to the party's ${teamScore}. It gains ${-diff} ground.`, 'sys');
+  else log(`Dead level at ${teamScore}. ${bn} holds — the marker doesn't move.`, 'sys');
 
   if (matchWinner) G.over = true;
   G.lastShowdown = { raid: true, sel, boss, teamScore, diff, matchWinner, hand: G.handNum };
@@ -1961,13 +2020,13 @@ function cardEl(card) {
   // Allies' veiled cards stay hidden from you too — only your own
   // veiled cards (and revealed swaps) show their face.
   const showFace = card.faceUp || (card.known[V] && card.owner === V);
-  el.className = 'card' + (showFace ? '' : ' back') + (card.faceUp ? ' faceup' : ' facedown');
+  el.className = 'card' + (showFace ? '' : ' back') + (card.faceUp ? ' faceup' : ' facedown') + (isPoisoned(card) ? ' poisoned' : '');
   el.dataset.cardId = card.id;
   if (showFace) {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
-      ${cvalHtml(card.type)}`;
+      ${cvalHtml(card)}`;
     if (!card.faceUp) {
       el.classList.add('veiled');
       const v = document.createElement('div');
@@ -2076,7 +2135,7 @@ function renderHand() {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
-      ${cvalHtml(card.type)}`;
+      ${cvalHtml(card)}`;
     if (UI.mode === 'pickCards') {
       el.classList.add('targetable');
       el.onclick = () => humanToggleCard(card);
@@ -2275,8 +2334,9 @@ function showShowdownModal(d, review) {
 
 function showRaidShowdown(d, review) {
   const { sel, boss, teamScore, diff, matchWinner } = d;
+  const bn = playerName(1);
   $('showdownTitle').textContent = (review ? `Hand ${d.hand} — ` : '') +
-    (diff > 0 ? 'The party presses' : diff < 0 ? 'The Magistrate answers' : 'The Magistrate holds');
+    (diff > 0 ? 'The party presses' : diff < 0 ? `${bn} answers` : `${bn} holds`);
   const party = [0, 2];
   const partyHtml = party.map(i => `
     <div class="showhand">
@@ -2286,14 +2346,14 @@ function showRaidShowdown(d, review) {
     </div>`).join('');
   const bossHtml = `
     <div class="showhand">
-      <h3>The Magistrate — ${boss.score} points <span class="mathline">(two best hands)</span></h3>
+      <h3>${bn} — ${boss.score} points <span class="mathline">(two best hands)</span></h3>
       ${boss.hands.map(h => `<div class="pickrow">${handPicksHtml(h)}</div><div class="mathline">${handMathLine(h)}</div>`).join('')}
     </div>`;
   const verdict = diff > 0
-    ? `Your party fields <b>${teamScore}</b> to the Magistrate's <b>${boss.score}</b> — the marker swings <b>${diff}</b> your way. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
+    ? `Your party fields <b>${teamScore}</b> to ${bn}'s <b>${boss.score}</b> — the marker swings <b>${diff}</b> your way. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
     : diff < 0
-      ? `The Magistrate fields <b>${boss.score}</b> to your <b>${teamScore}</b> and gains <b>${-diff}</b>. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
-      : `Dead level at <b>${teamScore}</b> — the Magistrate holds on the tie. Nothing moves.`;
+      ? `${bn} fields <b>${boss.score}</b> to your <b>${teamScore}</b> and gains <b>${-diff}</b>. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
+      : `Dead level at <b>${teamScore}</b> — ${bn} holds on the tie. Nothing moves.`;
   $('showdownBody').innerHTML =
     `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
@@ -2307,10 +2367,10 @@ function showVictory() {
   if (G.mode === 'raid') {
     const won = G.ledger >= G.target;
     SFX.play(won ? 'win' : 'lose');
-    $('victoryTitle').textContent = won ? 'The Magistrate is broken' : 'The Magistrate prevails';
+    $('victoryTitle').textContent = won ? `${playerName(1)} is broken` : `${playerName(1)} prevails`;
     $('victoryText').textContent = won
       ? `Your party drove the marker the full ${G.target} after ${G.handNum} hands. The high seat is empty — for now.`
-      : `The Magistrate held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
+      : `${playerName(1)} held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
     m.classList.add('open');
     return;
   }
@@ -2658,6 +2718,7 @@ function openRaidSetup() {
 const RAID_BOSSES = [
   { v: 'magistrate', name: 'The Magistrate', lore: 'A wide, methodical board fielded face-up. It selects from a deep pouch, scores its two best hands, and never bluffs — powerful, and fair only in that. Difficulty sets how many stones it spends.' },
   { v: 'warden', name: 'The Warden', lore: 'Keeps one of every stone within reach and spends without mercy — snuffing, stealing, locking. Every stone it plays is exhausted for a hand, and so is yours: ration your disruption, or be ground down. Viciously tactical.' },
+  { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends its stones like the others — but always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
 ];
 
 function renderRaidSetup() {
@@ -2668,7 +2729,7 @@ function renderRaidSetup() {
 
   if (RAIDSET.step === 'boss') {
     $('setupModal').querySelector('h2').textContent = 'Choose Your Boss';
-    body.innerHTML = '<p class="modalsub small">Two sit the high seat. Pick the one you mean to break.</p>';
+    body.innerHTML = '<p class="modalsub small">Three sit the high seat. Pick the one you mean to break.</p>';
     const grid = document.createElement('div');
     grid.className = 'optgrid';
     for (const b of RAID_BOSSES) {
@@ -2689,7 +2750,11 @@ function renderRaidSetup() {
   // Step 2: the rest of the raid options.
   $('setupModal').querySelector('h2').textContent = `Face ${raidBossName(RAIDSET.boss)}`;
   const isWarden = RAIDSET.boss === 'warden';
-  body.innerHTML = `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.' : ''}</p>`;
+  const isApothecary = RAIDSET.boss === 'apothecary';
+  const extra = isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.'
+    : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
+    : '';
+  body.innerHTML = `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
 
   const section = (title, key, opts) => {
     const h = document.createElement('div');
