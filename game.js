@@ -1970,6 +1970,7 @@ function cardEl(card) {
       <div class="cname">${card.type}</div>
       <div class="cval val-${regionVal(card.type)}">${regionVal(card.type)}</div>`;
     if (!card.faceUp) {
+      el.classList.add('veiled');
       const v = document.createElement('div');
       v.className = 'veilband';
       v.textContent = 'veiled';

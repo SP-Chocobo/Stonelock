@@ -599,11 +599,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .backsigil { display: none; } /* no circle on the back */
 .veilband, .knownband {
-  position: absolute; bottom: 5px; left: 4px; right: 4px;
+  position: absolute; bottom: 4px; left: 4px; right: 4px;
   font-size: 9px; text-align: center; font-style: italic;
   background: rgba(0,0,0,0.55); color: var(--parchment-dim);
   border-radius: 4px; padding: 1px 2px;
 }
+/* Lift the name clear of the veiled/known band so they don't overlap. */
+.card.veiled { padding-bottom: 24px; }
 .knownband { color: var(--gold); }
 
 .stonerow {
@@ -627,6 +629,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .card.selected { outline: 2px solid var(--sage); transform: translateY(-7px); }
 .card.selected:hover { transform: translateY(-7px) scale(1.85); z-index: 60; transition: transform 0.1s ease-out; transition-delay: 1s; }
+/* The minimized tray is a tight scrolling row — a zoom there just spawns
+   scrollbars, so leave those small cards alone on hover. */
+.handarea.min .card:hover, .handarea.min .card.targetable:hover {
+  transform: none; z-index: auto; transition-delay: 0s;
+  box-shadow: 0 3px 7px rgba(0,0,0,0.6);
+}
 
 .card.flash { animation: cardflash 1.5s ease-out; }
 @keyframes cardflash {
@@ -648,7 +656,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .card.tradepair { outline: 2px dashed #7aa6c6; outline-offset: 3px; }
 
 /* hand cards larger — the hand is the main interaction surface */
-.hand .card { width: 96px; height: 132px; padding-top: 16px; }
+.hand .card { width: 96px; height: 132px; padding-top: 16px; transform-origin: bottom center; }
 .hand .cicon { width: 58px; height: 58px; padding: 7px; }
 .hand .cname { font-size: 15px; margin-top: 6px; }
 
