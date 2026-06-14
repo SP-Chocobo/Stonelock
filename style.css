@@ -286,6 +286,11 @@ body[data-compact="1"] .epithet { display: none; }
   z-index: 90;
 }
 .menupop .btn { width: 100%; text-align: left; font-size: 12px; }
+.tablesummary:not(:empty) { padding: 4px 6px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--edge); }
+.tablesummary .tstitle { font-family: 'Cinzel', Georgia, serif; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 5px; }
+.tablesummary .tsrow { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; line-height: 1.55; }
+.tablesummary .tskey { color: var(--parchment-dim); }
+.tablesummary .tsval { color: var(--parchment); text-align: right; }
 
 /* ---------- Battlefield (center) ---------- */
 

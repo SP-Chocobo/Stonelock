@@ -2047,6 +2047,29 @@ function renderPanels() {
   }
 }
 
+// Read-only recap of the current table's settings, shown atop the Menu.
+function renderTableSummary() {
+  if (typeof document === 'undefined') return;
+  const el = $('tableSummary');
+  if (!el) return;
+  if (!G || !INGAME) { el.innerHTML = ''; return; }
+  const rows = [['Venue', `${G.venue.label} · ${G.region.name}`]];
+  if (G.mode === 'raid') {
+    rows.push(['Raid boss', `${playerName(1)} — ${raidDiff().label}`]);
+    rows.push(['Party', G.humans.length > 1 ? 'Two players (co-op)' : 'You + an ally bot']);
+  } else {
+    const shape = G.mode === 'duel' ? 'Solo Duel' : G.mode === 'ffa' ? 'Free-for-All' : 'Paired Teams';
+    const total = G.nPlayers, bots = total - G.humans.length, h = G.humans.length;
+    rows.push(['Table', `${shape} · ${total} seats`]);
+    rows.push(['Players', h <= 1 ? `You + ${bots} bot${bots === 1 ? '' : 's'}` : `${h} players + ${bots} bot${bots === 1 ? '' : 's'}`]);
+  }
+  rows.push(['Targeting', G.open ? 'Advanced' : 'Simplified']);
+  rows.push(['Deal', G.deal === 'house' ? 'House Deep Draft (9 cards)' : 'Small Game (5 cards)']);
+  rows.push(['Race to', String(G.target)]);
+  el.innerHTML = '<div class="tstitle">This table</div>' +
+    rows.map(([k, v]) => `<div class="tsrow"><span class="tskey">${k}</span><span class="tsval">${v}</span></div>`).join('');
+}
+
 function cardEl(card) {
   const el = document.createElement('div');
   const V = G.viewer;
@@ -2896,7 +2919,7 @@ function boot() {
   $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
   // The Menu dropdown: new match, sound, fullscreen, and quit-to-title all
   // live here so the sidebar stays uncluttered.
-  const menuPopSet = open => { $('menuPop').style.display = open ? '' : 'none'; $('menuBtn').classList.toggle('active', open); };
+  const menuPopSet = open => { if (open) renderTableSummary(); $('menuPop').style.display = open ? '' : 'none'; $('menuBtn').classList.toggle('active', open); };
   $('menuBtn').onclick = e => { e.stopPropagation(); menuPopSet($('menuPop').style.display === 'none'); };
   document.addEventListener('click', e => {
     if ($('menuPop').style.display !== 'none' && !e.target.closest('.menuwrap')) menuPopSet(false);
