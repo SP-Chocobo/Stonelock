@@ -312,6 +312,7 @@ function newGame(cfg) {
     // Stone exhaustion: Slumlock venue = 2 hands; the Warden raid = 1.
     exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
     open: cfg.targeting === 'open', // advanced: any stone, any layout (raids may opt in)
+    cardsOnly: !!cfg.cardsOnly, // Academy Lesson 1: cards with no stone phases
     cursedType: null,
     region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
@@ -586,6 +587,19 @@ function startHand() {
       for (const w of order) G.queue.push({ t: 'place', who: w, gaunt: r + 1 });
     }
     G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
+  } else if (G.cardsOnly) {
+    // Academy Lesson 1: just the cards — no stones telegraphed or placed.
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up.' },
+      { t: 'deploy', count: dep[0].c, faceUp: dep[0].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Veil', note: `Commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down — hidden until the showdown.` },
+      { t: 'deploy', count: dep[1].c, faceUp: dep[1].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover cards are discarded dead.' },
+      { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'beat', ms: 1500 },
+      { t: 'showdown' },
+    ];
   } else {
     G.queue = [
       dealNote,
@@ -1804,7 +1818,7 @@ function showTitle() {
   INGAME = false;
   TUT.active = false;
   coachHide();
-  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal']) closeModal(id);
   if (typeof document !== 'undefined') $('showdownResume').style.display = 'none';
   G = null;
   $('titleScreen').classList.remove('hidden');
@@ -1817,80 +1831,146 @@ function requestQuitToTitle() {
 
 /* ---------- Tutorial ---------- */
 
-const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0, minimized: false, current: null };
+const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0, minimized: false, current: null, lesson: null };
 
-const TUT_INTRO = [
-  { sel: '.game', text: '<b>Welcome to Stonelock.</b> You are not building a careful recipe — you are seizing assets. Each hand, you field three cards and bend the board with stones. Let’s walk one hand together.' },
-  { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the Ledger Stone slides toward your side by the point difference. Push it the whole way — here, to 10 — and the match is yours.' },
-  { sel: '#youSeats', text: 'This is <b>your layout</b>. Cards you commit land here in numbered slots. The Stranger’s layout sits across the table, above.' },
-  { sel: '#panels', text: 'The sidebar tracks every seat: who holds the <b>Dealer Token</b>, the stones still in their pouch, and the stones they’ve <b>telegraphed</b> (shown but not yet used).' },
-  { sel: '.game', text: 'A hand runs in phases: telegraph stones, commit cards (some open, some veiled), thin your stones to two, then resolve them and reach the showdown. Ready — the deal begins.' },
+// The Academy: short, replayable lessons. Each runs a tailored hand with
+// coaching keyed to the moment (deploy / declare / thin / place / showdown).
+const LESSONS = [
+  {
+    id: 'cards', title: 'Lesson 1 — The Cards', blurb: 'How cards are played and scored. No stones yet.',
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard', cardsOnly: true },
+    intro: [
+      { sel: '#handArea', text: '<b>This is your hand.</b> Each hand, you and the Stranger field cards into your layouts — and the higher total takes the showdown.' },
+      { sel: '#handArea', text: 'Every card carries a <b>value</b> — the numbered stone in its corner. When the layouts are scored, only your <b>best three</b> count.' },
+      { sel: '.game', text: 'You commit cards in stages: <b>two face-up</b>, then <b>two veiled</b> (face-down). Veiled cards stay hidden until the showdown — what you hide is yours alone to know.' },
+      { sel: '.game', text: 'Matching types pay off: a <b>Pair</b> adds <b>+2</b>, a <b>Triad</b> of three adds <b>+6</b>. Two 3s and a 1 (8) beat a 3, a 2 and a 1 (6). Let’s deal one — no stones this time, just cards.' },
+    ],
+    live: { deploy: { sel: '#handArea', text: '<b>Commit your cards.</b> Tap from your hand, then confirm. Weigh value — and which cards to keep hidden.' } },
+    showdown: '<b>The Showdown.</b> Both layouts flip up; each side’s best three are summed, plus any Pair (+2) or Triad (+6). Higher total wins. This is the heart of Stonelock — everything else just bends these numbers.',
+  },
+  {
+    id: 'stones', title: 'Lesson 2 — The Stones', blurb: 'The four stones and what each one does.',
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
+    intro: [
+      { sel: '.game', text: 'Now the <b>stones</b> — the tools that bend the board. There are four, and you bring a pouch of them each hand.' },
+      { sel: '.game', text: '<b>Red</b> drops a phantom duplicate on your card — an instant Pair or Triad. <b>White</b> locks a card so it can’t be touched. <b>Blue</b> steals an opponent’s card for one of yours. <b>Black</b> undoes the last stone played on a card.' },
+      { sel: '.game', text: 'Stones are first <b>telegraphed</b> — laid in the open, doing nothing yet. Part plan, part bluff. You’ll telegraph three, then thin to two, then spend them. Let’s see it.' },
+    ],
+    live: {
+      declare: { sel: '#stoneTray', text: '<b>Telegraph a stone.</b> Tap one — it’s shown to the table but won’t act yet. (Red duplicates · White locks · Blue steals · Black undoes.)' },
+      deploy: { sel: '#handArea', text: '<b>Commit your cards</b> — two face-up, then veiled, as before.' },
+      thin: { sel: '#stoneTray', text: '<b>The Thinning.</b> You telegraphed three; now abandon one. The two you keep are the ones you’ll actually spend.' },
+      place: { sel: '#stoneTray', text: '<b>Resolve a stone.</b> Now it acts for real — choose one, then its target. Watch the board change.' },
+    },
+    showdown: '<b>Showdown.</b> See how the stones moved the numbers — a phantom made a pair, a lock saved a card, a steal swung a value. Cards decide the score; stones decide the cards.',
+  },
+  {
+    id: 'hand', title: 'Lesson 3 — A Full Hand', blurb: 'Put cards and stones together, with light coaching.',
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
+    intro: [
+      { sel: '.game', text: 'Now run a full hand yourself. The order: <b>telegraph</b> a stone, <b>commit</b> cards, <b>thin</b> to two stones, then <b>resolve</b> them — and the showdown settles it.' },
+      { sel: '.game', text: 'Think a step ahead. A stone you telegraph may be best <b>saved</b> for a later card, and what you <b>hide</b> is harder for the Stranger to attack. Play your read.' },
+    ],
+    live: {
+      declare: { sel: '#stoneTray', text: 'Telegraph a stone — plan or bluff.' },
+      thin: { sel: '#stoneTray', text: 'Abandon one stone; keep your two best.' },
+      place: { sel: '#stoneTray', text: 'Resolve a stone on its target.' },
+    },
+    showdown: '<b>Well played.</b> You ran a whole hand on your own. One lesson left — what all of this is <i>for</i>.',
+  },
+  {
+    id: 'match', title: 'Lesson 4 — Winning the Match', blurb: 'The ledger, turn order, and how a match is won.',
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
+    intro: [
+      { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the <b>Ledger Stone</b> slides toward your side by the point <b>difference</b> — win by 4, it moves 4.' },
+      { sel: '.ledger', text: 'Drive it the whole way to the target (here, <b>10</b>) and the match is yours. Lose hands, and it slides back the other way.' },
+      { sel: '#panels', text: 'The sidebar tracks each seat: the <b>Dealer Token</b> (it rotates each hand and sets turn order), the stones still in the pouch, and what’s been telegraphed.' },
+      { sel: '.game', text: 'That’s Stonelock: win hands by the most points, drive the ledger home. Play this match out — you’ve got the tools now.' },
+    ],
+    live: {},
+    showdown: '<b>The ledger moves.</b> It shifts by your margin; first to drive it the full distance wins. From here, the Menu’s “New match” sets your own table — venue, format, length. Good luck out there.',
+  },
 ];
 
-function startTutorial() {
-  TUT.active = true;
-  TUT.phase = 'intro';
-  TUT.seen = new Set();
-  TUT.introStep = 0;
-  TUT.minimized = false;
-  TUT.current = null;
+function lessonById(id) { return LESSONS.find(l => l.id === id); }
+
+function openAcademy() {
+  if (typeof document === 'undefined') return;
+  TUT.active = false; TUT.lesson = null; coachHide();
+  hideTitle();
+  closeModal('setupModal');
+  const body = $('academyBody');
+  body.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'optgrid';
+  for (const l of LESSONS) {
+    const el = document.createElement('div');
+    el.className = 'bigopt';
+    el.innerHTML = `<h3>${l.title}</h3><div class="bigoptdesc">${l.blurb}</div>`;
+    el.onclick = () => { closeModal('academyModal'); startLesson(l.id); };
+    grid.appendChild(el);
+  }
+  body.appendChild(grid);
+  $('academyModal').classList.add('open');
+}
+
+function startLesson(id) {
+  const lesson = lessonById(id);
+  if (!lesson) return;
+  closeModal('academyModal');
+  TUT.active = true; TUT.phase = 'intro'; TUT.seen = new Set();
+  TUT.introStep = 0; TUT.minimized = false; TUT.current = null; TUT.lesson = lesson;
   hideTitle();
   tutIntro();
 }
 
 function tutIntro() {
-  const step = TUT_INTRO[TUT.introStep];
+  const intro = TUT.lesson.intro;
+  const step = intro[TUT.introStep];
   coachShow(step.text, step.sel, {
     next: () => {
       TUT.introStep++;
-      if (TUT.introStep < TUT_INTRO.length) tutIntro();
-      else {
-        TUT.phase = 'live';
-        coachHide();
-        newGame({ venue: 'tavern', mode: 'duel', deal: 'small', target: 10, targeting: 'standard' });
-      }
+      if (TUT.introStep < intro.length) tutIntro();
+      else { TUT.phase = 'live'; coachHide(); newGame(TUT.lesson.cfg); }
     },
-    nextLabel: TUT.introStep === TUT_INTRO.length - 1 ? 'Deal the hand' : 'Next',
+    nextLabel: TUT.introStep === intro.length - 1 ? 'Deal the hand' : 'Next',
   });
 }
 
-const TUT_LIVE = {
-  declare: { sel: '#stoneTray', text: '<b>Telegraph a stone.</b> It’s laid in the open for all to see but does nothing yet — part plan, part bluff. Tap one of the large stones below. (Red duplicates, White locks, Blue steals, Black undoes.)' },
-  deploy:  { sel: '#handArea', text: '<b>Commit your cards.</b> Tap cards from your hand, then confirm. Early ones go face-up; later ones are veiled. Your three best of four are scored at the end.' },
-  thin:    { sel: '#stoneTray', text: '<b>The Thinning.</b> You telegraphed three stones — now abandon one. The two you keep are the ones you’ll actually place.' },
-  place:   { sel: '#stoneTray', text: '<b>Resolve a stone.</b> Now your stones act for real. Choose one to place, then pick its target on the board.' },
-};
-
 function tutorialTick() {
+  const lesson = TUT.lesson;
+  if (!lesson) return;
   if ($('showdownModal').classList.contains('open')) {
     if (!TUT.seen.has('showdown')) {
       TUT.seen.add('showdown');
-      coachShow('<b>The Showdown.</b> Every veiled card flips. Each player’s best three of four are scored — raw values plus a Pair (+2) or Triad (+6) bonus. The ledger moves by the difference. That’s a full hand!', '#showdownBody', { next: tutFinish, nextLabel: 'Finish' });
+      coachShow(lesson.showdown, '#showdownBody', { next: tutFinish, nextLabel: 'Finish lesson' });
     }
     return;
   }
-  const step = TUT_LIVE[
-    UI.mode === 'pickStone' ? 'declare' :
+  const key = UI.mode === 'pickStone' ? 'declare' :
     UI.mode === 'pickCards' ? 'deploy' :
     UI.mode === 'thin' ? 'thin' :
-    UI.mode === 'placeChoose' ? 'place' : null
-  ];
-  const key = step && Object.keys(TUT_LIVE).find(k => TUT_LIVE[k] === step);
+    UI.mode === 'placeChoose' ? 'place' : null;
+  const step = key && lesson.live[key];
   if (step && !TUT.seen.has(key)) {
     TUT.seen.add(key);
     coachShow(step.text, step.sel, { action: true });
   } else if (!step || TUT.seen.has(key)) {
-    // No fresh lesson for this moment (AI turn, or a repeat) — clear the spotlight.
     if (!$('showdownModal').classList.contains('open')) coachHide();
   }
 }
 
 function tutFinish() {
-  coachShow('You’ve played a hand of Stonelock. Keep going to finish this short match, or return to the title to set your own table.', null, {
-    next: () => { TUT.active = false; TUT.phase = 'idle'; coachHide(); },
-    nextLabel: 'Keep playing',
-    alt: { label: 'To title', fn: showTitle },
-  });
+  const lesson = TUT.lesson;
+  const next = LESSONS[LESSONS.indexOf(lesson) + 1];
+  TUT.active = false; TUT.phase = 'idle';
+  const msg = next
+    ? 'Lesson complete. On to the next, or step back to the Academy to replay any of them.'
+    : 'That completes the Academy basics — you know how to play. The deeper strategy lessons are still to come; for now, set your own table from the title.';
+  const opts = next
+    ? { next: () => { coachHide(); startLesson(next.id); }, nextLabel: 'Next lesson ›', alt: { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } } }
+    : { next: () => { coachHide(); openAcademy(); }, nextLabel: 'The Academy', alt: { label: 'To title', fn: showTitle } };
+  coachShow(msg, null, opts);
 }
 
 /* ---------- Coach panel ---------- */
@@ -1927,8 +2007,8 @@ function coachShow(html, sel, opts = {}) {
     skip.textContent = opts.alt.label;
     skip.onclick = opts.alt.fn;
   } else {
-    skip.textContent = 'Skip tutorial';
-    skip.onclick = showTitle;
+    skip.textContent = 'Exit lesson';
+    skip.onclick = () => { coachHide(); openAcademy(); };
   }
   $('coach').style.display = '';
 }
@@ -2940,7 +3020,8 @@ function boot() {
   $('quitNo').onclick = () => closeModal('quitModal');
   $('titleStandard').onclick = () => { hideTitle(); openSetup(); };
   $('titleRaid').onclick = () => { hideTitle(); openRaidSetup(); };
-  $('titleTutorial').onclick = startTutorial;
+  $('titleTutorial').onclick = openAcademy;
+  $('academyBack').onclick = () => { closeModal('academyModal'); showTitle(); };
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
   $('coachMin').onclick = coachMinimize;
