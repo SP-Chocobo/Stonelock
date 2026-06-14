@@ -79,9 +79,11 @@ function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA;
 // Sloppiness: below-skill players occasionally make the wrong play.
 function fumbles(who) { return Math.random() > personaOf(who).skill; }
 
-// The pool a table can draw from (the Old Hand stays the default
-// partner unless seated deliberately).
-const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand'];
+// The pool a table can draw from. The Old Hand is the default partner in
+// teams, but is also a selectable regular in its own right (a defensive
+// locker/disruptor) — his protective play comes from team scoring, not his
+// name, so he reads as a wary tactician at any seat.
+const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand', 'The Old Hand'];
 
 // Which seats are AI-held, in seat order, per mode.
 function slotName(i, footprint) {
