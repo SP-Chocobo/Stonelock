@@ -593,7 +593,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   /* Face-down: the dedicated card-back art (assets/card-back.png) over
      a woodgrain fallback. No porthole/circle — that's the face. */
   background:
-    url('assets/card-back.png?v=3') center/cover no-repeat,
+    url('assets/card-back.png?v=4') center/cover no-repeat,
     linear-gradient(170deg, #322a1d, #1d160f);
   border-color: var(--edge);
 }
