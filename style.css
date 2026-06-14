@@ -914,7 +914,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 
 /* Showdown */
-.showhand { margin: 12px 0; padding: 10px 12px; background: rgba(0,0,0,0.28); border-radius: 10px; border: 1px solid var(--edge); }
+/* Two hands per row so a 2-player showdown sits side by side instead of
+   stacked with a wall of empty space; 4 seats fall into a 2×2. */
+.showgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
+.showhand { padding: 10px 12px; background: rgba(0,0,0,0.28); border-radius: 10px; border: 1px solid var(--edge); }
 .showhand h3 { margin: 0 0 8px; color: var(--parchment); }
 .pickrow { display: flex; gap: 10px; flex-wrap: wrap; }
 .pickcard {
@@ -925,6 +928,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   border: 1px solid var(--gold);
   color: var(--parchment);
   display: flex; flex-direction: column; align-items: center; padding-top: 10px;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+}
+/* Rest on a showdown card to enlarge it, matching the table's hover-zoom. */
+.pickcard:hover {
+  transform: scale(1.5); z-index: 60;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.85);
+  transition-delay: 0.7s;
 }
 .pickcard .cicon { width: 36px; height: 36px; padding: 4px; }
 .pickcard .cname { font-size: 11px; }
@@ -1154,6 +1164,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 
   .modalcard { padding: 14px 16px; }
   .modalcard h2 { font-size: 19px; }
+  .showgrid { grid-template-columns: 1fr; gap: 8px; }
   .pickrow { gap: 6px; }
   .pickcard { width: 56px; height: 78px; }
   .pickcard .cicon { width: 28px; height: 28px; }

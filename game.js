@@ -2248,11 +2248,11 @@ function showShowdownModal(d, review) {
       <div class="mathline">${s.raw} raw ${s.bonus ? `+ ${s.bonus} ${s.structure === 'triad' ? 'Triad' : 'Pair'} bonus` : ''}${s.penalty ? ` − ${s.penalty} Riverlock` : ''} — ${STRUCT_LABEL[s.structure]} (${s.score})</div>`;
   }
 
-  body.innerHTML = ents.map(e => `
+  body.innerHTML = `<div class="showgrid">` + ents.map(e => `
     <div class="showhand">
       <h3>${e.name} — ${e.score} points</h3>
       ${e.members.map(memberHtml).join('')}
-    </div>`).join('');
+    </div>`).join('') + `</div>`;
 
   let verdict;
   if (G.mode === 'ffa') {
@@ -2295,7 +2295,7 @@ function showRaidShowdown(d, review) {
       ? `The Magistrate fields <b>${boss.score}</b> to your <b>${teamScore}</b> and gains <b>${-diff}</b>. Ledger now <b>${G.ledger > 0 ? '+' + G.ledger : G.ledger}</b>.`
       : `Dead level at <b>${teamScore}</b> — the Magistrate holds on the tie. Nothing moves.`;
   $('showdownBody').innerHTML =
-    `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div>${partyHtml}</div>${bossHtml}<div class="verdict">${verdict}</div>`;
+    `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand';
   $('showdownModal').classList.add('open');
