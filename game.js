@@ -454,6 +454,7 @@ function startHand() {
   G.handNum++;
   G.events = [];
   G.cards = [];
+  G.armed = false; // telegraphed stones become "spendable" once arming runs
   UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null, flashIds: [] };
 
   // Build the 64-card Ledger Deck, full shuffle, scale to 16 per player.
@@ -734,6 +735,7 @@ function executeStep(step) {
       break;
     case 'raidarm':
       for (const p of G.players) p.active = p.declared.slice(); // spend from the telegraphed pool
+      G.armed = true;
       break;
     case 'thin':
       aiThin(step.who);
@@ -2240,7 +2242,7 @@ function renderTelegraph(who, container) {
     const s = document.createElement('div');
     s.className = `stone ${color}`;
     s.title = `${STONES[color].name} — ${STONES[color].power}`;
-    if (p.removed !== null && !isUsableTelegraph(p, color, i)) s.classList.add('spent');
+    if ((p.removed !== null || G.armed) && !isUsableTelegraph(p, color, i)) s.classList.add('spent');
     if (who === G.viewer && UI.mode === 'thin') {
       s.classList.add('targetable');
       s.onclick = () => humanThin(i);
@@ -2760,7 +2762,7 @@ function openRaidSetup() {
 const RAID_BOSSES = [
   { v: 'magistrate', name: 'The Magistrate', lore: 'A wide, methodical board fielded face-up. It selects from a deep pouch, scores its two best hands, and never bluffs — powerful, and fair only in that. Difficulty sets how many stones it spends.' },
   { v: 'warden', name: 'The Warden', lore: 'Keeps one of every stone within reach and spends without mercy — snuffing, stealing, locking. Every stone it plays is exhausted for a hand, and so is yours: ration your disruption, or be ground down. Viciously tactical.' },
-  { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends its stones like the others — but always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
+  { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends fewer ordinary stones than the others — because it always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
 ];
 
 function renderRaidSetup() {
@@ -2833,7 +2835,11 @@ function renderRaidSetup() {
     body.appendChild(row);
   }
 
-  section('Difficulty', 'diff', [
+  section('Difficulty', 'diff', isApothecary ? [
+    { v: 'easy', label: 'Easy', desc: 'A light hand of stones beneath the scalpel — often just one or two. A coordinated, white-aware party wins most fights.' },
+    { v: 'standard', label: 'Standard', desc: 'Two stones and the guaranteed cut. A true coin-flip against good play.' },
+    { v: 'hard', label: 'Hardcore', desc: 'Three stones and the last-word cut — it opens, answers, and closes with the scalpel. Only sharp, coordinated play breaks it.' },
+  ] : [
     { v: 'easy', label: 'Easy — 5 stones', desc: 'The boss spends five stones. A coordinated party wins most fights.' },
     { v: 'standard', label: 'Standard — 6 stones', desc: 'Six stones, answering every move. A true coin-flip against good play.' },
     { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
