@@ -315,6 +315,8 @@ function newGame(cfg) {
     cardsOnly: !!cfg.cardsOnly, // Academy Lesson 1: cards with no stone phases
     fixedHands: cfg.fixedHands || null, // Academy: seat -> [card types] for deterministic teaching hands
     fixedPool: cfg.fixedPool || null,   // Academy: seat -> stone pool override
+    demoStone: cfg.demoStone || null,   // Academy stone lesson: the one stone you place
+    demoOpp: cfg.demoOpp || null,       // Academy: a stone the Stranger plays first (for the Black lesson)
     cursedType: null,
     region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
@@ -592,6 +594,30 @@ function startHand() {
       for (const w of order) G.queue.push({ t: 'place', who: w, gaunt: r + 1 });
     }
     G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
+  } else if (G.demoStone) {
+    // Academy stone lesson: commit cards, then place a single stone to see its
+    // effect (no telegraph/thin). The Black lesson lets the Stranger act first.
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up.' },
+      { t: 'deploy', count: dep[0].c, faceUp: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Veil', note: 'Commit one card face-down.' },
+      { t: 'deploy', count: dep[1].c, faceUp: false, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card.' },
+      { t: 'deploy', count: dep[2].c, faceUp: false, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+    ];
+    G.armed = true;
+    if (G.demoOpp) { // the Stranger plays a stone first, so there's something to answer
+      G.players[1].active = [G.demoOpp];
+      G.queue.push({ t: 'phase', label: 'The Stranger moves', note: 'Watch the Stranger spend a stone.' }, { t: 'place', who: 1 }, { t: 'beat', ms: 900 });
+    }
+    G.players[0].active = [G.demoStone];
+    G.queue.push(
+      { t: 'phase', label: `Your ${STONES[G.demoStone].name}`, note: `${STONES[G.demoStone].power} — ${STONES[G.demoStone].desc}` },
+      { t: 'place', who: 0 },
+      { t: 'beat', ms: 1500 },
+      { t: 'showdown' }
+    );
   } else if (G.cardsOnly) {
     // Academy Lesson 1: just the cards — no stones telegraphed or placed.
     G.queue = [
@@ -1855,20 +1881,8 @@ const LESSONS = [
     showdown: '<b>The Showdown.</b> Both layouts flip up; each side’s best three are summed, plus any Pair (+2) or Triad (+6). Your paired Coins should carry it. This is the heart of Stonelock — everything else just bends these numbers.',
   },
   {
-    id: 'stones', title: 'Lesson 2 — The Stones', blurb: 'The four stones and what each one does.',
-    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
-    intro: [
-      { sel: '.game', text: 'Now the <b>stones</b> — the tools that bend the board. There are four, and you bring a pouch of them each hand.' },
-      { sel: '.game', text: '<b>Red</b> drops a phantom duplicate on your card — an instant Pair or Triad. <b>White</b> locks a card so it can’t be touched. <b>Blue</b> steals an opponent’s card for one of yours. <b>Black</b> undoes the last stone played on a card.' },
-      { sel: '.game', text: 'Stones are first <b>telegraphed</b> — laid in the open, doing nothing yet. Part plan, part bluff. You’ll telegraph three, then thin to two, then spend them. Let’s see it.' },
-    ],
-    live: {
-      declare: { sel: '#stoneTray', text: '<b>Telegraph a stone.</b> Tap one — it’s shown to the table but won’t act yet. (Red duplicates · White locks · Blue steals · Black undoes.)' },
-      deploy: { sel: '#handArea', text: '<b>Commit your cards</b> — two face-up, then veiled, as before.' },
-      thin: { sel: '#stoneTray', text: '<b>The Thinning.</b> You telegraphed three; now abandon one. The two you keep are the ones you’ll actually spend.' },
-      place: { sel: '#stoneTray', text: '<b>Resolve a stone.</b> Now it acts for real — choose one, then its target. Watch the board change.' },
-    },
-    showdown: '<b>Showdown.</b> See how the stones moved the numbers — a phantom made a pair, a lock saved a card, a steal swung a value. Cards decide the score; stones decide the cards.',
+    id: 'stones', title: 'Lesson 2 — The Stones', blurb: 'How stones work, and what each one does — pick a stone to study.',
+    submenu: true,
   },
   {
     id: 'hand', title: 'Lesson 3 — A Full Hand', blurb: 'Put cards and stones together, with light coaching.',
@@ -1898,7 +1912,79 @@ const LESSONS = [
   },
 ];
 
-function lessonById(id) { return LESSONS.find(l => l.id === id); }
+// Lesson 2 opens this sub-menu: the stone-handling procedure, then one focused
+// fixed-hand demo per stone (place the one stone, see its effect).
+const STONE_LESSONS = [
+  {
+    id: 'st-how', title: 'How stones work', blurb: 'Telegraph, thin, place — the procedure, not the effects.',
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
+    intro: [
+      { sel: '.game', text: 'Before a stone <i>does</i> anything, you handle it in three steps. This lesson is the <b>procedure</b> — what each stone does comes after.' },
+      { sel: '#stoneTray', text: '<b>1 · Telegraph.</b> Across the hand you lay <b>three</b> stones in the open. They do nothing yet — everyone sees them, so they’re part plan, part bluff.' },
+      { sel: '#stoneTray', text: '<b>2 · Thin</b> — abandon one, keeping two. <b>3 · Place</b> — the two you kept act for real, in turn. Walk it through; don’t worry what each stone does yet.' },
+    ],
+    live: {
+      declare: { sel: '#stoneTray', text: '<b>Telegraph</b> a stone — tap one. (You’ll do this three times across the hand.)' },
+      thin: { sel: '#stoneTray', text: '<b>Thin</b> — abandon one telegraphed stone; the two you keep go live.' },
+      place: { sel: '#stoneTray', text: '<b>Place</b> — choose a live stone, then its target. This is where it finally acts.' },
+    },
+    showdown: 'That’s the rhythm: <b>telegraph three · thin to two · place two</b>. Now study what each stone actually does.',
+  },
+  {
+    id: 'st-red', title: 'Red — Duplication', blurb: 'A phantom copy for an instant Pair or Triad.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'red',
+      fixedHands: { 0: ['Coin', 'Coin', 'Sword', 'Quill', 'Crest'], 1: ['Sword', 'Crest', 'Quill', 'Chain', 'Ferry'] }, fixedPool: { 0: { red: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: '<b>Red — Duplication.</b> It drops a <b>phantom duplicate</b> on one of your cards. The phantom scores no value of its own, but counts as another copy for a <b>Pair (+2)</b> or <b>Triad (+6)</b>.' },
+      { sel: '#handArea', text: 'You hold <b>two Coins</b> — already a Pair. Commit your cards, then drop your Red on a Coin to make it a <b>Triad</b> (+6).' },
+    ],
+    live: { place: { sel: '#stoneTray', text: '<b>Place the Red</b> on one of your Coins — the phantom becomes a third Coin, turning your Pair into a Triad.' } },
+    showdown: 'Watch the bonus jump from +2 to +6 — that’s Red. It builds structure from cards you already hold.',
+  },
+  {
+    id: 'st-white', title: 'White — Lock', blurb: 'Protect a card; it can’t be touched.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'white',
+      fixedHands: { 0: ['Coin', 'Bread', 'Sword', 'Quill', 'Crest'], 1: ['Sword', 'Crest', 'Quill', 'Chain', 'Ferry'] }, fixedPool: { 0: { white: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: '<b>White — Lock.</b> It shields a card: once locked, it can’t be stolen, undone, or poisoned for the rest of the hand.' },
+      { sel: '#handArea', text: 'You hold a <b>Coin</b> and a <b>Bread</b>, both worth 3. Commit your cards, then lock the one you most want to guarantee.' },
+    ],
+    live: { place: { sel: '#stoneTray', text: '<b>Place the White</b> on your richest card — now the Stranger can’t take or unmake it.' } },
+    showdown: 'A locked card is untouchable. White adds no points — it <b>guarantees</b> them.',
+  },
+  {
+    id: 'st-blue', title: 'Blue — Exchange', blurb: 'Steal an opponent’s card for one of yours.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'blue',
+      fixedHands: { 0: ['Crest', 'Quill', 'Chain', 'Sword', 'Coin'], 1: ['Bread', 'Coin', 'Road', 'Sword', 'Ferry'] }, fixedPool: { 0: { blue: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: '<b>Blue — Exchange.</b> It forcibly <b>swaps</b> one of your cards for an unprotected card in an opponent’s layout — give a weak one, take a strong one. A double swing.' },
+      { sel: '#handArea', text: 'The Stranger will field rich cards face-up. Commit yours, then trade your weakest for their best.' },
+    ],
+    live: { place: { sel: '#stoneTray', text: '<b>Place the Blue</b> — pick one of <i>your</i> cards to give, then a strong card of the <b>Stranger’s</b> to take.' } },
+    showdown: 'You swung the value twice: their layout lost a card, yours gained one. That’s Blue.',
+  },
+  {
+    id: 'st-black', title: 'Black — Disruption', blurb: 'Undo the last stone played on a card.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'black', demoOpp: 'red',
+      fixedHands: { 0: ['Coin', 'Sword', 'Quill', 'Crest', 'Chain'], 1: ['Bread', 'Sword', 'Quill', 'Crest', 'Chain'] }, fixedPool: { 0: { black: 1 }, 1: { red: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: '<b>Black — Disruption.</b> It <b>undoes the last stone</b> played on a card — a snuffed phantom, a reversed trade. It cannot itself be undone.' },
+      { sel: '.game', text: 'The Stranger will drop a Red to build a phantom Pair. Commit your cards, then watch — and answer it.' },
+    ],
+    live: { place: { sel: '#stoneTray', text: '<b>Place the Black</b> on the Stranger’s phantom-bearing card — snuff it, and the bonus it bought vanishes.' } },
+    showdown: 'Their phantom is gone, and the bonus with it. Black doesn’t build — it <b>takes away</b>, at the right moment.',
+  },
+];
+
+function lessonById(id) { return LESSONS.find(l => l.id === id) || STONE_LESSONS.find(l => l.id === id); }
 
 function openAcademy() {
   if (typeof document === 'undefined') return;
@@ -1908,19 +1994,35 @@ function openAcademy() {
   for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
   $('showdownResume').style.display = 'none';
   hideTitle();
+  academyMenu('The Academy', LESSONS, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
+}
+
+// Render a grid of lesson/sub-menu cards into the Academy modal.
+function academyMenu(title, items, back) {
+  if (typeof document === 'undefined') return;
+  $('academyModal').querySelector('h2').textContent = title;
   const body = $('academyBody');
   body.innerHTML = '';
   const grid = document.createElement('div');
   grid.className = 'optgrid';
-  for (const l of LESSONS) {
+  for (const l of items) {
     const el = document.createElement('div');
     el.className = 'bigopt';
     el.innerHTML = `<h3>${l.title}</h3><div class="bigoptdesc">${l.blurb}</div>`;
-    el.onclick = () => { closeModal('academyModal'); startLesson(l.id); };
+    el.onclick = l.submenu ? () => openStonesMenu() : () => { closeModal('academyModal'); startLesson(l.id); };
     grid.appendChild(el);
   }
   body.appendChild(grid);
+  const b = $('academyBack');
+  b.textContent = back.label;
+  b.onclick = back.fn;
   $('academyModal').classList.add('open');
+}
+
+function openStonesMenu() {
+  if (typeof document === 'undefined') return;
+  TUT.active = false; TUT.lesson = null; coachHide();
+  academyMenu('Lesson 2 — The Stones', STONE_LESSONS, { label: '‹ The Academy', fn: openAcademy });
 }
 
 function startLesson(id) {
@@ -1981,15 +2083,30 @@ function tutorialTick() {
 
 function tutFinish() {
   const lesson = TUT.lesson;
-  const next = LESSONS[LESSONS.indexOf(lesson) + 1];
   TUT.active = false; TUT.phase = 'idle';
-  const msg = next
-    ? 'Lesson complete. On to the next, or step back to the Academy to replay any of them.'
-    : 'That completes the Academy basics — you know how to play. The deeper strategy lessons are still to come; for now, set your own table from the title.';
-  const opts = next
-    ? { next: () => { coachHide(); startLesson(next.id); }, nextLabel: 'Next lesson ›', alt: { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } } }
-    : { next: () => { coachHide(); openAcademy(); }, nextLabel: 'The Academy', alt: { label: 'To title', fn: showTitle } };
-  coachShow(msg, null, opts);
+  const toAcademy = { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } };
+  // A stone sub-lesson returns to the Stones menu to study another.
+  if (lesson.id.startsWith('st-')) {
+    coachShow('Lesson complete. Study another stone, or step back to the Academy.', null, {
+      next: () => { coachHide(); openStonesMenu(); }, nextLabel: '‹ The Stones', alt: toAcademy,
+    });
+    return;
+  }
+  const order = ['cards', 'stones', 'hand', 'match'];
+  const nextId = order[order.indexOf(lesson.id) + 1];
+  if (nextId === 'stones') {
+    coachShow('Cards down. Now the stones — what turns a hand into a contest.', null, {
+      next: () => { coachHide(); openStonesMenu(); }, nextLabel: 'Next: The Stones ›', alt: toAcademy,
+    });
+  } else if (nextId) {
+    coachShow('Lesson complete. On to the next, or back to the Academy to replay any of them.', null, {
+      next: () => { coachHide(); startLesson(nextId); }, nextLabel: 'Next lesson ›', alt: toAcademy,
+    });
+  } else {
+    coachShow('That completes the Academy basics — you know how to play. Deeper strategy lessons are still to come; for now, set your own table from the title.', null, {
+      next: () => { coachHide(); openAcademy(); }, nextLabel: 'The Academy', alt: { label: 'To title', fn: showTitle },
+    });
+  }
 }
 
 /* ---------- Coach panel ---------- */
@@ -3052,7 +3169,7 @@ function boot() {
   $('titleStandard').onclick = () => { hideTitle(); openSetup(); };
   $('titleRaid').onclick = () => { hideTitle(); openRaidSetup(); };
   $('titleTutorial').onclick = openAcademy;
-  $('academyBack').onclick = () => { closeModal('academyModal'); showTitle(); };
+  // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
   $('coachMin').onclick = coachMinimize;
