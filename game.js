@@ -563,7 +563,7 @@ function startHand() {
     for (const w of RAID_ORDER) G.queue.push({ t: 'place', who: w });
     if (G.raidBoss === 'apothecary') {
       // Pause on the scalpel so you can watch it land before the results.
-      G.queue.push({ t: 'beat', ms: 800 }, { t: 'apothcut' }, { t: 'beat', ms: 2800 }, { t: 'showdown' });
+      G.queue.push({ t: 'beat', ms: 800 }, { t: 'apothcut' }, { t: 'beat', ms: 2200 }, { t: 'showdown' });
     } else {
       G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
     }
