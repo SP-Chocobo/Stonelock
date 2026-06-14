@@ -559,7 +559,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 
 .card.back {
+  /* Weathered panel art (assets/card-back.png) over the woodgrain
+     fallback — the porthole timber makes the face-down card. */
   background:
+    url('assets/card-back.png') center/cover no-repeat,
     repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 5px, transparent 5px 10px),
     linear-gradient(170deg, #2a241c, #1a1510);
   border-color: var(--edge);
@@ -624,10 +627,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   box-shadow: inset -3px -4px 5px rgba(0,0,0,0.35), inset 2px 3px 4px rgba(255,255,255,0.22), 0 2px 5px rgba(0,0,0,0.6);
   flex-shrink: 0;
 }
-.stone.red, .stonedot.red { background: radial-gradient(circle at 35% 30%, #d96a5b, var(--red) 60%, #6e2018); }
-.stone.white, .stonedot.white { background: radial-gradient(circle at 35% 30%, #ffffff, var(--white-s) 60%, #a9a290); }
-.stone.blue, .stonedot.blue { background: radial-gradient(circle at 35% 30%, #7aa6c6, var(--blue) 60%, #1f3d54); }
-.stone.black, .stonedot.black { background: radial-gradient(circle at 35% 30%, #5a544e, var(--black-s) 60%, #000); }
+/* Stone art (assets/stone-*.png) layers over the gem gradient; if a
+   file is missing the 404 layer is transparent and the gradient shows,
+   so the game looks right with or without the art. */
+.stone.red, .stonedot.red { background: url('assets/stone-red.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #d96a5b, var(--red) 60%, #6e2018); }
+.stone.white, .stonedot.white { background: url('assets/stone-white.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #ffffff, var(--white-s) 60%, #a9a290); }
+.stone.blue, .stonedot.blue { background: url('assets/stone-blue.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #7aa6c6, var(--blue) 60%, #1f3d54); }
+.stone.black, .stonedot.black { background: url('assets/stone-black.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #5a544e, var(--black-s) 60%, #000); }
 
 .stone.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .stone.targetable:hover { transform: scale(1.18); }
