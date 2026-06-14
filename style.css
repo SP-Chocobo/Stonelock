@@ -860,6 +860,8 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   gap: 9px;
 }
 .optgrid:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2, 1fr); }
+/* Exactly four options read cleaner as a balanced 2×2 than a 3 + orphan row. */
+.optgrid:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, 1fr); }
 
 .bigopt {
   background: linear-gradient(170deg, #2e261b, #221b12);
