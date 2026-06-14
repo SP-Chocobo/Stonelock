@@ -606,8 +606,15 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 
 .card.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; box-shadow: 0 0 12px rgba(232,196,119,0.35), 0 3px 7px rgba(0,0,0,0.6); }
-.card.targetable:hover { transform: translateY(-5px); }
+/* Linger on a card and it eases up bigger so you can read it. The delay
+   lives on the hovered state only, so the zoom-out snaps back immediately. */
+.card:hover, .card.targetable:hover {
+  transform: scale(1.4); z-index: 60;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.85);
+  transition-delay: 0.4s;
+}
 .card.selected { outline: 2px solid var(--sage); transform: translateY(-7px); }
+.card.selected:hover { transform: translateY(-7px) scale(1.4); z-index: 60; transition-delay: 0.4s; }
 
 .card.flash { animation: cardflash 1.5s ease-out; }
 @keyframes cardflash {
