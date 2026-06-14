@@ -537,12 +537,23 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cicon {
   width: 52px; height: 52px;
   border-radius: 50%;
+  overflow: hidden;
+  /* The painted emblem fills the circle; a thin white ring sets it off the
+     weathered card face. Gold gradient stays as a fallback if art is missing. */
   background: radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77);
-  border: 1px solid var(--gold-dim);
-  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.5);
-  padding: 6px;
+  background-size: cover; background-position: center;
+  border: 2px solid #f3ecda;
+  box-shadow: inset 0 -3px 7px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.55);
 }
 .cicon svg { width: 100%; height: 100%; display: block; }
+.cicon.icon-Crest { background: url('assets/icon-crest.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Coin  { background: url('assets/icon-coin.png')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Bread { background: url('assets/icon-bread.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Quill { background: url('assets/icon-quill.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Sword { background: url('assets/icon-sword.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Chain { background: url('assets/icon-chain.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Ferry { background: url('assets/icon-ferry.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Road  { background: url('assets/icon-road.png')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
 
 .cname {
   font-family: 'IM Fell English SC', serif;

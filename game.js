@@ -1966,7 +1966,7 @@ function cardEl(card) {
   el.dataset.cardId = card.id;
   if (showFace) {
     el.innerHTML = `
-      <div class="cicon">${ICONS[card.type]}</div>
+      <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
       <div class="cval val-${regionVal(card.type)}">${regionVal(card.type)}</div>`;
     if (!card.faceUp) {
@@ -2074,7 +2074,7 @@ function renderHand() {
     el.dataset.cardId = card.id;
     el.className = 'card hand-card' + (UI.selected.includes(card) ? ' selected' : '');
     el.innerHTML = `
-      <div class="cicon">${ICONS[card.type]}</div>
+      <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
       <div class="cval val-${regionVal(card.type)}">${regionVal(card.type)}</div>`;
     if (UI.mode === 'pickCards') {
@@ -2215,7 +2215,7 @@ function closeModal(id) {
 function handPicksHtml(s) {
   return s.picks.map(p => `
     <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
-      <div class="cicon">${ICONS[p.type]}</div>
+      <div class="cicon icon-${p.type}"></div>
       <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
       <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
     </div>`).join('');
@@ -2239,7 +2239,7 @@ function showShowdownModal(d, review) {
     const s = sel[i];
     const picksHtml = s.picks.map(p => `
       <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
-        <div class="cicon">${ICONS[p.type]}</div>
+        <div class="cicon icon-${p.type}"></div>
         <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
         <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
       </div>`).join('');
