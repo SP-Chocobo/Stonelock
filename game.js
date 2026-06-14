@@ -428,7 +428,15 @@ const envNum = (k, d) => (typeof process !== 'undefined' && process.env[k] !== u
 const RAID_HOLDBACK = {
   'magistrate-hard': envNum('MAG_HARD_HB', 0.25), // ~31% party (was ~20)
   'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
+  // The Apothecary's cut makes White mandatory; the easy tier sometimes drops
+  // one more regular stone on top.
+  'apothecary-easy': envNum('APO_EASY_HB', 0.5),
 };
+// The Apothecary's guaranteed Green cut forces a White lock, and the cut slides
+// to your next-best card — so one lock is never quite enough. To keep "one
+// white of your three" the sensible cost (not three or four), it spends two
+// fewer regular stones, easing the pressure everywhere else. Tunable by play.
+const APOTH_DROP = envNum('APOTH_DROP', 2);
 function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
@@ -526,7 +534,7 @@ function startHand() {
       { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover party cards are discarded dead.' },
       D(0, 1, false), D(1, 1, true), D(2, 1, false),
       { t: 'discard' },
-      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; ${bn}, ${raidDiff().stones - (G.raidBoss === 'apothecary' ? 1 : 0)}${G.raidBoss === 'apothecary' ? ' plus the Green cut' : ''}.` },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; ${bn}, ${raidDiff().stones - (G.raidBoss === 'apothecary' ? APOTH_DROP : 0)}${G.raidBoss === 'apothecary' ? ' plus the Green cut' : ''}.` },
     ];
     // The chosen difficulty sets how many stones the Magistrate spends
     // and the swing order — it always closes with the last word. On
@@ -538,10 +546,12 @@ function startHand() {
       if (i >= 0) RAID_ORDER.splice(i, 1);
     }
     // The Apothecary's last word is its Green cut, not a regular stone — so it
-    // spends one fewer telegraphed stone and closes with the scalpel.
+    // spends fewer telegraphed stones (APOTH_DROP) and closes with the scalpel.
     if (G.raidBoss === 'apothecary') {
-      const i = RAID_ORDER.lastIndexOf(1);
-      if (i >= 0) RAID_ORDER.splice(i, 1);
+      for (let d = 0; d < APOTH_DROP; d++) {
+        const i = RAID_ORDER.lastIndexOf(1);
+        if (i >= 0) RAID_ORDER.splice(i, 1);
+      }
     }
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of RAID_ORDER) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
@@ -2014,6 +2024,17 @@ function renderPanels() {
       }
       rack.appendChild(col);
     }
+    // The Apothecary always holds a Green Stone in reserve — its last-word cut.
+    if (G.mode === 'raid' && G.raidBoss === 'apothecary' && isMagistrate(i)) {
+      const col = document.createElement('div');
+      col.className = 'minicol';
+      const spent = G.events.some(e => e.color === 'green' && !e.undone);
+      const dot = document.createElement('span');
+      dot.className = spent ? 'stonedot socket' : 'stonedot green';
+      dot.title = `${STONES.green.name} — ${STONES.green.power}: ${STONES.green.desc}` + (spent ? ' (the cut is made)' : ' (held for the last word)');
+      col.appendChild(dot);
+      rack.appendChild(col);
+    }
     renderTelegraph(i, $(`tg-${i}`));
   }
 }
@@ -2228,6 +2249,14 @@ function renderTelegraph(who, container) {
     const s = document.createElement('div');
     s.className = `stone ${p.removed} removed`;
     s.title = `${STONES[p.removed].name} — abandoned in the Thinning`;
+    container.appendChild(s);
+  }
+  // The Apothecary's reserved Green cut, shown alongside its telegraphed stones.
+  if (G.mode === 'raid' && G.raidBoss === 'apothecary' && isMagistrate(who)) {
+    const spent = G.events.some(e => e.color === 'green' && !e.undone);
+    const s = document.createElement('div');
+    s.className = 'stone green' + (spent ? ' spent' : '');
+    s.title = `${STONES.green.name} — ${STONES.green.power}` + (spent ? ' (the cut is made)' : ' (held for the last word)');
     container.appendChild(s);
   }
 }
