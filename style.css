@@ -884,13 +884,6 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   margin-top: 16px;
 }
 .valstrip b { color: var(--gold); font-style: normal; }
-.setupsummary {
-  text-align: center;
-  font-family: 'Cinzel', Georgia, serif;
-  font-size: 14px;
-  color: var(--parchment);
-  margin-top: 12px;
-}
 
 @media (max-width: 760px) {
   .optgrid, .optgrid:has(> :nth-child(2):last-child) { grid-template-columns: 1fr; }

@@ -95,17 +95,6 @@ function aiSeatsFor(mode) {
   }
 }
 
-const ICONS = {
-  Crest: '<svg viewBox="0 0 40 40"><path d="M20 4 L33 9 V20 C33 29 27 34 20 37 C13 34 7 29 7 20 V9 Z" fill="#8a6d3b" stroke="#4d3a1e" stroke-width="2"/><path d="M20 10 L27 13 V20 C27 25 24 28.5 20 30.5 C16 28.5 13 25 13 20 V13 Z" fill="#e8d9b5"/></svg>',
-  Coin:  '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="#d9a83d" stroke="#7a5a14" stroke-width="2"/><circle cx="20" cy="20" r="8.5" fill="none" stroke="#7a5a14" stroke-width="1.6"/><path d="M20 14 v12 M16 17 h8 M16 23 h8" stroke="#7a5a14" stroke-width="1.6"/></svg>',
-  Bread: '<svg viewBox="0 0 40 40"><path d="M7 24 C7 15 14 11 20 11 C26 11 33 15 33 24 C33 28 29 30 20 30 C11 30 7 28 7 24 Z" fill="#c89556" stroke="#71501f" stroke-width="2"/><path d="M14 16 L17 21 M20 14.5 L20 20.5 M26 16 L23 21" stroke="#71501f" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  Quill: '<svg viewBox="0 0 40 40"><path d="M30 7 C22 9 14 16 11.5 26 L10 31 L15 29.5 C25 27 31 18 33 10 Z" fill="#e9e2cf" stroke="#5c5440" stroke-width="2"/><path d="M12 29 C18 22 24 16 29 11" stroke="#5c5440" stroke-width="1.5" fill="none"/></svg>',
-  Sword: '<svg viewBox="0 0 40 40"><path d="M23 5 L33 7 L17.5 22.5 L14 19 Z" fill="#cfd4d8" stroke="#54585c" stroke-width="2"/><path d="M11 22 L18 29 M9.5 28.5 L12.5 25.5 M14.5 30.5 L11.5 33.5" stroke="#6b4e26" stroke-width="3" stroke-linecap="round"/></svg>',
-  Chain: '<svg viewBox="0 0 40 40"><g fill="none" stroke="#6f7378" stroke-width="3"><ellipse cx="13" cy="13" rx="5.5" ry="4" transform="rotate(45 13 13)"/><ellipse cx="20" cy="20" rx="5.5" ry="4" transform="rotate(-45 20 20)"/><ellipse cx="27" cy="27" rx="5.5" ry="4" transform="rotate(45 27 27)"/></g></svg>',
-  Ferry: '<svg viewBox="0 0 40 40"><path d="M8 24 H32 L28 31 H12 Z" fill="#8a6d3b" stroke="#4d3a1e" stroke-width="2"/><path d="M20 8 V23 M20 9 C26 10 27 15 26 18 L20 17" fill="#d8e4ea" stroke="#54585c" stroke-width="1.8"/><path d="M5 33 Q10 30.5 15 33 T25 33 T35 33" fill="none" stroke="#5b86a3" stroke-width="2" stroke-linecap="round"/></svg>',
-  Road:  '<svg viewBox="0 0 40 40"><path d="M14 36 C10 26 24 22 19 13 C16.5 8.5 19 5 22 4" fill="none" stroke="#9b8e76" stroke-width="6" stroke-linecap="round"/><path d="M14 36 C10 26 24 22 19 13 C16.5 8.5 19 5 22 4" fill="none" stroke="#e8d9b5" stroke-width="1.6" stroke-dasharray="3 4" stroke-linecap="round"/></svg>',
-};
-
 function slotName(i, footprint) {
   if (footprint === 5) return ['Foundation I', 'Foundation II', 'Veil I', 'Veil II', 'Final'][i] || '';
   return ['Foundation I', 'Foundation II', 'The Veil', 'Final'][i] || '';
