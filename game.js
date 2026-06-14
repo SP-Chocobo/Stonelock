@@ -313,6 +313,8 @@ function newGame(cfg) {
     exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
     open: cfg.targeting === 'open', // advanced: any stone, any layout (raids may opt in)
     cardsOnly: !!cfg.cardsOnly, // Academy Lesson 1: cards with no stone phases
+    fixedHands: cfg.fixedHands || null, // Academy: seat -> [card types] for deterministic teaching hands
+    fixedPool: cfg.fixedPool || null,   // Academy: seat -> stone pool override
     cursedType: null,
     region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
@@ -475,6 +477,7 @@ function startHand() {
     let pool = { red: 2, white: 2, blue: 2, black: 2 };
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
+    if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands) {
       for (const color of STONE_KEYS) pool[color] = Math.max(0, pool[color] - slumBlocked(p, color));
@@ -497,10 +500,12 @@ function startHand() {
     log(`The Cursed Card is drawn: every ${G.cursedType} is voided this hand — no points, no Pairs, no Triads.`, 'sys');
   }
   for (let p = 0; p < G.nPlayers; p++) {
+    const fixed = G.fixedHands && G.fixedHands[p];
     for (let k = 0; k < handSizeFor(p); k++) {
+      const dealt = active.pop();
       const card = {
         id: id++,
-        type: active.pop(),
+        type: (fixed && fixed[k]) || dealt,
         owner: p,
         zone: 'hand',
         faceUp: false,
@@ -1838,15 +1843,16 @@ const TUT = { active: false, phase: 'idle', seen: new Set(), introStep: 0, minim
 const LESSONS = [
   {
     id: 'cards', title: 'Lesson 1 — The Cards', blurb: 'How cards are played and scored. No stones yet.',
-    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard', cardsOnly: true },
+    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard', cardsOnly: true,
+      fixedHands: { 0: ['Coin', 'Coin', 'Sword', 'Quill', 'Crest'], 1: ['Ferry', 'Sword', 'Crest', 'Quill', 'Chain'] } },
     intro: [
       { sel: '#handArea', text: '<b>This is your hand.</b> Each hand, you and the Stranger field cards into your layouts — and the higher total takes the showdown.' },
-      { sel: '#handArea', text: 'Every card carries a <b>value</b> — the numbered stone in its corner. When the layouts are scored, only your <b>best three</b> count.' },
-      { sel: '.game', text: 'You commit cards in stages: <b>two face-up</b>, then <b>two veiled</b> (face-down). Veiled cards stay hidden until the showdown — what you hide is yours alone to know.' },
-      { sel: '.game', text: 'Matching types pay off: a <b>Pair</b> adds <b>+2</b>, a <b>Triad</b> of three adds <b>+6</b>. Two 3s and a 1 (8) beat a 3, a 2 and a 1 (6). Let’s deal one — no stones this time, just cards.' },
+      { sel: '#handArea', text: 'Every card carries a <b>value</b> — the numbered stone in its corner. Here a <b>Coin</b> is worth 3, a <b>Sword</b> 2, a <b>Quill</b> or <b>Crest</b> just 1. When scored, only your <b>best three</b> count.' },
+      { sel: '.game', text: 'You commit in stages: <b>two face-up</b>, then <b>two veiled</b> (face-down). Veiled cards stay hidden from the Stranger until the showdown — what you hide is yours alone to know.' },
+      { sel: '.game', text: 'Matching types pay off: a <b>Pair</b> adds <b>+2</b>, a <b>Triad</b> of three adds <b>+6</b>. You’ve been dealt <b>two Coins</b> — keep both for a Pair. Let’s deal it out — no stones this time, just cards.' },
     ],
-    live: { deploy: { sel: '#handArea', text: '<b>Commit your cards.</b> Tap from your hand, then confirm. Weigh value — and which cards to keep hidden.' } },
-    showdown: '<b>The Showdown.</b> Both layouts flip up; each side’s best three are summed, plus any Pair (+2) or Triad (+6). Higher total wins. This is the heart of Stonelock — everything else just bends these numbers.',
+    live: { deploy: { sel: '#handArea', text: '<b>Commit your cards.</b> Keep your <b>two Coins</b> (3 + 3 + the Pair’s +2 = 8) and your <b>Sword</b> (2). Tap them, then confirm — drop a 1-value card.' } },
+    showdown: '<b>The Showdown.</b> Both layouts flip up; each side’s best three are summed, plus any Pair (+2) or Triad (+6). Your paired Coins should carry it. This is the heart of Stonelock — everything else just bends these numbers.',
   },
   {
     id: 'stones', title: 'Lesson 2 — The Stones', blurb: 'The four stones and what each one does.',
