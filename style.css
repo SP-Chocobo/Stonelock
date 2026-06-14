@@ -269,6 +269,24 @@ body[data-compact="1"] .epithet { display: none; }
 .sidebtns { display: flex; gap: 8px; justify-content: center; }
 .sidebtns .btn { font-size: 11px; padding: 6px 10px; }
 
+/* Menu dropdown — opens upward from the sidebar button */
+.menuwrap { position: relative; display: inline-flex; }
+#menuBtn.active { border-color: var(--gold); color: var(--gold-bright); }
+.menupop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%; transform: translateX(-50%);
+  min-width: 200px;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px;
+  background: linear-gradient(175deg, #2a2218, #1d1710);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+  z-index: 90;
+}
+.menupop .btn { width: 100%; text-align: left; font-size: 12px; }
+
 /* ---------- Battlefield (center) ---------- */
 
 .battlefield {

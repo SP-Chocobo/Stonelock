@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=70">
+<link rel="stylesheet" href="style.css?v=71">
 </head>
 <body>
 
@@ -102,10 +102,15 @@
     <div class="sidebtns">
       <button id="rulesBtn" class="btn">Rules</button>
       <button id="reviewBtn" class="btn" title="Review the last showdown" disabled>Last Hand</button>
-      <button id="newGameBtn" class="btn">New Match</button>
-      <button id="titleBtn" class="btn" title="Return to the title screen">Menu</button>
-      <button id="fsBtn" class="btn" title="Toggle browser fullscreen (also F11)">⛶</button>
-      <button id="muteBtn" class="btn" title="Sound on/off">🔊</button>
+      <div class="menuwrap">
+        <button id="menuBtn" class="btn" title="Match menu">Menu ▾</button>
+        <div id="menuPop" class="menupop" style="display:none">
+          <button id="newGameBtn" class="btn ghost">New match — set the table</button>
+          <button id="muteBtn" class="btn ghost">Sound: on</button>
+          <button id="fsBtn" class="btn ghost">Fullscreen</button>
+          <button id="titleBtn" class="btn ghost">Return to title…</button>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -293,6 +298,6 @@
   </div>
 </div>
 
-<script src="game.js?v=70"></script>
+<script src="game.js?v=71"></script>
 </body>
 </html>

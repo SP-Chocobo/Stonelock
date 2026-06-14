@@ -2775,15 +2775,25 @@ function boot() {
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('passBtn').onclick = passConfirm;
   $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
-  $('muteBtn').onclick = () => { $('muteBtn').textContent = SFX.toggle() ? '🔇' : '🔊'; };
+  // The Menu dropdown: new match, sound, fullscreen, and quit-to-title all
+  // live here so the sidebar stays uncluttered.
+  const menuPopSet = open => { $('menuPop').style.display = open ? '' : 'none'; $('menuBtn').classList.toggle('active', open); };
+  $('menuBtn').onclick = e => { e.stopPropagation(); menuPopSet($('menuPop').style.display === 'none'); };
+  document.addEventListener('click', e => {
+    if ($('menuPop').style.display !== 'none' && !e.target.closest('.menuwrap')) menuPopSet(false);
+  });
+  const setSoundLabel = () => { $('muteBtn').textContent = SFX.isMuted() ? 'Sound: off' : 'Sound: on'; };
+  setSoundLabel();
+  $('muteBtn').onclick = () => { SFX.toggle(); setSoundLabel(); }; // stay open to show the new state
   $('rulesClose').onclick = () => closeModal('rulesModal');
-  $('newGameBtn').onclick = () => (G && G.mode === 'raid' ? openRaidSetup() : openSetup());
+  $('newGameBtn').onclick = () => { menuPopSet(false); (G && G.mode === 'raid' ? openRaidSetup() : openSetup()); };
   $('fsBtn').onclick = () => {
+    menuPopSet(false);
     if (document.fullscreenElement) document.exitFullscreen();
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
   };
   $('victoryNew').onclick = () => { const raid = G && G.mode === 'raid'; closeModal('victoryModal'); raid ? openRaidSetup() : openSetup(); };
-  $('titleBtn').onclick = requestQuitToTitle;
+  $('titleBtn').onclick = () => { menuPopSet(false); requestQuitToTitle(); };
   $('quitYes').onclick = () => { closeModal('quitModal'); showTitle(); };
   $('quitNo').onclick = () => closeModal('quitModal');
   $('titleStandard').onclick = () => { hideTitle(); openSetup(); };
