@@ -1987,19 +1987,18 @@ const STONE_LESSONS = [
 function lessonById(id) { return LESSONS.find(l => l.id === id) || STONE_LESSONS.find(l => l.id === id); }
 
 function openAcademy() {
-  if (typeof document === 'undefined') return;
-  clearTimeout(runTimer);
-  TUT.active = false; TUT.lesson = null; INGAME = false; coachHide();
-  // Leave any in-progress lesson cleanly — no showdown/quit modal left stacked.
-  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
-  $('showdownResume').style.display = 'none';
-  hideTitle();
   academyMenu('The Academy', LESSONS, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
 }
 
-// Render a grid of lesson/sub-menu cards into the Academy modal.
+// Render a grid of lesson/sub-menu cards into the Academy modal. Always leaves
+// any in-progress lesson cleanly — no showdown/quit modal left stacked behind.
 function academyMenu(title, items, back) {
   if (typeof document === 'undefined') return;
+  clearTimeout(runTimer);
+  TUT.active = false; TUT.lesson = null; INGAME = false; coachHide();
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
+  $('showdownResume').style.display = 'none';
+  hideTitle();
   $('academyModal').querySelector('h2').textContent = title;
   const body = $('academyBody');
   body.innerHTML = '';
@@ -2020,8 +2019,6 @@ function academyMenu(title, items, back) {
 }
 
 function openStonesMenu() {
-  if (typeof document === 'undefined') return;
-  TUT.active = false; TUT.lesson = null; coachHide();
   academyMenu('Lesson 2 — The Stones', STONE_LESSONS, { label: '‹ The Academy', fn: openAcademy });
 }
 
@@ -2081,26 +2078,19 @@ function tutorialTick() {
   }
 }
 
+// The linear path through every runnable lesson — "Next" walks it straight,
+// no menu in between. (The Stones submenu is only for deliberate selection.)
+const LESSON_FLOW = ['cards', 'st-how', 'st-red', 'st-white', 'st-blue', 'st-black', 'hand', 'match'];
+
 function tutFinish() {
   const lesson = TUT.lesson;
   TUT.active = false; TUT.phase = 'idle';
-  const toAcademy = { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } };
-  // A stone sub-lesson returns to the Stones menu to study another.
-  if (lesson.id.startsWith('st-')) {
-    coachShow('Lesson complete. Study another stone, or step back to the Academy.', null, {
-      next: () => { coachHide(); openStonesMenu(); }, nextLabel: '‹ The Stones', alt: toAcademy,
-    });
-    return;
-  }
-  const order = ['cards', 'stones', 'hand', 'match'];
-  const nextId = order[order.indexOf(lesson.id) + 1];
-  if (nextId === 'stones') {
-    coachShow('Cards down. Now the stones — what turns a hand into a contest.', null, {
-      next: () => { coachHide(); openStonesMenu(); }, nextLabel: 'Next: The Stones ›', alt: toAcademy,
-    });
-  } else if (nextId) {
-    coachShow('Lesson complete. On to the next, or back to the Academy to replay any of them.', null, {
-      next: () => { coachHide(); startLesson(nextId); }, nextLabel: 'Next lesson ›', alt: toAcademy,
+  const nextId = LESSON_FLOW[LESSON_FLOW.indexOf(lesson.id) + 1];
+  if (nextId) {
+    const short = lessonById(nextId).title.replace(/^Lesson \d+ — /, '');
+    coachShow('Lesson complete. Straight on, or back to the Academy to revisit any.', null, {
+      next: () => { coachHide(); startLesson(nextId); }, nextLabel: `Next: ${short} ›`,
+      alt: { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } },
     });
   } else {
     coachShow('That completes the Academy basics — you know how to play. Deeper strategy lessons are still to come; for now, set your own table from the title.', null, {
