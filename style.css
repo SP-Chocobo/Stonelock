@@ -553,7 +553,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cicon.icon-Sword { background: url('assets/icon-sword.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
 .cicon.icon-Chain { background: url('assets/icon-chain.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
 .cicon.icon-Ferry { background: url('assets/icon-ferry.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Road  { background: url('assets/icon-road.png')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Road  { background: url('assets/icon-road.png?v=2')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
 
 .cname {
   font-family: 'IM Fell English SC', serif;
