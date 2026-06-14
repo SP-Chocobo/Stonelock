@@ -945,7 +945,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Showdown */
 /* Two hands per row so a 2-player showdown sits side by side instead of
    stacked with a wall of empty space; 4 seats fall into a 2×2. */
-.showgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start; }
+.showgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: stretch; }
 .showhand { padding: 10px 12px; background: rgba(0,0,0,0.28); border-radius: 10px; border: 1px solid var(--edge); }
 .showhand h3 { margin: 0 0 8px; color: var(--parchment); }
 .pickrow { display: flex; gap: 10px; flex-wrap: wrap; }
