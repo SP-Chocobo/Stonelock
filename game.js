@@ -1199,6 +1199,12 @@ function aiStonePreference(who) {
   if (G.raidBoss === 'warden' && isMagistrate(who)) {
     for (const c of STONE_KEYS) if (!p.declared.includes(c)) weights[c] *= 1.25;
   }
+  // Facing the Apothecary, the party secures one White first — the only shield
+  // against the guaranteed cut — then plays its remaining stones for value.
+  if (G.mode === 'raid' && G.raidBoss === 'apothecary' && !isMagistrate(who)
+      && !p.declared.includes('white') && p.pool.white > 0) {
+    return ['white', ...weightedOrder(STONE_KEYS.filter(c => c !== 'white'), weights)];
+  }
   return weightedOrder(STONE_KEYS, weights);
 }
 
@@ -2745,7 +2751,7 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 12, names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 16, names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
@@ -2921,6 +2927,6 @@ if (typeof window !== 'undefined') {
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
     twoBestHands, undoableEventFor, isLocked, isOpponent,
-    _state: () => G, _ui: () => UI,
+    _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
