@@ -875,7 +875,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .bigopt.selected { border-color: var(--gold-bright); box-shadow: 0 0 14px rgba(232,196,119,0.22); }
 .bigopt h3 { margin: 0 0 3px; font-size: 14.5px; color: var(--gold); }
 .bigopt.selected h3 { color: var(--gold-bright); }
-.bigoptdesc { font-size: 12px; color: var(--parchment-dim); line-height: 1.4; }
+.bigoptdesc { font-size: 13px; color: var(--parchment-dim); line-height: 1.45; }
 
 .valstrip {
   font-size: 12px;
