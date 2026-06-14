@@ -2375,7 +2375,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], _open: null };
+  SETUP = { venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], randomTeams: false, _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
 }
@@ -2550,6 +2550,39 @@ function renderSetup() {
       inp.oninput = () => { SETUP.names[k] = inp.value; };
       row.appendChild(inp);
     }
+    // In 2v2, spell out the partnerships — seats {0,2} vs {1,3} interleave
+    // the player numbers, so who's allied isn't obvious from the inputs.
+    if (SETUP.mode === 'teams') {
+      const fourHuman = humans.length === 4;
+      // A full human 2v2 can shuffle who partners whom instead of the fixed pairing.
+      if (fourHuman) {
+        const toggle = document.createElement('button');
+        toggle.className = 'botchip' + (SETUP.randomTeams ? ' selected' : '');
+        toggle.textContent = (SETUP.randomTeams ? '✓ ' : '') + 'Random partners';
+        toggle.title = 'Shuffle who sits with whom; you learn your side at the deal.';
+        toggle.onclick = () => { SETUP.randomTeams = !SETUP.randomTeams; renderSetup(); };
+        row.appendChild(toggle);
+      }
+      const note = document.createElement('div');
+      note.className = 'rolesline';
+      if (fourHuman && SETUP.randomTeams) {
+        note.textContent = 'Partners drawn at random — you learn your side at the deal.';
+      } else {
+        const sideMembers = parity => humans
+          .map((seat, k) => ({ seat, k }))
+          .filter(x => x.seat % 2 === parity)
+          .map(x => `Player ${x.k + 1}`);
+        const botsOn = (...seats) => seats.filter(s => !humans.includes(s)).length;
+        const sideStr = (members, bots) => {
+          const parts = [...members];
+          if (bots === 2) parts.push('two bots');
+          else if (bots === 1) parts.push('a bot');
+          return parts.join(' & ');
+        };
+        note.textContent = `Partners — ${sideStr(sideMembers(0), botsOn(0, 2))}  vs  ${sideStr(sideMembers(1), botsOn(1, 3))}`;
+      }
+      row.appendChild(note);
+    }
     body.appendChild(row);
   }
 
@@ -2588,9 +2621,13 @@ function startFromSetup() {
   } else if (K > 0 && SETUP.company === 'choose') {
     companyNames = SETUP.picks.slice(0, K);
   }
+  let names = SETUP.names.map(s => (s || '').trim());
+  // Random partners: shuffle the entered names across the four seats so the
+  // {0,2} vs {1,3} pairing lands at random.
+  if (SETUP.mode === 'teams' && SETUP.randomTeams && humans.length === 4) names = shuffle(names.slice(0, 4));
   newGame({
     venue: SETUP.venue, mode: SETUP.mode, humans, deal: SETUP.deal, target: SETUP.target, targeting: SETUP.targeting,
-    names: SETUP.names.map(s => (s || '').trim()),
+    names,
     companyNames, drewLots,
   });
 }
