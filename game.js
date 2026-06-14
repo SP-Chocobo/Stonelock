@@ -2217,7 +2217,7 @@ function handPicksHtml(s) {
     <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
       <div class="cicon">${ICONS[p.type]}</div>
       <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
-      <div class="cval ${p.phantom||p.cursed?'':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
+      <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
     </div>`).join('');
 }
 function handMathLine(s) {
@@ -2241,7 +2241,7 @@ function showShowdownModal(d, review) {
       <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
         <div class="cicon">${ICONS[p.type]}</div>
         <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
-        <div class="cval ${p.phantom||p.cursed?'':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
+        <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
       </div>`).join('');
     const caption = ents.length === G.players.length ? '' : `<div class="membername">${playerName(i)}</div>`;
     return `${caption}<div class="pickrow">${picksHtml}</div>
