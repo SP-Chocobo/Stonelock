@@ -408,9 +408,9 @@ body[data-compact="1"][data-deal="house"] .board { max-width: 204px; margin: 0 a
 body[data-compact="1"] .slot { width: 62px; min-height: 96px; }
 body[data-compact="1"] .slot.empty::before { width: 58px; height: 80px; }
 body[data-compact="1"] .slotlabel { display: none; }
-body[data-compact="1"] .board .card { width: 58px; height: 80px; padding-top: 8px; }
+body[data-compact="1"] .board .card { width: 58px; height: 90px; padding-top: 8px; padding-bottom: 6px; }
 body[data-compact="1"] .board .cicon { width: 34px; height: 34px; padding: 4px; }
-body[data-compact="1"] .board .cname { display: none; }
+body[data-compact="1"] .board .cname { display: block; font-size: 9.5px; margin-top: 3px; }
 body[data-compact="1"] .board .stonedot { width: 13px; height: 13px; }
 body[data-compact="1"] .board .veilband, body[data-compact="1"] .board .knownband { font-size: 7.5px; bottom: 2px; }
 body[data-compact="1"] .board .tradebadge { width: 14px; height: 14px; line-height: 13px; font-size: 9px; }
