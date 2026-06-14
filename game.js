@@ -1896,9 +1896,12 @@ function lessonById(id) { return LESSONS.find(l => l.id === id); }
 
 function openAcademy() {
   if (typeof document === 'undefined') return;
-  TUT.active = false; TUT.lesson = null; coachHide();
+  clearTimeout(runTimer);
+  TUT.active = false; TUT.lesson = null; INGAME = false; coachHide();
+  // Leave any in-progress lesson cleanly — no showdown/quit modal left stacked.
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal']) closeModal(id);
+  $('showdownResume').style.display = 'none';
   hideTitle();
-  closeModal('setupModal');
   const body = $('academyBody');
   body.innerHTML = '';
   const grid = document.createElement('div');
@@ -1917,7 +1920,17 @@ function openAcademy() {
 function startLesson(id) {
   const lesson = lessonById(id);
   if (!lesson) return;
+  // Wipe any prior lesson's table so the intro reads on a clean slate (and no
+  // stale hand/timer/showdown carries over between lessons).
+  clearTimeout(runTimer);
   closeModal('academyModal');
+  closeModal('showdownModal');
+  if (typeof document !== 'undefined') {
+    ['oppSeats', 'youSeats', 'panels', 'hand'].forEach(i => { const e = $(i); if (e) e.innerHTML = ''; });
+    $('stoneTray').style.display = 'none';
+    $('nextHandBtn').style.display = '';
+  }
+  G = null;
   TUT.active = true; TUT.phase = 'intro'; TUT.seen = new Set();
   TUT.introStep = 0; TUT.minimized = false; TUT.current = null; TUT.lesson = lesson;
   hideTitle();
@@ -2474,6 +2487,9 @@ function showShowdownModal(d, review) {
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand — the Dealer Token rotates';
+  // In a lesson, the coach drives ("Finish lesson") — hide the Next-hand button
+  // so it can't deal another hand of the same lesson out from under the coaching.
+  $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
   m.classList.add('open');
 }
@@ -2504,6 +2520,7 @@ function showRaidShowdown(d, review) {
     `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand';
+  $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
   $('showdownModal').classList.add('open');
 }
