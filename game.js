@@ -311,7 +311,7 @@ function newGame(cfg) {
     raidBoss: raid ? (cfg.raidBoss || 'magistrate') : null,
     // Stone exhaustion: Slumlock venue = 2 hands; the Warden raid = 1.
     exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
-    open: !raid && cfg.targeting === 'open', // advanced: any stone, any layout
+    open: cfg.targeting === 'open', // advanced: any stone, any layout (raids may opt in)
     cursedType: null,
     region: REGIONS[raid ? 'bar' : (cfg.region || venue.region)],
     nPlayers: n,
@@ -428,15 +428,15 @@ const envNum = (k, d) => (typeof process !== 'undefined' && process.env[k] !== u
 const RAID_HOLDBACK = {
   'magistrate-hard': envNum('MAG_HARD_HB', 0.25), // ~31% party (was ~20)
   'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
-  // The Apothecary's cut makes White mandatory; the easy tier sometimes drops
-  // one more regular stone on top.
-  'apothecary-easy': envNum('APO_EASY_HB', 0.5),
+  // The Apothecary's cut is worth far more than one stone, so it spends several
+  // fewer regular ones (APOTH_DROP_BY_DIFF) and these hold-backs fine-tune the
+  // tiers: measured ~easy 70% / standard ~55% / hardcore ~25% vs competent,
+  // white-aware party bots. Tunable by play.
+  'apothecary-easy': envNum('APO_EASY_HB', 0.4),
+  'apothecary-hard': envNum('APO_HARD_HB', 0.3),
 };
-// The Apothecary's guaranteed Green cut forces a White lock, and the cut slides
-// to your next-best card — so one lock is never quite enough. To keep "one
-// white of your three" the sensible cost (not three or four), it spends two
-// fewer regular stones, easing the pressure everywhere else. Tunable by play.
-const APOTH_DROP = envNum('APOTH_DROP', 2);
+const APOTH_DROP_BY_DIFF = { easy: 3, standard: 4, hard: 4 };
+function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff] ?? 4); }
 function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
@@ -534,7 +534,7 @@ function startHand() {
       { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover party cards are discarded dead.' },
       D(0, 1, false), D(1, 1, true), D(2, 1, false),
       { t: 'discard' },
-      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; ${bn}, ${raidDiff().stones - (G.raidBoss === 'apothecary' ? APOTH_DROP : 0)}${G.raidBoss === 'apothecary' ? ' plus the Green cut' : ''}.` },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend this hand — shown to the table, kept in full (no thinning). The party picks three each; ${bn}, ${raidDiff().stones - (G.raidBoss === 'apothecary' ? apothDrop() : 0)}${G.raidBoss === 'apothecary' ? ' plus the Green cut' : ''}.` },
     ];
     // The chosen difficulty sets how many stones the Magistrate spends
     // and the swing order — it always closes with the last word. On
@@ -548,7 +548,7 @@ function startHand() {
     // The Apothecary's last word is its Green cut, not a regular stone — so it
     // spends fewer telegraphed stones (APOTH_DROP) and closes with the scalpel.
     if (G.raidBoss === 'apothecary') {
-      for (let d = 0; d < APOTH_DROP; d++) {
+      for (let d = 0, n = apothDrop(); d < n; d++) {
         const i = RAID_ORDER.lastIndexOf(1);
         if (i >= 0) RAID_ORDER.splice(i, 1);
       }
@@ -2751,7 +2751,7 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 16, names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 16, targeting: 'standard', names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
@@ -2845,6 +2845,11 @@ function renderRaidSetup() {
     { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
   ]);
 
+  section('Targeting', 'targeting', [
+    { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout; White may shelter an ally. The balanced co-op fight.' },
+    { v: 'open', label: 'Advanced — open table', desc: 'Any stone reaches any layout: lock or build an ally’s card, trade across party seats. Deeper coordination — and an easier raid.' },
+  ]);
+
   const back = document.createElement('button');
   back.className = 'btn'; back.textContent = '‹ Boss';
   back.onclick = () => { RAIDSET.step = 'boss'; renderRaidSetup(); };
@@ -2854,7 +2859,7 @@ function renderRaidSetup() {
   begin.onclick = () => {
     closeModal('setupModal');
     logEl.innerHTML = '';
-    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, names: RAIDSET.names.map(s => s.trim()) });
+    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
   };
   btns.appendChild(begin);
 }
