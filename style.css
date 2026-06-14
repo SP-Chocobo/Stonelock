@@ -797,7 +797,39 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .modalsub { font-style: italic; color: var(--parchment-dim); margin-top: 0; }
 .modalbtns { display: flex; gap: 12px; justify-content: center; margin-top: 16px; }
 
-/* Setup screen */
+/* Setup screen — collapsible accordion of settings */
+.acc {
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: linear-gradient(170deg, rgba(46,38,27,0.45), rgba(34,27,18,0.45));
+  overflow: hidden;
+}
+.acchead {
+  width: 100%; box-sizing: border-box;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 13px 16px;
+  font-family: 'Cinzel', Georgia, serif;
+  color: var(--gold); font-size: 14px; letter-spacing: 0.02em;
+  transition: background 0.12s ease;
+}
+.acchead:hover { background: rgba(232,196,119,0.06); }
+.acchead.open { background: rgba(232,196,119,0.05); border-bottom: 1px solid var(--edge); }
+.accpick {
+  display: flex; align-items: center; gap: 9px;
+  color: var(--parchment); font-size: 13.5px;
+  font-family: 'Alegreya', Georgia, serif; font-style: italic;
+}
+.accchev {
+  display: inline-block; color: var(--gold-dim);
+  font-size: 18px; line-height: 1; font-style: normal;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.acchead.open .accchev { transform: rotate(90deg); color: var(--gold-bright); }
+.accbody { padding: 13px 14px 15px; }
+.accbody .namerow { margin-top: 12px; }
+
 .steptitle {
   font-family: 'Cinzel', Georgia, serif;
   font-size: 14px;

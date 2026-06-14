@@ -2388,7 +2388,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', ''], picks: [] };
+  SETUP = { venue: 'tavern', mode: 'duel', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', ''], picks: [], _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
 }
@@ -2405,62 +2405,92 @@ function seatRoles(mode) {
 }
 
 function renderSetup() {
-  // Single screen: every setting visible, defaults preselected,
-  // one confirm button at the bottom.
+  // Accordion: each setting is a collapsed row showing its current pick;
+  // open one to change it. One confirm button at the bottom — no wall.
   $('setupModal').querySelector('h2').textContent = 'Set the Table';
   const body = $('setupBody');
   body.innerHTML = '';
   const K = aiSeatsFor(SETUP.mode).length;
   SETUP.picks = SETUP.picks.slice(0, K);
+  if (SETUP._open === undefined) SETUP._open = null;
+  const labelOf = key => {
+    const s = SETUP_STEPS.find(s => s.key === key);
+    const o = s && s.options.find(o => o.v === SETUP[key]);
+    return o ? o.label : '';
+  };
+
   for (const section of SETUP_STEPS) {
     if (section.key === 'company' && K === 0) continue; // pure hotseat: no AI seats
-    const title = document.createElement('div');
-    title.className = 'steptitle';
-    title.textContent = section.title.replace('Choose the ', 'The ').replace('Choose ', '');
-    body.appendChild(title);
-    const grid = document.createElement('div');
-    grid.className = 'optgrid';
-    for (const opt of section.options) {
-      const el = document.createElement('div');
-      el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '');
-      el.dataset.v = opt.v;
-      el.innerHTML = `<h3>${opt.label}</h3><div class="bigoptdesc">${opt.desc}</div>`;
-      el.onclick = () => { SETUP[section.key] = opt.v; renderSetup(); };
-      grid.appendChild(el);
-    }
-    body.appendChild(grid);
+    const open = SETUP._open === section.key;
+    const acc = document.createElement('div');
+    acc.className = 'acc';
 
-    // The seat-by-seat picker, right under the company choice.
-    if (section.key === 'company' && SETUP.company === 'choose' && K > 0) {
-      const row = document.createElement('div');
-      row.className = 'namerow';
-      const lab = document.createElement('span');
-      lab.className = 'arealabel';
-      lab.textContent = `The lineup (${SETUP.picks.length}/${K}):`;
-      row.appendChild(lab);
-      for (const name of BOT_POOL) {
-        const chip = document.createElement('button');
-        const ord = SETUP.picks.indexOf(name);
-        chip.className = 'botchip' + (ord >= 0 ? ' selected' : '');
-        chip.title = PERSONALITIES[name].flavor;
-        chip.innerHTML = (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
-        chip.onclick = () => {
-          const i = SETUP.picks.indexOf(name);
-          if (i >= 0) SETUP.picks.splice(i, 1);
-          else if (SETUP.picks.length < K) SETUP.picks.push(name);
+    const head = document.createElement('button');
+    head.className = 'acchead' + (open ? ' open' : '');
+    head.dataset.k = section.key;
+    const heading = section.title.replace('Choose the ', 'The ').replace('Choose ', '');
+    head.innerHTML =
+      `<span class="acclabel">${heading}</span>` +
+      `<span class="accpick">${labelOf(section.key)}<span class="accchev">›</span></span>`;
+    head.onclick = () => { SETUP._open = open ? null : section.key; renderSetup(); };
+    acc.appendChild(head);
+
+    if (open) {
+      const accbody = document.createElement('div');
+      accbody.className = 'accbody';
+      const grid = document.createElement('div');
+      grid.className = 'optgrid';
+      for (const opt of section.options) {
+        const el = document.createElement('div');
+        el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '');
+        el.dataset.v = opt.v;
+        el.innerHTML = `<h3>${opt.label}</h3><div class="bigoptdesc">${opt.desc}</div>`;
+        el.onclick = () => {
+          SETUP[section.key] = opt.v;
+          if (section.key === 'mode') SETUP.picks = [];
+          // Keep company open so the seat picker shows; otherwise the pick
+          // collapses the row to its summary.
+          SETUP._open = (section.key === 'company' && opt.v === 'choose') ? 'company' : null;
           renderSetup();
         };
-        row.appendChild(chip);
+        grid.appendChild(el);
       }
-      const roles = document.createElement('div');
-      roles.className = 'rolesline';
-      roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode).map((r, i) => `${i + 1} — ${r}`).join(' · ');
-      row.appendChild(roles);
-      body.appendChild(row);
+      accbody.appendChild(grid);
+
+      // The seat-by-seat picker, right under the company choice.
+      if (section.key === 'company' && SETUP.company === 'choose' && K > 0) {
+        const row = document.createElement('div');
+        row.className = 'namerow';
+        const lab = document.createElement('span');
+        lab.className = 'arealabel';
+        lab.textContent = `The lineup (${SETUP.picks.length}/${K}):`;
+        row.appendChild(lab);
+        for (const name of BOT_POOL) {
+          const chip = document.createElement('button');
+          const ord = SETUP.picks.indexOf(name);
+          chip.className = 'botchip' + (ord >= 0 ? ' selected' : '');
+          chip.title = PERSONALITIES[name].flavor;
+          chip.innerHTML = (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
+          chip.onclick = () => {
+            const i = SETUP.picks.indexOf(name);
+            if (i >= 0) SETUP.picks.splice(i, 1);
+            else if (SETUP.picks.length < K) SETUP.picks.push(name);
+            renderSetup();
+          };
+          row.appendChild(chip);
+        }
+        const roles = document.createElement('div');
+        roles.className = 'rolesline';
+        roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode).map((r, i) => `${i + 1} — ${r}`).join(' · ');
+        row.appendChild(roles);
+        accbody.appendChild(row);
+      }
+      acc.appendChild(accbody);
     }
+    body.appendChild(acc);
   }
 
-  // Hotseat tables take player names.
+  // Hotseat tables take player names — always visible, not an accordion row.
   if (['hotseat', 'hs-team', 'hs-rivals'].includes(SETUP.mode)) {
     const row = document.createElement('div');
     row.className = 'namerow';
@@ -2482,14 +2512,9 @@ function renderSetup() {
 
   const r = REGIONS[VENUES[SETUP.venue].region];
   const vals = [3, 2, 1].map(v => `<b>${v}:</b> ${TYPES.filter(t => r.values[t] === v).join(', ')}`).join(' · ');
-  const labelOf = key => SETUP_STEPS.find(s => s.key === key).options.find(o => o.v === SETUP[key]).label;
-  const parts = [labelOf('venue'), labelOf('mode'), labelOf('targeting'), labelOf('deal'), labelOf('target')];
-  if (K > 0) parts.splice(2, 0, labelOf('company'));
-  // insertAdjacentHTML keeps the option cards' click handlers alive
-  // (innerHTML += would re-parse the container and strip them).
-  body.insertAdjacentHTML('beforeend', `
-    <div class="valstrip">${r.name} — card values: ${vals}</div>
-    <div class="setupsummary">${parts.join(' · ')}</div>`);
+  // Each row already shows its pick, so just the venue's value table here.
+  body.insertAdjacentHTML('beforeend',
+    `<div class="valstrip">${r.name} — card values: ${vals}</div>`);
 
   const btns = $('setupBtns');
   btns.innerHTML = '';
