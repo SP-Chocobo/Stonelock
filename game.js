@@ -1075,6 +1075,13 @@ function stoneHasValidTarget(color) {
 /* ---------------- AI ---------------- */
 
 function regionVal(type) { return G.region.values[type]; }
+// The card's value badge. Under the Cursed Register, the voided type reads 0
+// (the cursed value-stone), since it scores nothing this hand.
+function cvalHtml(type) {
+  const cursed = G.cursedType && type === G.cursedType;
+  const v = cursed ? 0 : regionVal(type);
+  return `<div class="cval val-${v}"${cursed ? ' title="Cursed — voided this hand"' : ''}>${v}</div>`;
+}
 
 function knownBoardFor(viewer, ofPlayer) {
   return G.players[ofPlayer].board.map(c => ({
@@ -1868,6 +1875,11 @@ function renderScore() {
   const cb = $('cursedBadge');
   cb.style.display = G.cursedType ? '' : 'none';
   if (G.cursedType) cb.textContent = `Cursed: ${G.cursedType}`;
+  // A fixed banner in the scoreboard so the curse is always in view, not just
+  // in the phase row and the log.
+  const cn = $('cursedNote');
+  cn.style.display = G.cursedType ? '' : 'none';
+  if (G.cursedType) cn.innerHTML = `<span class="cursedmark">⊘</span> Cursed this hand: <b>${G.cursedType}</b><span class="cursedsub">scores nothing — no Pairs or Triads</span>`;
   if (G.mode === 'ffa') {
     const list = $('scoreList');
     list.innerHTML = '';
@@ -1955,7 +1967,7 @@ function cardEl(card) {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
-      <div class="cval val-${regionVal(card.type)}">${regionVal(card.type)}</div>`;
+      ${cvalHtml(card.type)}`;
     if (!card.faceUp) {
       el.classList.add('veiled');
       const v = document.createElement('div');
@@ -2064,7 +2076,7 @@ function renderHand() {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
-      <div class="cval val-${regionVal(card.type)}">${regionVal(card.type)}</div>`;
+      ${cvalHtml(card.type)}`;
     if (UI.mode === 'pickCards') {
       el.classList.add('targetable');
       el.onclick = () => humanToggleCard(card);

@@ -144,6 +144,21 @@ body[data-compact="1"] .epithet { display: none; }
   padding: 1px 9px;
 }
 .pickcard.cursedpick { opacity: 0.55; border-color: #6e2018; }
+/* Persistent curse banner in the scoreboard — always in view. */
+.cursednote {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 2px 0 2px;
+  padding: 7px 11px;
+  border: 1px solid #6e2018;
+  border-left: 3px solid #d96a5b;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(110,32,24,0.32), rgba(110,32,24,0.16));
+  color: #f0c2bb;
+  font-size: 12.5px;
+}
+.cursednote b { color: #ef9c8f; font-style: normal; }
+.cursednote .cursedmark { color: #d96a5b; font-size: 16px; line-height: 1; }
+.cursednote .cursedsub { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
 .dealertoken {
   font-size: 10px;
   font-family: 'IM Fell English', serif;
