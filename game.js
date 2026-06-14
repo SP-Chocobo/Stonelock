@@ -1607,7 +1607,7 @@ function buildTableDOM() {
       ${flavor ? `<div class="epithet">${flavor}</div>` : ''}
       <div id="pinfo-${i}" class="pinfo"></div>
       <div class="tlabel">stone pouch</div>
-      <div id="rack-${i}" class="minipouch"></div>
+      <div id="rack-${i}" class="minipouch${isMagistrate(i) ? ' deep' : ''}"></div>
       <div class="tlabel">telegraphed stones</div>
       <div id="tg-${i}" class="telegraph"></div>`;
     panels.appendChild(div);

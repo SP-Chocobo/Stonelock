@@ -339,6 +339,9 @@ body[data-compact="1"] .pname { font-size: 13px; }
 body[data-compact="1"] .pinfo { font-size: 10.5px; min-height: 12px; margin-top: 1px; }
 body[data-compact="1"] .minipouch { gap: 8px; margin: 4px 0 3px; }
 body[data-compact="1"] .minicol { flex-direction: row; gap: 3px; }
+/* The raid boss holds three of each — keep its colours as vertical columns
+   (4 wide × 3 tall) so the deep pouch doesn't run off the panel. */
+body[data-compact="1"] .minipouch.deep .minicol { flex-direction: column; gap: 3px; }
 body[data-compact="1"] .minipouch .stonedot { width: 14px; height: 14px; }
 body[data-compact="1"] #rack-0 .stonedot { width: 17px; height: 17px; }
 body[data-compact="1"] .telegraph { min-height: 26px; gap: 6px; margin-top: 3px; }
