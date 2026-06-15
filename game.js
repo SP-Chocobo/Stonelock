@@ -73,9 +73,9 @@ const PERSONALITIES = {
   'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
   'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.', bio: 'A tinkerer enchanted by phantoms — he Reds nearly everything, hunting Pairs and Triads that are not always there, and now and then fumbles the wrong stone entirely. Lethal when his duplicates land; gift-wrapped when they do not.' },
-  'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.', bio: 'Quick hands, no patience. He commits fast, peeks at nothing, and throws Blue Stones like dice — bold steals that swing a hand, undone by careless endgames. Punish the sloppiness and he folds.' },
-  'The Lady':     { red: 0.9, white: 1.1, blue: 1.4, black: 1.4, bluff: 0.35, risk: 1, skill: 1.0, flavor: 'Plays the player, not the cards. Her every gesture is theater.', bio: 'Poised, unhurried, and entirely insincere. She bluffs with the best and answers with Blue and Black — stealing tempo, unmaking your cleverness, making you feel clumsy for trying. The most dangerous regular at a full table.' },
-  'The Miner':    { red: 1.5, white: 1.4, blue: 0.6, black: 0.7, bluff: 0.05, risk: 2, skill: 0.97, flavor: 'Trusts what he digs up, not sleight of hand.', bio: 'Grim and methodical, he grinds raw value out of the deck, Red-doubles his richest seams, and White-locks the vein. No bluffs, no theft — just a deep, stubborn pile of points you have to out-dig.' },
+  'The Deckhand': { red: 1.0, white: 1.0, blue: 1.0, black: 1.0, bluff: 0.12, risk: 1, skill: 0.95, flavor: 'Plays it straight and even — no favorite stone, no grand plan.', bio: 'An honest pair of hands with no particular cunning. He spends whatever the moment asks for, favors no stone, and reads little into yours — a clean, even game with no exploitable habit and no real edge either. The fairest fight at the table.' },
+  'The Lady':     { red: 0.8, white: 1.5, blue: 1.5, black: 0.9, bluff: 0.30, risk: 1, skill: 1.0, flavor: 'Guards her own treasures, and helps herself to yours.', bio: 'Poised and acquisitive. She White-locks whatever she means to keep and Blues away whatever she covets, smiling the whole time. Defense and theft with impeccable manners — the hardest regular to take anything from, and the easiest to lose things to.' },
+  'The Miner':    { red: 1.6, white: 0.8, blue: 0.7, black: 1.5, bluff: 0.05, risk: 2, skill: 0.97, flavor: 'Digs out value, then blasts away whatever others build.', bio: 'Grim and tireless. He Red-doubles the richest seams he hauls up, then takes a Black to the props under everyone else’s work — building and demolition in the same calloused hands. Subtle as a rockfall.' },
   'The Wagoner':  { red: 0.8, white: 0.8, blue: 1.7, black: 1.5, bluff: 0.15, risk: 0, skill: 0.95, flavor: 'Everything’s cargo — to be hauled off or dropped in the mud.', bio: 'A restless hauler who treats the whole table as freight. He Blues your prizes onto his wagon and Blacks the plans you were proud of, rerouting a hand into chaos. Light on defense — outlast the churn and he runs out of road.' },
 };
 const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, skill: 1, flavor: '' };
@@ -1884,7 +1884,7 @@ function setVenueBackdrop(key) {
   const el = $('venuebg');
   if (!el) return;
   el.style.backgroundImage = key
-    ? `linear-gradient(rgba(8,6,4,0.84), rgba(10,7,4,0.92)), url('assets/bg/${key}.jpg')`
+    ? `linear-gradient(rgba(10,7,4,0.5), rgba(10,7,4,0.62)), url('assets/bg/${key}.jpg')`
     : 'none';
 }
 
