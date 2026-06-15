@@ -354,6 +354,7 @@ function newGame(cfg) {
   };
   G.slum = Array.from({ length: n }, () => []); // Slumlock exhaustion ledger
   buildTableDOM();
+  setVenueBackdrop(cfg.venue || 'tavern');
   const fmt = G.mode === 'duel' ? 'a quiet duel' : G.mode === 'ffa' ? 'a four-seat free-for-all' : 'paired alliances, two against two';
   const dl = G.deal === 'house' ? 'House deep-draft deal, nine cards down' : 'small-game deal, five cards down';
   if (cfg.drewLots) {
@@ -1872,7 +1873,19 @@ function showTitle() {
   for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal']) closeModal(id);
   if (typeof document !== 'undefined') $('showdownResume').style.display = 'none';
   G = null;
+  setVenueBackdrop(null);
   $('titleScreen').classList.remove('hidden');
+}
+
+// Set (or clear) the per-venue in-game backdrop. The dark overlay is baked in so
+// the table and panels stay readable over the art.
+function setVenueBackdrop(key) {
+  if (typeof document === 'undefined') return;
+  const el = $('venuebg');
+  if (!el) return;
+  el.style.backgroundImage = key
+    ? `linear-gradient(rgba(8,6,4,0.84), rgba(10,7,4,0.92)), url('assets/bg/${key}.jpg')`
+    : 'none';
 }
 
 function requestQuitToTitle() {

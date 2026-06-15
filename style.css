@@ -38,6 +38,9 @@ body {
   font-size: 15px;
   overflow-x: hidden;
 }
+/* Per-venue backdrop — image set in JS, behind the table; a dark overlay (baked
+   into the inline background) keeps the UI legible. */
+.venuebg { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; background-repeat: no-repeat; }
 
 h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
   font-family: 'Cinzel', Georgia, serif;
