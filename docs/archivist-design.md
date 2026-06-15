@@ -68,8 +68,13 @@ boss's extra stones):
 - **White** — the card that lands in this slot is locked (untouchable for later queue entries).
 - **Blue** — swaps two **slots** (the cards that land there travel). Log records the swap
   AND which slot it was placed on (e.g., placed on their slot 2, swaps with your slot 4).
-- **Black** — undoes the **last stone on its slot** (cancels the most recent prior queue
-  entry on that slot). Cannot itself be undone.
+- **Black** — undoes the most-recently-**resolved** stone on its slot, *at the moment
+  Black itself resolves* (resolution order, NOT placement order). Order-agnostic and
+  self-consistent: forward it counters the stone placed just before it; reverse it
+  counters the stone placed just after it. Cannot itself be undone.
+  - Example, Red→Black→Blue on one slot: **forward** Black counters Red (Blue applies);
+    **reverse** Black counters Blue (Red applies). Same queue, opposite outcome — this is
+    why reverse-order Hardcore is a real brain-bender.
 
 ## Rules / constraints
 - **Advanced (open) targeting is mandatory** for this boss — cross-layout slot swaps
