@@ -89,7 +89,25 @@ mechanic functions end-to-end and the score responds sanely to the knobs. Key re
   **re-tune against the real raid AI + multi-hand target ledger**, exactly as the
   Apothecary was dialed in.
 
-### Live tuning (SHIPPED — supersedes the synthetic numbers)
+### CORRECTED-FLOW tuning (SHIPPED — supersedes everything below)
+The first live wiring committed cards *first* then placed stones — backwards. The
+correct inverted flow is **stones onto empty slots first (blind), THEN cards
+committed into the slots** reading the open queue, with commitment **interleaved
+round-the-table** so neither side gets a clean last look. Re-measured all-AI:
+- Board size is a cliff: **6 cards ≈95% party, 7 ≈50-60%, 8 crushes** → every tier
+  fields **7**.
+- Stone count plateaus and the boss's *blind* placement is weak, so the easy↔std
+  spread is narrow; both sit ~50-60%.
+- **REVERSE is the real teeth** — at 6 stones, ~49% forward drops to ~34% reverse,
+  because the party's forward-order card reads betray them.
+- Shipped ladder (all 7-card board, no hold-back):
+  - **Easy** — 3 stones, forward → ~**55-62%**.
+  - **Standard** — 5 stones, forward → ~**48-50%**.
+  - **Hardcore** — 6 stones, **REVERSE** → ~**34%**.
+- Knobs env-overridable (`ARCH_E_C/_S`, `ARCH_S_C/_S`, `ARCH_H_C/_S`, `ARCH_HB`).
+  Numbers all-AI/full-knowledge; a human reading the open ledger may differ.
+
+### (Historical) Live tuning of the BACKWARDS cards-first flow — do not use
 Once wired into the real engine and measured all-AI over a target race
 (`tests/archivist-live.test.js` for function; an all-AI race for balance), the boss
 was **far stronger** than the synthetic harness predicted — the multi-hand race

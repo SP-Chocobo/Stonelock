@@ -33,38 +33,40 @@ for (let i = 0; i < 30; i++) {
     }
     const step = G.queue[0];
     if (M._ui().mode === 'pass') { M.passConfirm(); continue; }
-    if (step.t === 'deploy1') {
-      // only seat 0 is human here; AI seats execute themselves
-      if (step.seat === 0) {
-        const p = G.players[0], picks = p.hand.slice();
-        for (let k = 0; k < step.count; k++) M.humanToggleCard(rnd0(picks));
-        M.humanConfirmDeploy();
-      } else { M._run(); }
-    } else if (step.t === 'declare') {
-      if (step.who === 0) {
-        const p = G.players[0];
-        M.humanDeclare(rnd(STONE_KEYS.filter(c => p.pool[c] > 0)));
-      } else { M._run(); }
+    // global slot helpers (footprint offsets: seat0, boss, seat2)
+    const fp = [4, expectCards[diff], 4];
+    const off = { 0: 0, 1: fp[0], 2: fp[0] + fp[1] };
+    const ownSlots = seat => { const a = []; for (let p = 0; p < fp[seat]; p++) a.push(off[seat] + p); return a; };
+    const allSlots = () => [...ownSlots(0), ...ownSlots(1), ...ownSlots(2)];
+    if (step.t === 'declare') {
+      if (step.who === 0) M.humanDeclare(rnd(STONE_KEYS.filter(c => G.players[0].pool[c] > 0)));
+      else M._run();
     } else if (step.t === 'place') {
       if (step.who !== 0) { M._run(); continue; }
-      const p = G.players[0];
-      if (!p.active.length) { M._run(); continue; }
-      const color = rnd(p.active);
+      if (!G.players[0].active.length) { M._run(); continue; }
+      const color = rnd(G.players[0].active);
       M.humanChooseStone(color);
-      const all = G.players.flatMap(q => q.board).filter(c => c.zone === 'board');
+      const q = M._state().archQueue || [];
       if (color === 'white' || color === 'red') {
-        all.length ? M.humanTargetCard(rnd(all)) : M.humanDiscardStone();
+        M.humanTargetSlot(rnd(ownSlots(0)));
       } else if (color === 'blue') {
-        const mine = G.players[0].board;
-        const theirs = all.filter(c => c.owner !== 0);
-        (mine.length && theirs.length) ? (M.humanTargetCard(rnd(mine)), M.humanTargetCard(rnd(theirs))) : M.humanDiscardStone();
-      } else { // black — needs a slot with a prior queued stone
-        const q = M._state().archQueue || [];
-        const okSlots = new Set(q.filter(e => e.color !== 'black').flatMap(e => [e.slot, e.swap]).filter(x => x != null));
-        // map flat slot -> card
-        const flat = []; for (const o of [0, 1, 2]) for (const c of G.players[o].board) flat.push(c);
-        const targets = [...okSlots].map(s => flat[s]).filter(Boolean);
-        targets.length ? M.humanTargetCard(rnd(targets)) : M.humanDiscardStone();
+        const a = rnd(ownSlots(0)); let b = rnd(ownSlots(1)); if (b === a) b = ownSlots(1)[0];
+        M.humanTargetSlot(a); M.humanTargetSlot(b);
+      } else { // black — needs a slot already carrying a queued stone
+        const ok = new Set(q.filter(e => e.color !== 'black').flatMap(e => [e.slot, e.swap]).filter(x => x != null));
+        ok.size ? M.humanTargetSlot([...ok][0]) : M.humanDiscardStone();
+      }
+    } else if (step.t === 'archcommit') {
+      if (step.seat !== 0) { M._run(); continue; }
+      // place `count` cards into our empty slots
+      let placed = 0;
+      while (placed < step.count && G.players[0].hand.length) {
+        const card = G.players[0].hand[0];
+        M.humanPickCommitCard(card);
+        const empty = ownSlots(0).filter(gi => !G.players[0].board[gi - off[0]]);
+        if (!empty.length) break;
+        M.humanTargetSlot(empty[0]);
+        placed++;
       }
     } else { M._run(); }
   }

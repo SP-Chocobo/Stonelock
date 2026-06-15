@@ -308,131 +308,135 @@ function resolveArchivist(slotsIn, queue, reverse) {
   return { slots, log };
 }
 
-// ---- The Archivist live adapter ----
-// Maps the running boards onto the flat slot array the engine expects, stages
-// placements onto a queue (open, not yet fired), and writes the resolution back
-// onto the real cards + boards. Boards are static between placement and resolve
-// (deferred), so global slot indices captured at placement time stay valid.
-function archOffsets() {
-  return { 0: 0, 1: G.players[0].board.length, 2: G.players[0].board.length + G.players[1].board.length };
-}
-function archSlotOf(card) {
-  const board = G.players[card.owner].board;
-  const i = board.indexOf(card);
-  return i < 0 ? -1 : archOffsets()[card.owner] + i;
-}
+// ---- The Archivist live adapter (inverted loop) ----
+// Slots are fixed POSITIONS. Both sides queue stones onto empty slots first
+// (blind to the cards that will fill them), THEN commit cards into the slots,
+// reading the open queue. Nothing fires until the ledger resolves — in
+// placement order, or REVERSE on Hardcore. A global slot index is the seat's
+// footprint offset + local position, stable all hand (footprints are fixed).
+function archFP(o) { return footprintOf(o); }
+function archOffsets() { return { 0: 0, 1: archFP(0), 2: archFP(0) + archFP(1) }; }
+function archGlobal(o, pos) { return archOffsets()[o] + pos; }
+function archLocal(gi) { const off = archOffsets(); for (const o of [2, 1, 0]) if (gi >= off[o]) return { o, pos: gi - off[o] }; return { o: 0, pos: gi }; }
+function archOwnerOfSlot(gi) { return archLocal(gi).o; }
+function archCardAt(gi) { const { o, pos } = archLocal(gi); return G.players[o].board[pos] || null; }
+// The flat slot array the engine reads, built from board positions (null = empty).
 function archFlatSlots() {
   const flat = [];
-  for (const o of [0, 1, 2]) for (const c of G.players[o].board) flat.push(c);
+  for (const o of [0, 1, 2]) { const b = G.players[o].board; for (let pos = 0; pos < archFP(o); pos++) flat.push(b[pos] || null); }
   return flat;
 }
-function archRanges() { // slot ranges per seat in the flat array
-  const off = archOffsets();
-  return [
-    { o: 0, start: off[0], len: G.players[0].board.length },
-    { o: 1, start: off[1], len: G.players[1].board.length },
-    { o: 2, start: off[2], len: G.players[2].board.length },
-  ];
-}
-function archOwnerOfSlot(gi) {
-  for (const r of archRanges()) if (gi >= r.start && gi < r.start + r.len) return r.o;
-  return 0;
-}
 function archSlotLabel(gi) {
-  const o = archOwnerOfSlot(gi);
-  const local = gi - archOffsets()[o];
-  const nm = slotName(local, footprintOf(o)) || `slot ${local + 1}`;
+  const { o, pos } = archLocal(gi);
+  const nm = slotName(pos, archFP(o)) || `slot ${pos + 1}`;
   return `${playerName(o)} · ${nm}`;
+}
+// Stones queued onto a slot — used to paint the slot frame (empty or filled).
+function archPendingOn(gi) {
+  const out = [];
+  for (const p of G.archQueue) {
+    if (p.slot === gi) out.push({ color: p.color, by: p.by });
+    else if (p.color === 'blue' && p.swap === gi) out.push({ color: 'blue', by: p.by });
+  }
+  return out;
 }
 // A slot is a legal Black target if a prior non-Black stone is queued on it
 // (Black undoes the last resolved stone on its slot; it cannot undo a Black).
-function archBlackable(card) {
-  const gi = archSlotOf(card);
+function archBlackableSlot(gi) {
   return G.archQueue.some(p => p.color !== 'black' && (p.slot === gi || (p.color === 'blue' && p.swap === gi)));
 }
-// Stage a stone onto the ledger instead of applying it. Shows a dimmed pending
-// marker on the card(s); the real effect lands at resolution.
-function archStageStone(actor, color, target) {
-  const rec = { color, by: actor };
-  if (color === 'blue') { rec.slot = archSlotOf(target.give); rec.swap = archSlotOf(target.take); }
-  else rec.slot = archSlotOf(target.card);
+function archQueueStone(actor, color, slot, swap) {
+  const rec = { color, by: actor, slot };
+  if (color === 'blue') rec.swap = swap;
   G.archQueue.push(rec);
-  const cards = color === 'blue' ? [target.give, target.take] : [target.card];
-  for (const c of cards) { (c.queued = c.queued || []).push({ color, by: actor }); }
   SFX.play('stone');
-  const lab = color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
+  const lab = color === 'blue' ? `${archSlotLabel(slot)} ⇄ ${archSlotLabel(swap)}` : archSlotLabel(slot);
   log(`${playerName(actor)} ${verb(actor, 'queue')} a ${STONES[color].name} on ${lab}. It waits in the ledger.`, logClass(actor));
   announce(`${STONES[color].name} queued — ${lab}`, color, actor);
-  UI.flashIds = cards.map(c => c.id);
   render();
 }
 // Split a resolved flat-slot array into per-side scoring inputs (by slot range,
 // not by card — a swapped card scores for whoever's slots it ends up in).
 function archScoreSplit(resolvedSlots) {
   const opts = variantOpts();
-  const mk = gi => { const c = resolvedSlots[gi]; return c ? { type: c.type, hasRed: !!c.phantom, poisoned: false } : null; };
-  const seat = o => { const r = archRanges().find(r => r.o === o); const cs = []; for (let i = r.start; i < r.start + r.len; i++) { const m = mk(i); if (m) cs.push(m); } return cs; };
+  const seat = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: false }); } return cs; };
   const party = bestSelection(seat(0), G.region.values, opts).score + bestSelection(seat(2), G.region.values, opts).score;
   const boss = twoBestHands(seat(1), G.region.values, opts).score;
   return { party, boss };
 }
-// Order-aware bot: shortlist legal placements for each available colour, score
-// each against the queue-so-far resolved in the tier's direction, take the best.
-// Same objective as tests/archivist-balance.js (which set the tuning).
-function archAiPlace(who) {
+// AI stone placement onto EMPTY slots (no cards yet, so this is positional):
+// lock/build your own slots, swap one of yours for an opponent's, undo a
+// contested stone. The real skill is in the commit (archAiCommit), which reads
+// the queue with full card knowledge.
+function archAiPlaceSlots(who) {
   const p = G.players[who];
   if (!p.active.length) return;
+  const color = p.active[0];
+  const ownSlots = []; for (let pos = 0; pos < archFP(who); pos++) ownSlots.push(archGlobal(who, pos));
+  const oppSeats = (who === 1) ? [0, 2] : [1];
+  const oppSlots = oppSeats.flatMap(o => { const a = []; for (let pos = 0; pos < archFP(o); pos++) a.push(archGlobal(o, pos)); return a; });
+  const queuedAny = gi => G.archQueue.some(q => q.slot === gi || (q.color === 'blue' && q.swap === gi));
+  const hasColor = (gi, c) => G.archQueue.some(q => q.slot === gi && q.color === c);
+  let slot = null, swap;
+  if (color === 'white' || color === 'red') {
+    slot = ownSlots.find(gi => !hasColor(gi, color)) ?? ownSlots[0];
+  } else if (color === 'blue') {
+    slot = ownSlots.find(gi => !queuedAny(gi)) ?? ownSlots[ownSlots.length - 1];
+    swap = oppSlots.find(gi => !G.archQueue.some(q => q.color === 'blue' && (q.slot === gi || q.swap === gi))) ?? oppSlots[0];
+  } else { // black
+    slot = oppSlots.find(gi => archBlackableSlot(gi)) ?? ownSlots.find(gi => archBlackableSlot(gi));
+    if (slot == null) { consumeActive(who, color); log(`${playerName(who)} sets a Black Stone down — nothing queued to undo. It passes.`, 'ai'); return; }
+  }
+  consumeActive(who, color);
+  archQueueStone(who, color, slot, swap);
+}
+// AI card commitment: greedily slot each card where it most helps this side,
+// resolving the open queue with full card knowledge. (Greedy per card.)
+function archAiCommit(seat, count, faceUp) {
+  const p = G.players[seat];
   const reverse = archReverse();
-  const flat = archFlatSlots();
-  const base = resolveArchivist(flat, G.archQueue, reverse).slots;
-  const val = gi => { const c = base[gi]; return c ? regionVal(c.type) + (c.phantom ? 3 : 0) : 0; };
-  const sideVal = res => { const s = archScoreSplit(res.slots); return who === 1 ? s.boss - s.party : s.party - s.boss; };
-  const mineSlots = [], theirSlots = [];
-  base.forEach((c, gi) => { if (!c) return; const o = archOwnerOfSlot(gi); (((who === 1) ? o === 1 : o !== 1) ? mineSlots : theirSlots).push(gi); });
-  const byVal = (a, b) => val(b) - val(a);
-  mineSlots.sort(byVal); theirSlots.sort(byVal);
-  const cands = [];
-  for (const color of new Set(p.active)) {
-    if (color === 'white' || color === 'red') for (const s of mineSlots.slice(0, 3)) cands.push({ color, slot: s });
-    else if (color === 'black') { for (const s of mineSlots.slice(0, 2)) cands.push({ color, slot: s }); for (const s of theirSlots.slice(0, 2)) cands.push({ color, slot: s }); }
-    else if (color === 'blue') { const lows = mineSlots.slice().reverse().slice(0, 2); for (const a of lows) for (const b of theirSlots.slice(0, 2)) cands.push({ color, slot: a, swap: b }); }
+  for (let n = 0; n < count && p.hand.length; n++) {
+    const emptyPos = []; for (let pos = 0; pos < archFP(seat); pos++) if (!p.board[pos]) emptyPos.push(pos);
+    if (!emptyPos.length) break;
+    let best = null;
+    for (const card of p.hand) {
+      for (const pos of emptyPos) {
+        p.board[pos] = card;
+        const s = archScoreSplit(resolveArchivist(archFlatSlots(), G.archQueue, reverse).slots);
+        const v = (seat === 1 ? s.boss - s.party : s.party - s.boss);
+        p.board[pos] = null;
+        if (!best || v > best.v) best = { v, card, pos };
+      }
+    }
+    if (fumbles(seat)) { best.card = p.hand[Math.floor(Math.random() * p.hand.length)]; best.pos = emptyPos[Math.floor(Math.random() * emptyPos.length)]; }
+    p.board[best.pos] = best.card;
+    best.card.zone = 'board'; best.card.faceUp = faceUp;
+    if (faceUp) best.card.known = best.card.known.map(() => true);
+    p.hand.splice(p.hand.indexOf(best.card), 1);
   }
-  let best = null;
-  for (const cand of cands) {
-    const res = resolveArchivist(flat, G.archQueue.concat([{ color: cand.color, by: who, slot: cand.slot, swap: cand.swap }]), reverse);
-    const v = sideVal(res) * personaOf(who)[cand.color];
-    if (!best || v > best.v) best = { v, cand };
-  }
-  if (!best) { consumeActive(who, p.active[0]); return; }
-  const chosen = (fumbles(who) && cands.length) ? cands[Math.floor(Math.random() * cands.length)] : best.cand;
-  consumeActive(who, chosen.color);
-  const cardAt = gi => archFlatSlots()[gi];
-  if (chosen.color === 'blue') applyStone(who, 'blue', { give: cardAt(chosen.slot), take: cardAt(chosen.swap) });
-  else applyStone(who, chosen.color, { card: cardAt(chosen.slot) });
+  SFX.play(faceUp ? 'flip' : 'card');
+  log(`${playerName(seat)} ${verb(seat, 'fill')} ${count} slot${count === 1 ? '' : 's'}${faceUp ? '' : ', face-down'}.`, logClass(seat));
+  announce(`${playerName(seat)} commits to the slots`, null, seat);
 }
 // Resolve the whole ledger: build the flat slots, run the engine in the tier's
-// direction, write phantoms/locks onto the real cards and re-seat them into the
-// boards by final slot position, then log the playout (fire/fizzle, in order).
+// direction, write phantoms/locks onto the real cards and re-seat them by final
+// slot position, then narrate the playout (fire/fizzle, in resolution order).
 function archResolve() {
   const reverse = archReverse();
-  const flat = archFlatSlots();
   const realById = {}; for (const c of G.cards) realById[c.id] = c;
-  const { slots, log: playlog } = resolveArchivist(flat, G.archQueue, reverse);
-  // clear pending markers + any stale stones; rewrite from the resolved state.
-  for (const c of G.cards) { c.queued = null; }
-  const newBoards = { 0: [], 1: [], 2: [] };
+  const { slots, log: playlog } = resolveArchivist(archFlatSlots(), G.archQueue, reverse);
+  const newBoards = { 0: new Array(archFP(0)).fill(null), 1: new Array(archFP(1)).fill(null), 2: new Array(archFP(2)).fill(null) };
   slots.forEach((clone, gi) => {
     if (!clone) return;
+    const { o, pos } = archLocal(gi);
     const c = realById[clone.id];
-    const o = archOwnerOfSlot(gi);
     c.stones = c.stones.filter(s => s.color !== 'white' && s.color !== 'red');
     if (clone.phantom) c.stones.push({ color: 'red', by: o });
     if (clone.locked) c.stones.push({ color: 'white', by: o });
     c.owner = o;
-    newBoards[o].push(c);
+    newBoards[o][pos] = c;
   });
-  for (const o of [0, 1, 2]) G.players[o].board = newBoards[o];
-  // Narrate the playout in resolution order.
+  for (const o of [0, 1, 2]) G.players[o].board = newBoards[o].filter(Boolean);
   log(`The Archivist reads the ledger ${reverse ? 'back to front' : 'in order'}. The stones fire:`, 'sys');
   for (const rec of playlog) {
     const lab = rec.color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
@@ -653,13 +657,15 @@ function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff
 // board size is a steep lever (8 cards crushes the party, 6 is a pushover), so
 // every tier fields 7 and the stone budget + a probabilistic hold-back fine-tune
 // the curve. Measured ~Easy 70% / Standard 50% / Hardcore 45%.
-// Difficulty ladder (the player's chosen shape): Easy = 5 stones eased by a
-// hold-back; Standard = the same 5 stones played straight; Hardcore = 6 stones,
-// resolved in REVERSE. Every tier fields a 7-card board (the steep lever).
+// Difficulty ladder, tuned on the LIVE all-AI race in the CORRECT inverted flow
+// (stones blind onto empty slots, then cards). Board size is a cliff (6 cards
+// ≈95% party, 7 ≈48-62%, 8 crushes), so every tier fields 7 and the stone
+// budget carries the gradient; REVERSE (Hardcore) is the real teeth — it breaks
+// the party's forward-order reads. Measured ~Easy 62% / Standard 48% / Hard 34%.
 const ARCH_DIFFS = {
-  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 5), hold: 0.5, reverse: false, label: 'Easy' },
-  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), hold: 0,   reverse: false, label: 'Standard' },
-  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), hold: 0,   reverse: true,  label: 'Hardcore' },
+  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), hold: 0, reverse: false, label: 'Easy' },
+  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), hold: 0, reverse: false, label: 'Standard' },
+  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), hold: 0, reverse: true,  label: 'Hardcore' },
 };
 function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
 function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
@@ -764,42 +770,40 @@ function startHand() {
   const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
 
   if (raid && G.raidBoss === 'archivist') {
-    // The Archivist: inverted loop. Both sides commit their layouts (the boss
-    // opens its full ledger face-up), then stones are queued onto SLOTS — they
-    // do not fire as placed. When all are down, the ledger resolves: in
-    // placement order (Easy/Standard) or REVERSE (Hardcore).
+    // The Archivist: inverted loop. Select stones → queue them onto EMPTY slots
+    // (blind, nothing fires) → THEN commit cards into the slots, reading the open
+    // queue → the ledger resolves in placement order (Easy/Standard) or REVERSE
+    // (Hardcore). No card is played until every stone is down.
     const bn = playerName(1);
     const bc = bossCardCount();
     const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
-    const D = (seat, count, faceUp) => ({ t: 'deploy1', seat, count, faceUp });
-    // The Archivist files its ledger face-up across the rounds (2,2 / 1,1 / 1 = 7),
-    // round-the-table with the party — not all at once.
-    const bf = [2, 2, 1, 1, 1]; let extra = bc - 7;
-    while (extra > 0) { bf[0]++; extra--; } // never trims below the scripted shape
+    const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0); // may hold one back (eases the tier)
+    const order = archPlaceOrder(bossN);
     G.queue = [
       dealNote,
-      { t: 'phase', label: 'The Records', note: `Commit two cards face-up. ${bn} files its ledger face-up, in turn.` },
-      D(0, 2, true), D(1, bf[0], true), D(2, 2, true), D(1, bf[1], true),
-      { t: 'phase', label: 'The Veil', note: `Commit one card face-down. ${bn} files more of its ledger, face-up.` },
-      D(0, 1, false), D(1, bf[2], true), D(2, 1, false), D(1, bf[3], true),
-      { t: 'phase', label: 'The Final Commitment', note: `One final veiled card. ${bn} lays its last. Leftover party cards are discarded dead.` },
-      D(0, 1, false), D(1, bf[4], true), D(2, 1, false),
-      { t: 'discard' },
-      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks three each; ${bn}, ${archStones()}.` },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks three each; ${bn}, ${bossN}.` },
     ];
-    // The boss may quietly hold one stone back this hand (eases the tier).
-    const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0);
-    const order = archPlaceOrder(bossN);
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of order) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
     G.queue.push(
       { t: 'raidarm' },
       { t: 'archinit' },
-      { t: 'phase', label: 'The Placement', note: `Place your stones onto the slots, in turn — they wait in the ledger, unfired. ${bn} answers. When all are down, it resolves ${dir}.` }
+      { t: 'phase', label: 'The Placement', note: `Place your stones onto the empty SLOTS, in turn — no cards yet. They wait in the ledger, unfired. ${bn} answers.` }
     );
     for (const w of order) G.queue.push({ t: 'place', who: w });
+    // Commitment is interleaved round-the-table (like the Magistrate) so neither
+    // side gets a clean last look — the informational edge is shared. The boss
+    // files its bc cards across four turns; the party two face-up, then two veiled.
+    const turns = 4, base = Math.floor(bc / turns), bch = new Array(turns).fill(base);
+    for (let i = 0, rem = bc - base * turns; rem > 0; i = (i + 1) % turns, rem--) bch[i]++;
     G.queue.push(
-      { t: 'beat', ms: 900 },
+      { t: 'phase', label: 'The Commitment', note: `Now fill the slots, round by round — read the open queue and place your cards to exploit it. When all are down, the ledger resolves ${dir}.` },
+      { t: 'archcommit', seat: 0, count: 2, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[0], faceUp: true },
+      { t: 'archcommit', seat: 2, count: 2, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[1], faceUp: true },
+      { t: 'archcommit', seat: 0, count: 2, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[2], faceUp: true },
+      { t: 'archcommit', seat: 2, count: 2, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[3], faceUp: true },
+      { t: 'discard' },
+      { t: 'beat', ms: 700 },
       { t: 'phase', label: 'The Ledger Resolves', note: `The stones fire ${dir}. Read it right and your value lands; misread the order and it fizzles.` },
       { t: 'archresolve' },
       { t: 'beat', ms: 2600 },
@@ -964,6 +968,7 @@ function preWait(step) {
     case 'deploy1': return !isHuman(step.seat) ? 800 : 0;
     case 'thin': return !isHuman(step.who) ? 900 : 0;
     case 'place': return (!isHuman(step.who) && G.players[step.who].active.length > 0) ? 1300 : 0;
+    case 'archcommit': return !isHuman(step.seat) ? 900 : 0;
     case 'beat': return step.ms || 900;
     default: return 0;
   }
@@ -1005,6 +1010,7 @@ function stepNeedsHuman(step) {
     case 'deploy1': return isHuman(step.seat) && !step.done;
     case 'thin': return isHuman(step.who);
     case 'place': return isHuman(step.who) && G.players[step.who].active.length > 0;
+    case 'archcommit': return isHuman(step.seat) && G.players[step.seat].hand.length > 0;
     default: return false;
   }
 }
@@ -1067,11 +1073,15 @@ function executeStep(step) {
       aiThin(step.who);
       break;
     case 'place':
-      if (!isHuman(step.who) && G.players[step.who].active.length > 0) (G.archivist ? archAiPlace : aiPlace)(step.who);
+      if (!isHuman(step.who) && G.players[step.who].active.length > 0) (G.archivist ? archAiPlaceSlots : aiPlace)(step.who);
       break;
     case 'archinit':
       G.archivist = true;
       G.archQueue = [];
+      for (const o of [0, 1, 2]) G.players[o].board = new Array(footprintOf(o)).fill(null);
+      break;
+    case 'archcommit':
+      if (!isHuman(step.seat)) archAiCommit(step.seat, step.count, step.faceUp);
       break;
     case 'archresolve':
       archResolve();
@@ -1090,7 +1100,7 @@ function executeStep(step) {
 /* ---------------- Human prompts ---------------- */
 
 function promptHuman(step) {
-  const seat = step.t === 'deploy' ? step.pendingHumans[0] : step.t === 'deploy1' ? step.seat : step.who;
+  const seat = step.t === 'deploy' ? step.pendingHumans[0] : (step.t === 'deploy1' || step.t === 'archcommit') ? step.seat : step.who;
   // Hotseat: hide the table behind a pass screen until the right
   // player is holding the device.
   if (G.humans.length > 1 && G.viewer !== seat) {
@@ -1127,7 +1137,14 @@ function promptHuman(step) {
     case 'place':
       UI.mode = 'placeChoose';
       UI.pendingStone = null;
-      setPrompt('Choose which of your active stones to place.');
+      setPrompt(G.archivist ? 'Choose a stone to queue onto a slot.' : 'Choose which of your active stones to place.');
+      break;
+    case 'archcommit':
+      UI.mode = 'arch-commit';
+      UI.commitLeft = Math.min(step.count, G.players[seat].hand.length);
+      UI.commitFaceUp = step.faceUp;
+      UI.commitCard = null;
+      setPrompt(`Place ${UI.commitLeft} card${UI.commitLeft === 1 ? '' : 's'} ${step.faceUp ? 'face-up' : 'face-down (veiled)'} — click a card in hand, then an empty slot of yours to commit it.`);
       break;
   }
 }
@@ -1217,6 +1234,15 @@ function humanChooseStone(color) {
   if (UI.mode !== 'placeChoose' || !G.players[G.viewer].active.includes(color)) return;
   UI.pendingStone = color;
   UI.blueOwn = null;
+  UI.blueSlot = null;
+  // The Archivist queues stones onto empty SLOTS (positions), not cards.
+  if (G.archivist) {
+    if (color === 'blue') { UI.mode = 'arch-slot-blue-a'; setPrompt('Blue Stone (Exchange) — click the first SLOT of the swap (any layout).'); }
+    else if (color === 'black') { UI.mode = 'arch-slot'; setPrompt('Black Stone (Disruption) — click a SLOT carrying a queued stone to undo its last.'); }
+    else { UI.mode = 'arch-slot'; setPrompt(`${STONES[color].name} (${STONES[color].power}) — click a SLOT to queue it on (any layout).`); }
+    render(); autoScrollToPrompt();
+    return;
+  }
   switch (color) {
     case 'white':
       UI.mode = 'target-own';
@@ -1294,14 +1320,6 @@ function humanTargetCard(card) {
     UI.pendingStone = null; UI.blueOwn = null;
     finishHumanStep();
   } else if (UI.mode === 'target-black') {
-    if (G.archivist) {
-      if (card.zone !== 'board' || !archBlackable(card)) return;
-      consumeActive(me, 'black');
-      applyStone(me, 'black', { card });
-      UI.pendingStone = null;
-      finishHumanStep();
-      return;
-    }
     const ev = undoableEventFor(card);
     if (!ev) return;
     consumeActive(me, 'black');
@@ -1309,6 +1327,59 @@ function humanTargetCard(card) {
     UI.pendingStone = null;
     finishHumanStep();
   }
+}
+
+// The Archivist: clicking a SLOT (empty or filled) — either to queue a stone
+// onto it, or to commit a chosen card into it.
+function humanTargetSlot(gi) {
+  const me = G.viewer;
+  if (UI.mode === 'arch-commit') return humanCommitToSlot(gi);
+  const color = UI.pendingStone;
+  if (UI.mode === 'arch-slot') {
+    if (color === 'black' && !archBlackableSlot(gi)) return;
+    consumeActive(me, color);
+    archQueueStone(me, color, gi);
+    UI.pendingStone = null;
+    finishHumanStep();
+  } else if (UI.mode === 'arch-slot-blue-a') {
+    UI.blueSlot = gi;
+    UI.mode = 'arch-slot-blue-b';
+    setPrompt(`First slot set (${archSlotLabel(gi)}) — now click the SECOND slot to swap it with.`);
+    render();
+  } else if (UI.mode === 'arch-slot-blue-b') {
+    if (gi === UI.blueSlot) return;
+    consumeActive(me, 'blue');
+    archQueueStone(me, 'blue', UI.blueSlot, gi);
+    UI.pendingStone = null; UI.blueSlot = null;
+    finishHumanStep();
+  }
+}
+
+function humanPickCommitCard(card) {
+  if (UI.mode !== 'arch-commit' || !G.players[G.viewer].hand.includes(card)) return;
+  UI.commitCard = card;
+  setPrompt(`Placing ${card.type} ${UI.commitFaceUp ? 'face-up' : 'face-down'} — click one of your empty slots.`);
+  render();
+}
+
+function humanCommitToSlot(gi) {
+  const me = G.viewer;
+  const { o, pos } = archLocal(gi);
+  if (o !== me || G.players[me].board[pos]) return;        // own empty slot only
+  if (!UI.commitCard) { setPrompt('Pick a card from your hand first, then click an empty slot.'); return; }
+  const card = UI.commitCard;
+  const p = G.players[me];
+  p.board[pos] = card;
+  card.zone = 'board';
+  card.faceUp = UI.commitFaceUp;
+  if (UI.commitFaceUp) card.known = card.known.map(() => true);
+  p.hand.splice(p.hand.indexOf(card), 1);
+  SFX.play(UI.commitFaceUp ? 'flip' : 'card');
+  log(`${playerName(me)} ${verb(me, 'commit')} ${UI.commitFaceUp ? card.type : 'a veiled card'} to ${archSlotLabel(gi)}.`, 'you');
+  UI.commitCard = null;
+  UI.commitLeft--;
+  if (UI.commitLeft <= 0) { UI.flashIds = []; finishHumanStep(); }
+  else { setPrompt(`Place ${UI.commitLeft} more ${UI.commitFaceUp ? 'face-up' : 'face-down'} — click a card, then an empty slot.`); render(); }
 }
 
 function finishHumanStep() {
@@ -1343,9 +1414,6 @@ function describeCard(card) {
 function verb(actor, base) { return playerName(actor) === 'You' ? base : base + 's'; }
 
 function applyStone(actor, color, target) {
-  // The Archivist defers everything: stones are queued onto slots and resolved
-  // together at the end, not applied where they land.
-  if (G.archivist) return archStageStone(actor, color, target);
   SFX.play(color === 'black' ? 'undo' : 'stone');
   const ev = { id: G.events.length, color, actor, undone: false };
   switch (color) {
@@ -2752,18 +2820,6 @@ function cardEl(card) {
     }
     el.appendChild(row);
   }
-  // The Archivist: stones queued onto this slot, not yet fired (dimmed, dashed).
-  if (card.queued && card.queued.length) {
-    const row = document.createElement('div');
-    row.className = 'stonerow queuedrow';
-    for (const s of card.queued) {
-      const dot = document.createElement('span');
-      dot.className = `stonedot pending ${s.color}`;
-      dot.title = `Queued ${STONES[s.color].name} (${playerName(s.by)}) — waits in the ledger`;
-      row.appendChild(dot);
-    }
-    el.appendChild(row);
-  }
   if ((UI.flashIds || []).includes(card.id)) el.classList.add('flash');
   if (card.prov) {
     el.classList.add('traded');
@@ -2808,7 +2864,39 @@ function renderBoard(who, container) {
     } else {
       slot.classList.add('empty');
     }
+    // The Archivist: paint the stones queued onto this slot, and make slots
+    // clickable for stone-placement / card-commit.
+    if (isArchivist() && (G.archivist || (G.archQueue && G.archQueue.length))) {
+      const gi = archGlobal(who, i);
+      const pend = archPendingOn(gi);
+      if (pend.length) {
+        const row = document.createElement('div');
+        row.className = 'stonerow queuedrow slotqueue';
+        for (const s of pend) {
+          const d = document.createElement('span');
+          d.className = `stonedot pending ${s.color}`;
+          d.title = `Queued ${STONES[s.color].name} (${playerName(s.by)}) — waits in the ledger`;
+          row.appendChild(d);
+        }
+        slot.appendChild(row);
+      }
+      decorateSlotTarget(who, i, gi, slot);
+    }
     container.appendChild(slot);
+  }
+}
+
+function decorateSlotTarget(who, pos, gi, slot) {
+  const me = G.viewer;
+  let ok = false;
+  if (UI.mode === 'arch-slot') ok = (UI.pendingStone === 'black') ? archBlackableSlot(gi) : true;
+  else if (UI.mode === 'arch-slot-blue-a') ok = true;
+  else if (UI.mode === 'arch-slot-blue-b') ok = (gi !== UI.blueSlot);
+  else if (UI.mode === 'arch-commit') ok = (who === me && !G.players[who].board[pos]);
+  if (UI.mode === 'arch-slot-blue-b' && UI.blueSlot === gi) slot.classList.add('selected');
+  if (ok) {
+    slot.classList.add('targetable', 'slottarget');
+    slot.onclick = () => humanTargetSlot(gi);
   }
 }
 
@@ -2849,6 +2937,10 @@ function renderHand() {
     if (UI.mode === 'pickCards') {
       el.classList.add('targetable');
       el.onclick = () => humanToggleCard(card);
+    } else if (UI.mode === 'arch-commit') {
+      el.classList.add('targetable');
+      if (UI.commitCard === card) el.classList.add('selected');
+      el.onclick = () => humanPickCommitCard(card);
     }
     wrap.appendChild(el);
   }
@@ -2882,7 +2974,7 @@ function renderTray() {
   const visible = !!items;
   tray.style.display = visible ? '' : 'none';
   $('handArea').classList.toggle('min', visible);
-  $('handArea').classList.toggle('focus', UI.mode === 'pickCards');
+  $('handArea').classList.toggle('focus', UI.mode === 'pickCards' || UI.mode === 'arch-commit');
   if (!visible) { stonesEl.innerHTML = ''; return; } // clear stale clickable stones
   stonesEl.innerHTML = '';
   const trayStone = (color, onClick) => {
@@ -3602,9 +3694,9 @@ function renderRaidSetup() {
   }
 
   section('Difficulty', 'diff', isArch ? [
-    { v: 'easy', label: 'Easy — forward', desc: 'Five stones, and it sometimes holds one back. The ledger resolves in placement order — what you read is what you get. A coordinated party wins most fights.' },
-    { v: 'standard', label: 'Standard — forward', desc: 'The same five stones, played straight, resolving in placement order. A true test of reading the queue.' },
-    { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Interactions flip and fizzle in non-obvious ways. A sequencing brain-bender.' },
+    { v: 'easy', label: 'Easy — forward', desc: 'A light hand — three stones, resolving in placement order. What you read is what you get; a coordinated party wins most fights.' },
+    { v: 'standard', label: 'Standard — forward', desc: 'Five stones, resolving in placement order. A true test of reading the open queue and committing your cards around it.' },
+    { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Your forward reads betray you; interactions flip and fizzle. A sequencing brain-bender.' },
   ] : isApothecary ? [
     { v: 'easy', label: 'Easy', desc: 'A light hand of stones beneath the scalpel — often just one or two. A coordinated, white-aware party wins most fights.' },
     { v: 'standard', label: 'Standard', desc: 'Two stones and the guaranteed cut. A true coin-flip against good play.' },
@@ -3717,6 +3809,7 @@ if (typeof window !== 'undefined') {
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
+    humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
