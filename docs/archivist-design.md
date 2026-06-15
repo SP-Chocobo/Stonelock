@@ -65,9 +65,29 @@ boss's extra stones):
 
 ### Balance (decided)
 - **Hard reuses Standard's stone budget** — it is "a wtf version of normal," differing only by
-  reverse resolution, not by more stones. So **tune only Easy and Standard** stone counts;
+  reverse resolution, not by more stones. So **tune only Easy and Standard**;
   Hard = Standard budget + reverse. Targets vs competent white/order-aware party bots:
   **Easy ~65–75%, Standard ~45–55%.**
+
+### Balance battery findings (`tests/archivist-balance.js`, synthetic — directional)
+A headless harness drives full co-op hands with order-aware bots through the REAL
+scoring (`bestSelection`/`twoBestHands`) and the REAL `resolveArchivist`. Confirms the
+mechanic functions end-to-end and the score responds sanely to the knobs. Key results:
+- **Stone count PLATEAUS** ~59–62% party past boss=7: the party's two white-locked
+  hands can't be ground down by volume. So *don't* tune with stones alone.
+- **Boss BOARD SIZE is the dominant lever** (raises its two-best ceiling). 7→8 cards
+  moved Easy(boss=6) from ~64% → ~51%. This is the knob that reaches 50% on Standard.
+- **Reverse (Hard)** costs the party ~3–4 pts vs forward at the same budget.
+- **Positioning matters** (forward = last-placed resolves last = uncounterable final say;
+  the boss keeps the last word. Reverse flips it — first-placed resolves last).
+- **Chosen starting config** (synthetic party-win): tune the *board size* per tier, not
+  just stones:
+  - **Easy** — boss board **7**, **6** boss stones, forward → ~64%.
+  - **Standard** — boss board **8**, **7** boss stones, forward → ~50%.
+  - **Hardcore** — boss board **8**, **7** boss stones, **reverse** → ~46%.
+- These are SYNTHETIC (bespoke bots, single-hand compare). Wire at this config, then
+  **re-tune against the real raid AI + multi-hand target ledger**, exactly as the
+  Apothecary was dialed in.
 
 ### Build order (for the next session — de-risked)
 1. **Pure resolution engine** (DONE, see `resolveArchivist` + tests): takes slot cards + an
