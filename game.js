@@ -662,19 +662,24 @@ function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff
 // ≈95% party, 7 ≈48-62%, 8 crushes), so every tier fields 7 and the stone
 // budget carries the gradient; REVERSE (Hardcore) is the real teeth — it breaks
 // the party's forward-order reads. Measured ~Easy 62% / Standard 48% / Hard 34%.
+// Difficulty scales by resources, like the other bosses: the boss's stone budget
+// and — since the Archivist's blind stones plateau as a lever — the PARTY's stone
+// count (Easy hands the party a fourth stone). Hardcore adds REVERSE resolution.
 const ARCH_DIFFS = {
-  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), hold: 0, reverse: false, label: 'Easy' },
-  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), hold: 0, reverse: false, label: 'Standard' },
-  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), hold: 0, reverse: true,  label: 'Hardcore' },
+  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), party: envNum('ARCH_E_P', 5), hold: 0, reverse: false, label: 'Easy' },
+  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), party: envNum('ARCH_S_P', 3), hold: 0, reverse: false, label: 'Standard' },
+  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), party: envNum('ARCH_H_P', 3), hold: 0, reverse: true,  label: 'Hardcore' },
 };
+function archParty() { return archCfg().party || 3; }
 function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
 function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
 // Placement/declare order: round the table, the boss answering and keeping the
 // last word(s). Party places 3 each; the boss archStones(). (Matches the order
 // the balance battery was tuned against.)
-function archPlaceOrder(bossN) {
+function archPlaceOrder(bossN, partyN) {
   const order = [];
-  let pa = 3, pb = 3, bs = (bossN == null ? archStones() : bossN);
+  const pn = (partyN == null ? archParty() : partyN);
+  let pa = pn, pb = pn, bs = (bossN == null ? archStones() : bossN);
   while (pa + pb + bs > 0) {
     if (pa > 0) { order.push(0); pa--; }
     if (bs > 0) { order.push(1); bs--; }
@@ -781,7 +786,7 @@ function startHand() {
     const order = archPlaceOrder(bossN);
     G.queue = [
       dealNote,
-      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks three each; ${bn}, ${bossN}.` },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks ${archParty()} each; ${bn}, ${bossN}.` },
     ];
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of order) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
@@ -3694,7 +3699,7 @@ function renderRaidSetup() {
   }
 
   section('Difficulty', 'diff', isArch ? [
-    { v: 'easy', label: 'Easy — forward', desc: 'A light hand — three stones, resolving in placement order. What you read is what you get; a coordinated party wins most fights.' },
+    { v: 'easy', label: 'Easy — forward', desc: 'Your party comes loaded — five stones each against the boss’s three — resolving in placement order. What you read is what you get; you win most fights.' },
     { v: 'standard', label: 'Standard — forward', desc: 'Five stones, resolving in placement order. A true test of reading the open queue and committing your cards around it.' },
     { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Your forward reads betray you; interactions flip and fizzle. A sequencing brain-bender.' },
   ] : isApothecary ? [

@@ -100,12 +100,18 @@ round-the-table** so neither side gets a clean last look. Re-measured all-AI:
   spread is narrow; both sit ~50-60%.
 - **REVERSE is the real teeth** — at 6 stones, ~49% forward drops to ~34% reverse,
   because the party's forward-order card reads betray them.
-- Shipped ladder (all 7-card board, no hold-back):
-  - **Easy** — 3 stones, forward → ~**55-62%**.
-  - **Standard** — 5 stones, forward → ~**48-50%**.
-  - **Hardcore** — 6 stones, **REVERSE** → ~**34%**.
-- Knobs env-overridable (`ARCH_E_C/_S`, `ARCH_S_C/_S`, `ARCH_H_C/_S`, `ARCH_HB`).
-  Numbers all-AI/full-knowledge; a human reading the open ledger may differ.
+- The boss's stone budget is a weak lever (blind-stone plateau: 2-3 stones ≈ std
+  at 5). A tried-and-rejected idea — having the boss play its **2nd-best** commit
+  on Easy — *backfired* (boss got stronger ~42%), because its greedy commit is
+  myopic and 2nd-best noise dodges greedy traps. So Easy instead hands the **party
+  a bigger stone budget** (resource scaling, like the other bosses ease via stone
+  counts), and Hardcore keeps REVERSE as its teeth.
+- Shipped ladder (all 7-card board):
+  - **Easy** — party **5** stones each vs boss **3**, forward → ~**76%**.
+  - **Standard** — party 3 vs boss **5**, forward → ~**55-60%**.
+  - **Hardcore** — party 3 vs boss **6**, **REVERSE** → ~**32%**.
+- Knobs env-overridable (`ARCH_E_C/_S/_P`, `ARCH_S_*`, `ARCH_H_*`). Numbers
+  all-AI/full-knowledge; a human reading the open ledger may differ.
 
 ### (Historical) Live tuning of the BACKWARDS cards-first flow — do not use
 Once wired into the real engine and measured all-AI over a target race
