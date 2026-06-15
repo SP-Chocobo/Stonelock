@@ -39,13 +39,15 @@ const REGIONS = {
 
 // Venues bundle a regional valuation with its local house rule, so
 // the value shifts arrive paired with real rule changes.
+// Each venue keeps its own crowd of regulars (the "usual" company), so the
+// default opponents vary by table instead of always being The Stranger.
 const VENUES = {
-  tavern: { region: 'bar', variant: null, label: 'The Roadside Tavern', desc: 'The Practical Common values. No house rules — the baseline game.' },
-  court: { region: 'house', variant: null, label: 'The Sovereign Court', desc: 'Statecraft values — Chain, Crest, Quill high. Formal play, no deviations.' },
-  docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.' },
-  hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.' },
-  slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.' },
-  academy: { region: 'bar', variant: 'gauntlet', label: 'The Academy Gauntlet', desc: 'A drill in pure interaction: no telegraphing, no thinning. Every player holds one of each stone and must place all four, in serpentine turn order. The cards are a fixed canvas — the stones decide it.' },
+  tavern: { region: 'bar', variant: null, label: 'The Roadside Tavern', desc: 'The Practical Common values. No house rules — the baseline game.', regulars: ['The Old Hand', 'The Tinker', 'The Deckhand', 'The Stranger'] },
+  court: { region: 'house', variant: null, label: 'The Sovereign Court', desc: 'Statecraft values — Chain, Crest, Quill high. Formal play, no deviations.', regulars: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'] },
+  docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.', regulars: ['The Ferryman', 'The Wagoner', 'The Deckhand', 'The Clerk'] },
+  hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.', regulars: ['The Stranger', 'The Lady', 'The Miner', 'The Tinker'] },
+  slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.', regulars: ['The Miner', 'The Wagoner', 'The Stranger', 'The Ferryman'] },
+  academy: { region: 'bar', variant: 'gauntlet', label: 'The Academy Gauntlet', desc: 'A drill in pure interaction: no telegraphing, no thinning. Every player holds one of each stone and must place all four, in serpentine turn order. The cards are a fixed canvas — the stones decide it.', regulars: ['The Clerk', 'The Old Hand', 'The Tinker', 'The Lady'] },
 };
 
 const STONES = {
@@ -2013,7 +2015,7 @@ const STONE_LESSONS = [
       fixedHands: { 0: ['Coin', 'Bread', 'Sword', 'Quill', 'Crest'], 1: ['Sword', 'Crest', 'Quill', 'Chain', 'Ferry'] }, fixedPool: { 0: { white: 1 } },
     },
     intro: [
-      { sel: '.game', text: '<b>White — Lock.</b> It shields a card: once locked, it can’t be stolen, undone, or poisoned for the rest of the hand.' },
+      { sel: '.game', text: '<b>White — Lock.</b> It shields a card: once locked, it can’t be stolen, swapped, or unmade for the rest of the hand.' },
       { sel: '#handArea', text: 'You hold a <b>Coin</b> and a <b>Bread</b>, both worth 3. Commit your cards, then lock the one you most want to guarantee.' },
     ],
     live: { place: { sel: '#stoneTray', text: '<b>Place the White</b> on your richest card — now the Stranger can’t take or unmake it.' } },
@@ -2058,7 +2060,7 @@ const STRATEGY = [
       fixedHands: { 0: ['Coin', 'Bread', 'Sword', 'Crest', 'Quill'], 1: ['Sword', 'Ferry', 'Crest', 'Quill', 'Chain'] },
     },
     intro: [
-      { sel: '.game', text: '<b>Information is leverage.</b> A card the Stranger can’t see, he can’t steal, lock away from you, or poison. So what you <b>hide</b> matters as much as what you play.' },
+      { sel: '.game', text: '<b>Information is leverage.</b> A card the Stranger can’t see, he can’t steal, swap, or lock away from you. So what you <b>hide</b> matters as much as what you play.' },
       { sel: '#handArea', text: 'You hold a <b>Coin</b> and a <b>Bread</b> (both 3) — your prizes. The Foundation is committed <b>face-up</b>, so expose your <b>weak</b> cards there as bait, and save the rich ones for the veil.' },
     ],
     live: { deploy: { sel: '#handArea', text: 'Commit your <b>lowest</b> cards face-up first (a Crest, a Quill) — let those be what the Stranger reads. Your Coin and Bread go veiled, later.' } },
@@ -2109,7 +2111,10 @@ function openAcademy() {
 // The Regulars: the bot cast. A 3-up grid of faces; click one to zoom into a
 // focused profile with the full bio.
 function regularLeans(p) {
-  return STONE_KEYS.slice().sort((a, b) => p[b] - p[a]).slice(0, 2).map(c => STONES[c].power).join(' · ');
+  const ranked = STONE_KEYS.slice().sort((a, b) => p[b] - p[a]);
+  // A roughly even hand (no stone meaningfully favored) has no lean to name.
+  if (p[ranked[0]] - p[ranked[ranked.length - 1]] < 0.25) return 'Even hand — no lean';
+  return ranked.slice(0, 2).map(c => STONES[c].power).join(' · ');
 }
 function openRegulars() {
   if (typeof document === 'undefined') return;
@@ -3164,6 +3169,12 @@ function startFromSetup() {
     drewLots = true;
   } else if (K > 0 && SETUP.company === 'choose') {
     companyNames = SETUP.picks.slice(0, K);
+  } else if (K > 0 && SETUP.mode !== 'teams') {
+    // The "usual" crowd: each venue has its own regulars, so the default
+    // opponents vary by table rather than always being The Stranger. (Teams
+    // keep their scripted Old Hand partner, handled in buildNames.)
+    const crowd = (VENUES[SETUP.venue] && VENUES[SETUP.venue].regulars) || BOT_POOL;
+    companyNames = crowd.slice(0, K);
   }
   let names = SETUP.names.map(s => (s || '').trim());
   // Random partners: shuffle the entered names across the four seats so the
