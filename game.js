@@ -2049,27 +2049,47 @@ function openAcademy() {
   academyMenu('The Academy', CATEGORIES, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
 }
 
-// The Regulars: the bot cast, with portraits, bios, and play-style at a glance.
+// The Regulars: the bot cast. A 3-up grid of faces; click one to zoom into a
+// focused profile with the full bio.
+function regularLeans(p) {
+  return STONE_KEYS.slice().sort((a, b) => p[b] - p[a]).slice(0, 2).map(c => STONES[c].power).join(' · ');
+}
 function openRegulars() {
   if (typeof document === 'undefined') return;
   const body = $('regularsBody');
+  body.className = 'castgrid';
   body.innerHTML = '';
   for (const name of BOT_POOL) {
     const p = PERSONALITIES[name];
     if (!p) continue;
     const portrait = portraitFor(name);
-    const leans = STONE_KEYS.slice().sort((a, b) => p[b] - p[a]).slice(0, 2).map(c => STONES[c].power).join(' · ');
     const card = document.createElement('div');
     card.className = 'castcard';
     card.innerHTML =
       `${portrait ? `<div class="castportrait" style="background-image:url('${portrait}')"></div>` : ''}` +
-      `<div class="casttext"><h3>${name}</h3>` +
-      `<div class="castepithet">${p.flavor}</div>` +
-      `<div class="castbio">${p.bio || ''}</div>` +
-      `<div class="castleans">Leans: <b>${leans}</b></div></div>`;
+      `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>`;
+    card.onclick = () => showRegular(name);
     body.appendChild(card);
   }
+  $('regularsModal').querySelector('h2').textContent = 'The Regulars';
+  const b = $('regularsBack');
+  b.textContent = '‹ Title'; b.onclick = () => closeModal('regularsModal');
   $('regularsModal').classList.add('open');
+}
+function showRegular(name) {
+  const p = PERSONALITIES[name];
+  if (!p) return openRegulars();
+  const portrait = portraitFor(name);
+  const body = $('regularsBody');
+  body.className = 'castdetail';
+  body.innerHTML =
+    `${portrait ? `<div class="castportrait-lg" style="background-image:url('${portrait}')"></div>` : ''}` +
+    `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>` +
+    `<div class="castbio">${p.bio || ''}</div>` +
+    `<div class="castleans">Leans: <b>${regularLeans(p)}</b></div>`;
+  $('regularsModal').querySelector('h2').textContent = name;
+  const b = $('regularsBack');
+  b.textContent = '‹ The Regulars'; b.onclick = openRegulars;
 }
 
 // Render a grid of lesson/sub-menu cards into the Academy modal. Always leaves
