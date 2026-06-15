@@ -52,8 +52,8 @@ for (let i = 0; i < 30; i++) {
       } else if (color === 'blue') {
         const a = rnd(ownSlots(0)); let b = rnd(ownSlots(1)); if (b === a) b = ownSlots(1)[0];
         M.humanTargetSlot(a); M.humanTargetSlot(b);
-      } else { // black — needs a slot already carrying a queued stone
-        const ok = new Set(q.filter(e => e.color !== 'black').flatMap(e => [e.slot, e.swap]).filter(x => x != null));
+      } else { // black — only a slot carrying a queued Red/Blue is undoable
+        const ok = new Set(q.filter(e => e.color === 'red' || e.color === 'blue').map(e => e.slot));
         ok.size ? M.humanTargetSlot([...ok][0]) : M.humanDiscardStone();
       }
     } else if (step.t === 'archcommit') {

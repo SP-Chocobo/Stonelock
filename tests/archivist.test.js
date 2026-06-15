@@ -51,6 +51,49 @@ const card = name => ({ name, phantom: false, locked: false });
   assert(rev.slots[2].name === 'C', 'rev: slot2 back to C');
 }
 
+// --- 2b. White is untouchable: Black never pulls a lock ---
+{
+  const slots = [card('A'), card('B')];
+  // White locks slot 0, then Black tries to undo it.
+  const q = [{ color: 'white', slot: 0 }, { color: 'black', slot: 0 }];
+  const r = M.resolveArchivist(slots, q, false);
+  assert(r.slots[0].locked, 'white lock survives a Black on its slot');
+  assert(r.log[1].fizzled, 'black fizzles against a lock — nothing it may undo');
+}
+// --- 2c. A lock shields the Red beneath it from Black ---
+{
+  const slots = [card('A')];
+  // Red phantom, then White lock on the same slot, then Black.
+  const q = [{ color: 'red', slot: 0 }, { color: 'white', slot: 0 }, { color: 'black', slot: 0 }];
+  const r = M.resolveArchivist(slots, q, false);
+  assert(r.slots[0].locked && r.slots[0].phantom, 'locked slot keeps both its phantom and lock');
+  assert(r.log[2].fizzled, 'black fizzles on a locked slot, leaving the red intact');
+}
+
+// --- 2d. Fizzles are evaluated in REVERSE resolution order (Hardcore) ---
+{
+  // Two Whites on the same slot: exactly one locks, the other fizzles — and which
+  // one fizzles flips with direction (the log is always in resolution order).
+  const slots = [card('A')];
+  const q = [{ color: 'white', slot: 0 }, { color: 'white', slot: 0 }];
+  const fwd = M.resolveArchivist(slots, q, false);
+  assert(!fwd.log[0].fizzled && fwd.log[1].fizzled, 'fwd: first white locks, second fizzles');
+  const rev = M.resolveArchivist(slots, q, true);
+  assert(!rev.log[0].fizzled && rev.log[1].fizzled, 'rev: the last-placed white resolves first and locks; the earlier one fizzles');
+  assert(rev.slots[0].locked, 'rev: slot ends locked regardless');
+}
+{
+  // Red then Blue-swap on a slot, reversed: Blue resolves first (swaps the card
+  // away), so the Red — resolving second — lands on the swapped-in card, not a
+  // fizzle; but a Red onto an already-phantomed card DOES fizzle. Check the latter
+  // in reverse: two Reds same slot — last-placed phantoms first, the other fizzles.
+  const slots = [card('A')];
+  const q = [{ color: 'red', slot: 0 }, { color: 'red', slot: 0 }];
+  const rev = M.resolveArchivist(slots, q, true);
+  assert(!rev.log[0].fizzled && rev.log[1].fizzled, 'rev: one red phantoms, the second fizzles');
+  assert(rev.slots[0].phantom, 'rev: slot keeps its single phantom');
+}
+
 // --- 3. Black fizzles with nothing to undo ---
 {
   const slots = [card('A'), card('B')];

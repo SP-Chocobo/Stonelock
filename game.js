@@ -294,12 +294,18 @@ function resolveArchivist(slotsIn, queue, reverse) {
         history.push({ slot: s, color: 'blue', swap: t, undone: false });
       } else rec.fizzled = true;
     } else if (p.color === 'black') {
+      // White is an untouchable shield: a locked slot can't be undone at all, and
+      // Black never pulls a White. It undoes the last resolved Red or Blue.
       let h = null;
-      for (let i = history.length - 1; i >= 0; i--) if (history[i].slot === s && !history[i].undone) { h = history[i]; break; }
+      for (let i = history.length - 1; i >= 0; i--) {
+        const e = history[i];
+        if (e.slot !== s || e.undone) continue;
+        if (e.color === 'white') break; // the lock shields everything beneath it
+        h = e; break;
+      }
       if (h) {
         h.undone = true;
         if (h.color === 'red' && slots[s]) slots[s].phantom = false;
-        else if (h.color === 'white' && slots[s]) slots[s].locked = false;
         else if (h.color === 'blue') { const tmp = slots[s]; slots[s] = slots[h.swap]; slots[h.swap] = tmp; }
       } else rec.fizzled = true;
     }
@@ -341,10 +347,10 @@ function archPendingOn(gi) {
   }
   return out;
 }
-// A slot is a legal Black target if a prior non-Black stone is queued on it
-// (Black undoes the last resolved stone on its slot; it cannot undo a Black).
+// A slot is a legal Black target if a Red or Blue is queued onto it (Black undoes
+// the last resolved Red/Blue on its slot — never a White, which is untouchable).
 function archBlackableSlot(gi) {
-  return G.archQueue.some(p => p.color !== 'black' && (p.slot === gi || (p.color === 'blue' && p.swap === gi)));
+  return G.archQueue.some(p => (p.color === 'red' || p.color === 'blue') && p.slot === gi);
 }
 function archQueueStone(actor, color, slot, swap) {
   const rec = { color, by: actor, slot };

@@ -1007,7 +1007,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .valstrip b { color: var(--gold); font-style: normal; }
 
 @media (max-width: 760px) {
-  .optgrid, .optgrid:has(> :nth-child(2):last-child) { grid-template-columns: 1fr; }
+  /* On phones every option list is a single column — including the 2- and
+     4-option grids that read as 2-wide on desktop (e.g. the raid bosses). */
+  .optgrid,
+  .optgrid:has(> :nth-child(2):last-child),
+  .optgrid:has(> :nth-child(4):last-child) { grid-template-columns: 1fr; }
 }
 
 /* Showdown */
