@@ -1882,7 +1882,7 @@ const LESSONS = [
   },
   {
     id: 'stones', title: 'Lesson 2 — The Stones', blurb: 'How stones work, and what each one does — pick a stone to study.',
-    submenu: true,
+    opens: 'stones',
   },
   {
     id: 'match', title: 'Lesson 3 — Winning the Match', blurb: 'Play a full hand on your own — and learn how a match is won.',
@@ -1970,10 +1970,63 @@ const STONE_LESSONS = [
   },
 ];
 
-function lessonById(id) { return LESSONS.find(l => l.id === id) || STONE_LESSONS.find(l => l.id === id); }
+// Strategy & Puzzles: situational lessons about intent — when and why to spend a
+// stone, and how hidden information wins hands. (Deeper "find-the-win" puzzles
+// can grow this list.)
+const STRATEGY = [
+  {
+    id: 'sg-info', title: 'Information Advantage', blurb: 'Hide your prizes; expose bait.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', cardsOnly: true,
+      fixedHands: { 0: ['Coin', 'Bread', 'Sword', 'Crest', 'Quill'], 1: ['Sword', 'Ferry', 'Crest', 'Quill', 'Chain'] },
+    },
+    intro: [
+      { sel: '.game', text: '<b>Information is leverage.</b> A card the Stranger can’t see, he can’t steal, lock away from you, or poison. So what you <b>hide</b> matters as much as what you play.' },
+      { sel: '#handArea', text: 'You hold a <b>Coin</b> and a <b>Bread</b> (both 3) — your prizes. The Foundation is committed <b>face-up</b>, so expose your <b>weak</b> cards there as bait, and save the rich ones for the veil.' },
+    ],
+    live: { deploy: { sel: '#handArea', text: 'Commit your <b>lowest</b> cards face-up first (a Crest, a Quill) — let those be what the Stranger reads. Your Coin and Bread go veiled, later.' } },
+    showdown: 'Your value rode in hidden; the Stranger only ever saw bait. Against a foe with stones, that anonymity is what keeps your best cards safe.',
+  },
+  {
+    id: 'sg-lock', title: 'Lock the Linchpin', blurb: 'White isn’t for any card — it’s for the one that wins it.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'white',
+      fixedHands: { 0: ['Coin', 'Coin', 'Sword', 'Quill', 'Crest'], 1: ['Bread', 'Road', 'Sword', 'Quill', 'Crest'] }, fixedPool: { 0: { white: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: 'White locks a card untouchable — but you only get so many. The skill is choosing <b>which</b> card. Lock the one your hand can’t win without.' },
+      { sel: '#handArea', text: 'Your <b>two Coins</b> are a Pair — your whole score leans on them. The Stranger would love to steal or snuff one. Commit your cards, then lock the Coin that anchors the Pair.' },
+    ],
+    live: { place: { sel: '#stoneTray', text: 'Place the <b>White</b> on a <b>Coin</b> — protect the Pair the Stranger most wants to break, not a card you could afford to lose.' } },
+    showdown: 'You spent White where it mattered — on the card that carries the hand. A lock on a throwaway is a wasted stone.',
+  },
+  {
+    id: 'sg-snuff', title: 'Snuff the Swing', blurb: 'Black answers their biggest play — read which one.',
+    cfg: {
+      mode: 'duel', deal: 'small', target: 10, targeting: 'standard', demoStone: 'black', demoOpp: 'red',
+      fixedHands: { 0: ['Coin', 'Sword', 'Quill', 'Crest', 'Chain'], 1: ['Bread', 'Road', 'Sword', 'Quill', 'Crest'] }, fixedPool: { 0: { black: 1 }, 1: { red: 1 } },
+    },
+    intro: [
+      { sel: '.game', text: 'Black undoes a stone — so save it for the play that <b>hurts most</b>. A phantom on a 3 is worth far more to snuff than one on a 1.' },
+      { sel: '.game', text: 'The Stranger will Red a card to build a bonus. Commit your cards, watch where the phantom lands — then snuff the one that swings the score.' },
+    ],
+    live: { place: { sel: '#stoneTray', text: 'Place the <b>Black</b> on the Stranger’s phantom-bearing card — take back the bonus they just bought.' } },
+    showdown: 'You spent Black on their biggest swing, not a small one. Disruption is about <b>timing and target</b>, not just having the stone.',
+  },
+];
+
+// Top-level Academy tracks.
+const CATEGORIES = [
+  { title: 'Tutorials', blurb: 'Learn to play — the cards, the stones, and a full match.', opens: 'tutorials' },
+  { title: 'Strategy & Puzzles', blurb: 'Advanced stone theory and the situations that decide hands.', opens: 'strategy' },
+];
+
+function lessonById(id) {
+  return LESSONS.find(l => l.id === id) || STONE_LESSONS.find(l => l.id === id) || STRATEGY.find(l => l.id === id);
+}
 
 function openAcademy() {
-  academyMenu('The Academy', LESSONS, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
+  academyMenu('The Academy', CATEGORIES, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
 }
 
 // Render a grid of lesson/sub-menu cards into the Academy modal. Always leaves
@@ -1994,7 +2047,7 @@ function academyMenu(title, items, back) {
     const el = document.createElement('div');
     el.className = 'bigopt';
     el.innerHTML = `<h3>${l.title}</h3><div class="bigoptdesc">${l.blurb}</div>`;
-    el.onclick = l.submenu ? () => openStonesMenu() : () => { closeModal('academyModal'); startLesson(l.id); };
+    el.onclick = l.opens ? () => openMenu(l.opens) : () => { closeModal('academyModal'); startLesson(l.id); };
     grid.appendChild(el);
   }
   body.appendChild(grid);
@@ -2004,8 +2057,20 @@ function academyMenu(title, items, back) {
   $('academyModal').classList.add('open');
 }
 
+function openMenu(which) {
+  if (which === 'tutorials') openTutorials();
+  else if (which === 'strategy') openStrategy();
+  else if (which === 'stones') openStonesMenu();
+  else openAcademy();
+}
+function openTutorials() {
+  academyMenu('Tutorials', LESSONS, { label: '‹ The Academy', fn: openAcademy });
+}
+function openStrategy() {
+  academyMenu('Strategy & Puzzles', STRATEGY, { label: '‹ The Academy', fn: openAcademy });
+}
 function openStonesMenu() {
-  academyMenu('Lesson 2 — The Stones', STONE_LESSONS, { label: '‹ The Academy', fn: openAcademy });
+  academyMenu('Lesson 2 — The Stones', STONE_LESSONS, { label: '‹ Tutorials', fn: openTutorials });
 }
 
 function startLesson(id) {
@@ -2071,6 +2136,14 @@ const LESSON_FLOW = ['cards', 'st-how', 'st-red', 'st-white', 'st-blue', 'st-bla
 function tutFinish() {
   const lesson = TUT.lesson;
   TUT.active = false; TUT.phase = 'idle';
+  // Strategy situations stand alone — return to the Strategy menu to try another.
+  if (lesson.id.startsWith('sg-')) {
+    coachShow('Situation cleared. Try another, or head back to the Academy.', null, {
+      next: () => { coachHide(); openStrategy(); }, nextLabel: '‹ Strategy & Puzzles',
+      alt: { label: 'The Academy', fn: () => { coachHide(); openAcademy(); } },
+    });
+    return;
+  }
   const nextId = LESSON_FLOW[LESSON_FLOW.indexOf(lesson.id) + 1];
   if (nextId) {
     const short = lessonById(nextId).title.replace(/^Lesson \d+ — /, '');
