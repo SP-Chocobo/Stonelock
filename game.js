@@ -66,14 +66,17 @@ const PARTNER_NAME = 'The Old Hand';
 // `bluff` is the chance a telegraph means nothing; `risk` is how much
 // an unknown face-down card discourages a steal.
 const PERSONALITIES = {
-  'The Stranger': { red: 1.0, white: 1.0, blue: 1.2, black: 1.2, bluff: 0.30, risk: 1, skill: 1.0, flavor: 'Reads the table, and lies to it. His telegraphs mean less than they seem.' },
-  'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, skill: 1.0, flavor: 'Anything on the river can be taken. Hide what you love.' },
-  'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.' },
-  'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.' },
+  'The Stranger': { red: 1.0, white: 1.0, blue: 1.2, black: 1.2, bluff: 0.30, risk: 1, skill: 1.0, flavor: 'Reads the table, and lies to it. His telegraphs mean less than they seem.', bio: 'A hooded regular nobody quite places. He telegraphs stones he never means to spend and spends ones he never showed — every read he gives you is one he planted. Treat his board as a story he is telling, not the truth of it.' },
+  'The Ferryman': { red: 0.8, white: 0.7, blue: 1.9, black: 0.9, bluff: 0.10, risk: 0, skill: 1.0, flavor: 'Anything on the river can be taken. Hide what you love.', bio: 'He worked the crossing thirty years and learned that everything in transit is fair game. He leans hard on the Blue Stone, swapping his dross for your treasures the instant your guard drops. Veil your best cards, or watch them float away.' },
+  'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.', bio: 'A creature of columns and double-entries. He raises a tidy, high-value layout and bolts it down with White, almost never reaching across the table. Patient and predictable — and very hard to dislodge once he has set his figures.' },
+  'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.', bio: 'An old campaigner who plays for the alliance, not himself. He White-locks his partner’s prizes and Blacks whatever threatens the pair, scoring quietly while he shields you. The ally you want at your shoulder in a raid.' },
   'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
   'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
-  'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.' },
-  'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.' },
+  'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.', bio: 'A tinkerer enchanted by phantoms — he Reds nearly everything, hunting Pairs and Triads that are not always there, and now and then fumbles the wrong stone entirely. Lethal when his duplicates land; gift-wrapped when they do not.' },
+  'The Deckhand': { red: 0.9, white: 0.8, blue: 1.5, black: 0.7, bluff: 0.25, risk: 0, skill: 0.90, flavor: 'Plays fast and peeks at nothing. Bold trades, sloppy endings.', bio: 'Quick hands, no patience. He commits fast, peeks at nothing, and throws Blue Stones like dice — bold steals that swing a hand, undone by careless endgames. Punish the sloppiness and he folds.' },
+  'The Lady':     { red: 0.9, white: 1.1, blue: 1.4, black: 1.4, bluff: 0.35, risk: 1, skill: 1.0, flavor: 'Plays the player, not the cards. Her every gesture is theater.', bio: 'Poised, unhurried, and entirely insincere. She bluffs with the best and answers with Blue and Black — stealing tempo, unmaking your cleverness, making you feel clumsy for trying. The most dangerous regular at a full table.' },
+  'The Miner':    { red: 1.5, white: 1.4, blue: 0.6, black: 0.7, bluff: 0.05, risk: 2, skill: 0.97, flavor: 'Trusts what he digs up, not sleight of hand.', bio: 'Grim and methodical, he grinds raw value out of the deck, Red-doubles his richest seams, and White-locks the vein. No bluffs, no theft — just a deep, stubborn pile of points you have to out-dig.' },
+  'The Wagoner':  { red: 0.8, white: 0.8, blue: 1.7, black: 1.5, bluff: 0.15, risk: 0, skill: 0.95, flavor: 'Everything’s cargo — to be hauled off or dropped in the mud.', bio: 'A restless hauler who treats the whole table as freight. He Blues your prizes onto his wagon and Blacks the plans you were proud of, rerouting a hand into chaos. Light on defense — outlast the churn and he runs out of road.' },
 };
 const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, skill: 1, flavor: '' };
 function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA; }
@@ -84,7 +87,18 @@ function fumbles(who) { return Math.random() > personaOf(who).skill; }
 // teams, but is also a selectable regular in its own right (a defensive
 // locker/disruptor) — his protective play comes from team scoring, not his
 // name, so he reads as a wary tactician at any seat.
-const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand', 'The Old Hand'];
+const BOT_POOL = ['The Stranger', 'The Ferryman', 'The Clerk', 'The Tinker', 'The Deckhand', 'The Old Hand', 'The Lady', 'The Miner', 'The Wagoner'];
+
+// Character portraits (assets/portraits/*.jpg). 'lady', 'miner', 'wagon-driver'
+// art is on disk too, awaiting characters to attach them to.
+const PORTRAITS = {
+  'The Stranger': 'stranger', 'The Ferryman': 'ferryman', 'The Clerk': 'clerk',
+  'The Tinker': 'tinker', 'The Deckhand': 'deckhand', 'The Old Hand': 'oldhand',
+  'The Lady': 'lady', 'The Miner': 'miner', 'The Wagoner': 'wagon-driver',
+  'The Magistrate': 'magistrate', 'The Warden': 'warden', 'The Apothecary': 'apothecary',
+  'The Archivist': 'archivist',
+};
+function portraitFor(name) { return PORTRAITS[name] ? `assets/portraits/${PORTRAITS[name]}.jpg` : null; }
 
 // Which seats are AI-held, in seat order, per mode.
 function slotName(i, footprint) {
@@ -1735,9 +1749,15 @@ function buildTableDOM() {
     div.style.setProperty('--seatc', seatColor(i));
     const flavor = personaOf(i).flavor;
     div.title = flavor;
+    const portrait = portraitFor(playerName(i));
     div.innerHTML = `
-      <div class="pname">${playerName(i)} <span id="dealer-${i}" class="dealertoken" title="Dealer Token">dealer</span>${i !== 0 && ally ? '<span class="allytag">partner</span>' : ''}</div>
-      ${flavor ? `<div class="epithet">${flavor}</div>` : ''}
+      <div class="phead">
+        ${portrait ? `<div class="pavatar" style="background-image:url('${portrait}')"></div>` : ''}
+        <div class="pheadtext">
+          <div class="pname">${playerName(i)} <span id="dealer-${i}" class="dealertoken" title="Dealer Token">dealer</span>${i !== 0 && ally ? '<span class="allytag">partner</span>' : ''}</div>
+          ${flavor ? `<div class="epithet">${flavor}</div>` : ''}
+        </div>
+      </div>
       <div id="pinfo-${i}" class="pinfo"></div>
       <div class="tlabel">stone pouch</div>
       <div id="rack-${i}" class="minipouch${isMagistrate(i) ? ' deep' : ''}"></div>
@@ -2029,6 +2049,29 @@ function openAcademy() {
   academyMenu('The Academy', CATEGORIES, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
 }
 
+// The Regulars: the bot cast, with portraits, bios, and play-style at a glance.
+function openRegulars() {
+  if (typeof document === 'undefined') return;
+  const body = $('regularsBody');
+  body.innerHTML = '';
+  for (const name of BOT_POOL) {
+    const p = PERSONALITIES[name];
+    if (!p) continue;
+    const portrait = portraitFor(name);
+    const leans = STONE_KEYS.slice().sort((a, b) => p[b] - p[a]).slice(0, 2).map(c => STONES[c].power).join(' · ');
+    const card = document.createElement('div');
+    card.className = 'castcard';
+    card.innerHTML =
+      `${portrait ? `<div class="castportrait" style="background-image:url('${portrait}')"></div>` : ''}` +
+      `<div class="casttext"><h3>${name}</h3>` +
+      `<div class="castepithet">${p.flavor}</div>` +
+      `<div class="castbio">${p.bio || ''}</div>` +
+      `<div class="castleans">Leans: <b>${leans}</b></div></div>`;
+    body.appendChild(card);
+  }
+  $('regularsModal').classList.add('open');
+}
+
 // Render a grid of lesson/sub-menu cards into the Academy modal. Always leaves
 // any in-progress lesson cleanly — no showdown/quit modal left stacked behind.
 function academyMenu(title, items, back) {
@@ -2082,8 +2125,11 @@ function startLesson(id) {
   closeModal('academyModal');
   closeModal('showdownModal');
   if (typeof document !== 'undefined') {
-    ['oppSeats', 'youSeats', 'panels', 'hand'].forEach(i => { const e = $(i); if (e) e.innerHTML = ''; });
+    ['oppSeats', 'youSeats', 'panels', 'hand', 'announce', 'prompt', 'phaseNote', 'actionBar'].forEach(i => { const e = $(i); if (e) e.innerHTML = ''; });
+    $('phaseLabel').textContent = 'Stonelock'; // clear the prior lesson's "Showdown" banner
     $('stoneTray').style.display = 'none';
+    $('cursedNote').style.display = 'none';
+    $('cursedBadge').style.display = 'none';
     $('nextHandBtn').style.display = '';
   }
   G = null;
@@ -2932,7 +2978,9 @@ function renderSetup() {
           const ord = SETUP.picks.indexOf(name);
           chip.className = 'botchip' + (ord >= 0 ? ' selected' : '');
           chip.title = PERSONALITIES[name].flavor;
-          chip.innerHTML = (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
+          const face = portraitFor(name);
+          chip.innerHTML = (face ? `<span class="chipface" style="background-image:url('${face}')"></span>` : '') +
+            (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
           chip.onclick = () => {
             const i = SETUP.picks.indexOf(name);
             if (i >= 0) SETUP.picks.splice(i, 1);
@@ -3111,7 +3159,8 @@ function renderRaidSetup() {
       const el = document.createElement('div');
       el.className = 'bigopt bosscard' + (unlocked ? '' : ' locked');
       const tag = unlocked ? (wins.length ? ` <span class="campwin">${wins.length === RAID_DIFF_ORDER.length ? 'mastered' : 'broken ×' + wins.length}</span>` : '') : ' 🔒';
-      el.innerHTML = `<h3>${b.name}${tag}</h3><div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it in the campaign to earn your seat at this table.'}</div>`;
+      const portrait = portraitFor(b.name);
+      el.innerHTML = `${portrait ? `<div class="bossportrait" style="background-image:url('${portrait}')"></div>` : ''}<div class="bosstext"><h3>${b.name}${tag}</h3><div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it in the campaign to earn your seat at this table.'}</div></div>`;
       if (unlocked) el.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
       grid.appendChild(el);
     }
@@ -3274,6 +3323,8 @@ function boot() {
   $('titleTutorial').onclick = openAcademy;
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
+  $('titleRegulars').onclick = openRegulars;
+  $('regularsBack').onclick = () => closeModal('regularsModal');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
   $('coachMin').onclick = coachMinimize;
   $('coachRestore').onclick = coachRestoreShow;

@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=92">
+<link rel="stylesheet" href="style.css?v=93">
 </head>
 <body>
 
@@ -52,6 +52,7 @@
       <button id="titleStandard" class="btn primary big">Standard Game</button>
       <button id="titleRaid" class="btn big">Raid Boss</button>
       <button id="titleTutorial" class="btn big">The Academy</button>
+      <button id="titleRegulars" class="btn big">The Regulars</button>
       <button id="titleRules" class="btn big">Rules</button>
     </div>
     <div class="titlefoot">A game of regional leverage, point optimization, and tactical wills.</div>
@@ -190,6 +191,16 @@
   </div>
 </div>
 
+<!-- The Regulars (bot cast / bios) -->
+<div id="regularsModal" class="modal">
+  <div class="modalcard wide">
+    <h2>The Regulars</h2>
+    <p class="modalsub">The faces you’ll meet across the table — and how each one plays.</p>
+    <div id="regularsBody"></div>
+    <div class="modalbtns"><button id="regularsBack" class="btn">‹ Title</button></div>
+  </div>
+</div>
+
 <!-- Academy (lesson menu) -->
 <div id="academyModal" class="modal">
   <div class="modalcard wide">
@@ -313,6 +324,6 @@
   </div>
 </div>
 
-<script src="game.js?v=92"></script>
+<script src="game.js?v=93"></script>
 </body>
 </html>
