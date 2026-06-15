@@ -335,6 +335,7 @@ function archSlotLabel(gi) {
 function archPendingOn(gi) {
   const out = [];
   for (const p of G.archQueue) {
+    if (p.resolved) continue; // already fired in the playout — its real effect now shows
     if (p.slot === gi) out.push({ color: p.color, by: p.by });
     else if (p.color === 'blue' && p.swap === gi) out.push({ color: 'blue', by: p.by });
   }
@@ -395,19 +396,22 @@ function archAiPlaceSlots(who) {
 function archAiCommit(seat, count, faceUp) {
   const p = G.players[seat];
   const reverse = archReverse();
+  const subRate = (seat === 1) ? archSub() : 0; // the boss occasionally takes its 2nd-best
   for (let n = 0; n < count && p.hand.length; n++) {
     const emptyPos = []; for (let pos = 0; pos < archFP(seat); pos++) if (!p.board[pos]) emptyPos.push(pos);
     if (!emptyPos.length) break;
-    let best = null;
+    let best = null, second = null;
     for (const card of p.hand) {
       for (const pos of emptyPos) {
         p.board[pos] = card;
         const s = archScoreSplit(resolveArchivist(archFlatSlots(), G.archQueue, reverse).slots);
         const v = (seat === 1 ? s.boss - s.party : s.party - s.boss);
         p.board[pos] = null;
-        if (!best || v > best.v) best = { v, card, pos };
+        if (!best || v > best.v) { second = best; best = { v, card, pos }; }
+        else if (!second || v > second.v) second = { v, card, pos };
       }
     }
+    if (subRate && second && Math.random() < subRate) best = second;
     if (fumbles(seat)) { best.card = p.hand[Math.floor(Math.random() * p.hand.length)]; best.pos = emptyPos[Math.floor(Math.random() * emptyPos.length)]; }
     p.board[best.pos] = best.card;
     best.card.zone = 'board'; best.card.faceUp = faceUp;
@@ -418,14 +422,12 @@ function archAiCommit(seat, count, faceUp) {
   log(`${playerName(seat)} ${verb(seat, 'fill')} ${count} slot${count === 1 ? '' : 's'}${faceUp ? '' : ', face-down'}.`, logClass(seat));
   announce(`${playerName(seat)} commits to the slots`, null, seat);
 }
-// Resolve the whole ledger: build the flat slots, run the engine in the tier's
-// direction, write phantoms/locks onto the real cards and re-seat them by final
-// slot position, then narrate the playout (fire/fizzle, in resolution order).
-function archResolve() {
-  const reverse = archReverse();
+// Write an engine-resolved flat-slot state onto the live boards: phantoms/locks
+// onto the real cards, re-seated by slot position. Used per animation frame and
+// for the final state, so every frame is exactly what the tested engine says.
+function archWriteState(slots) {
   const realById = {}; for (const c of G.cards) realById[c.id] = c;
-  const { slots, log: playlog } = resolveArchivist(archFlatSlots(), G.archQueue, reverse);
-  const newBoards = { 0: new Array(archFP(0)).fill(null), 1: new Array(archFP(1)).fill(null), 2: new Array(archFP(2)).fill(null) };
+  const nb = { 0: new Array(archFP(0)).fill(null), 1: new Array(archFP(1)).fill(null), 2: new Array(archFP(2)).fill(null) };
   slots.forEach((clone, gi) => {
     if (!clone) return;
     const { o, pos } = archLocal(gi);
@@ -434,17 +436,47 @@ function archResolve() {
     if (clone.phantom) c.stones.push({ color: 'red', by: o });
     if (clone.locked) c.stones.push({ color: 'white', by: o });
     c.owner = o;
-    newBoards[o][pos] = c;
+    nb[o][pos] = c;
   });
-  for (const o of [0, 1, 2]) G.players[o].board = newBoards[o].filter(Boolean);
-  log(`The Archivist reads the ledger ${reverse ? 'back to front' : 'in order'}. The stones fire:`, 'sys');
-  for (const rec of playlog) {
-    const lab = rec.color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
-    log(`  ${STONES[rec.color].name} on ${lab} — ${rec.fizzled ? 'fizzles, nothing to bind' : 'takes hold'}.`, rec.fizzled ? 'sys' : logClass(rec.by));
-  }
-  G.archivist = false;
+  for (const o of [0, 1, 2]) G.players[o].board = nb[o];
+}
+// Begin the animated playout: snapshot the committed board, fix the resolution
+// order, and expand the queue into one visible step per stone (with beats to
+// absorb), then a finalize. Each step replays the tested engine on a longer
+// prefix, so the shown transformation is always engine-true.
+function archResolveBegin() {
+  const reverse = archReverse();
+  G.archSnapshot = archFlatSlots();
+  G.archResOrder = reverse ? [...G.archQueue].reverse() : G.archQueue.slice();
+  log(`The Archivist reads the ledger ${reverse ? 'back to front — last placed fires first' : 'in placement order'}. The stones fire:`, 'sys');
+  const steps = [];
+  for (let k = 1; k <= G.archResOrder.length; k++) { steps.push({ t: 'archstep', k }); steps.push({ t: 'beat', ms: 850 }); }
+  steps.push({ t: 'archfinal' });
+  G.queue.unshift(...steps);
+}
+// Show the board after the first k stones have fired (engine-resolved prefix),
+// highlight the slot(s) that just changed, and narrate fire/fizzle.
+function archShowStep(k) {
+  const rec = G.archResOrder[k - 1];
+  const r = resolveArchivist(G.archSnapshot, G.archResOrder.slice(0, k), false);
+  archWriteState(r.slots);
+  rec.resolved = true; // its pending marker clears; the real effect now shows
+  const fizzled = r.log[k - 1] && r.log[k - 1].fizzled;
+  const lab = rec.color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
+  log(`  ${STONES[rec.color].name} on ${lab} — ${fizzled ? 'fizzles, nothing to bind' : 'takes hold'}.`, fizzled ? 'sys' : logClass(rec.by));
+  announce(`${STONES[rec.color].name} ${fizzled ? 'fizzles' : 'fires'} — ${lab}`, rec.color, rec.by);
+  const ids = []; const a = archCardAt(rec.slot); if (a) ids.push(a.id);
+  if (rec.color === 'blue') { const b = archCardAt(rec.swap); if (b) ids.push(b.id); }
+  UI.flashIds = ids;
+  SFX.play(rec.color === 'black' ? 'undo' : 'stone');
+  render();
+}
+function archResolveFinal() {
+  archWriteState(resolveArchivist(G.archSnapshot, G.archResOrder, false).slots);
+  for (const o of [0, 1, 2]) G.players[o].board = G.players[o].board.filter(Boolean);
+  G.archivist = false; G.archSnapshot = null;
   UI.flashIds = G.players.flatMap(p => p.board).map(c => c.id);
-  announce(`The ledger resolves ${reverse ? 'in reverse' : 'in order'}`, null, 1);
+  announce(`The ledger resolves ${archReverse() ? 'in reverse' : 'in order'}`, null, 1);
   render();
 }
 
@@ -662,15 +694,19 @@ function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff
 // ≈95% party, 7 ≈48-62%, 8 crushes), so every tier fields 7 and the stone
 // budget carries the gradient; REVERSE (Hardcore) is the real teeth — it breaks
 // the party's forward-order reads. Measured ~Easy 62% / Standard 48% / Hard 34%.
-// Difficulty scales by resources, like the other bosses: the boss's stone budget
-// and — since the Archivist's blind stones plateau as a lever — the PARTY's stone
-// count (Easy hands the party a fourth stone). Hardcore adds REVERSE resolution.
+// Difficulty scales by resources, like the other bosses: boss stone budget, and
+// — since the Archivist's blind stones plateau — the PARTY's stone count (Easy
+// hands the party extra). `sub` = how often the boss commits its 2nd-best
+// card→slot; counter-intuitively this STRENGTHENS the boss (its greedy commit is
+// myopic, so the 2nd choice dodges greedy traps), a fine downward dial on party
+// win. Hardcore adds REVERSE resolution.
 const ARCH_DIFFS = {
-  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), party: envNum('ARCH_E_P', 5), hold: 0, reverse: false, label: 'Easy' },
-  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), party: envNum('ARCH_S_P', 3), hold: 0, reverse: false, label: 'Standard' },
-  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), party: envNum('ARCH_H_P', 3), hold: 0, reverse: true,  label: 'Hardcore' },
+  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), party: envNum('ARCH_E_P', 5), sub: 0,   reverse: false, label: 'Easy' },
+  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 6), party: envNum('ARCH_S_P', 3), sub: 0.15, reverse: false, label: 'Standard' },
+  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), party: envNum('ARCH_H_P', 3), sub: 0,   reverse: true,  label: 'Hardcore' },
 };
 function archParty() { return archCfg().party || 3; }
+function archSub() { return envNum('ARCH_SUB', archCfg().sub || 0); }
 function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
 function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
 // Placement/declare order: round the table, the boss answering and keeping the
@@ -1089,7 +1125,13 @@ function executeStep(step) {
       if (!isHuman(step.seat)) archAiCommit(step.seat, step.count, step.faceUp);
       break;
     case 'archresolve':
-      archResolve();
+      archResolveBegin();
+      break;
+    case 'archstep':
+      archShowStep(step.k);
+      break;
+    case 'archfinal':
+      archResolveFinal();
       break;
     case 'apothcut':
       apothecaryCut();
@@ -3700,7 +3742,7 @@ function renderRaidSetup() {
 
   section('Difficulty', 'diff', isArch ? [
     { v: 'easy', label: 'Easy — forward', desc: 'Your party comes loaded — five stones each against the boss’s three — resolving in placement order. What you read is what you get; you win most fights.' },
-    { v: 'standard', label: 'Standard — forward', desc: 'Five stones, resolving in placement order. A true test of reading the open queue and committing your cards around it.' },
+    { v: 'standard', label: 'Standard — forward', desc: 'Six stones, resolving in placement order, and it plays its records shrewdly. A true coin-flip — read the open queue and commit your cards around it.' },
     { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Your forward reads betray you; interactions flip and fizzle. A sequencing brain-bender.' },
   ] : isApothecary ? [
     { v: 'easy', label: 'Easy', desc: 'A light hand of stones beneath the scalpel — often just one or two. A coordinated, white-aware party wins most fights.' },

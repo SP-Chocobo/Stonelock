@@ -108,10 +108,17 @@ round-the-table** so neither side gets a clean last look. Re-measured all-AI:
   counts), and Hardcore keeps REVERSE as its teeth.
 - Shipped ladder (all 7-card board):
   - **Easy** — party **5** stones each vs boss **3**, forward → ~**76%**.
-  - **Standard** — party 3 vs boss **5**, forward → ~**55-60%**.
-  - **Hardcore** — party 3 vs boss **6**, **REVERSE** → ~**32%**.
-- Knobs env-overridable (`ARCH_E_C/_S/_P`, `ARCH_S_*`, `ARCH_H_*`). Numbers
-  all-AI/full-knowledge; a human reading the open ledger may differ.
+  - **Standard** — party 3 vs boss **6**, plus a light boss-2nd-best `sub`=0.15,
+    forward → ~**44%**.
+  - **Hardcore** — party 3 vs boss **6**, **REVERSE** → ~**34%**.
+- `sub` is a counter-intuitive lever: making the boss commit its 2nd-best card→slot
+  *strengthens* it (its greedy commit is myopic, so the 2nd choice avoids greedy
+  traps) — a fine downward dial on party win. `ARCH_SUB` overrides it.
+- Resolution is an **animated playout**: the queue fires one stone per ~0.85s beat,
+  each frame an engine-resolved prefix (always engine-true), pending markers
+  clearing into real stones as they land. Reverse fires last-placed-first.
+- Knobs env-overridable (`ARCH_E_C/_S/_P`, `ARCH_S_*`, `ARCH_H_*`, `ARCH_SUB`).
+  Numbers all-AI/full-knowledge; a human reading the open ledger may differ.
 
 ### (Historical) Live tuning of the BACKWARDS cards-first flow — do not use
 Once wired into the real engine and measured all-AI over a target race
