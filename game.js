@@ -337,7 +337,7 @@ function newGame(cfg) {
     names: raid
       ? (cfg.raidAlly === 'hotseat'
           ? [((cfg.names || [])[0] || 'Player One'), raidBossName(cfg.raidBoss), ((cfg.names || [])[1] || 'Player Two')]
-          : ['You', raidBossName(cfg.raidBoss), 'The Old Hand'])
+          : ['You', raidBossName(cfg.raidBoss), cfg.allyBot || 'The Old Hand'])
       : buildNames(cfg.mode, cfgHumans, cfg.names || [], cfg.companyNames || null),
     humans: raid ? (cfg.raidAlly === 'hotseat' ? [0, 2] : [0]) : cfgHumans,
     viewer: 0,
@@ -3137,7 +3137,7 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { step: 'boss', boss: null, ally: 'bot', diff: 'standard', target: 16, targeting: 'standard', names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: 16, targeting: 'standard', names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
@@ -3251,9 +3251,28 @@ function renderRaidSetup() {
   });
 
   section('The party', 'ally', [
-    { v: 'bot', label: 'You + an Ally bot', desc: 'The Old Hand fights at your side, AI-controlled.' },
+    { v: 'bot', label: 'You + an Ally bot', desc: 'A regular fights at your side, AI-controlled. Pick who below.' },
     { v: 'hotseat', label: 'Two players — co-op', desc: 'Both party seats are human; the device passes between you.' },
   ]);
+
+  if (RAIDSET.ally === 'bot') {
+    // Choose which regular allies with you (any is competent; the Old Hand's
+    // protective kit is the classic co-op pick).
+    const row = document.createElement('div');
+    row.className = 'namerow';
+    const lab = document.createElement('span'); lab.className = 'arealabel'; lab.textContent = 'Your ally:';
+    row.appendChild(lab);
+    for (const name of BOT_POOL) {
+      const chip = document.createElement('button');
+      chip.className = 'botchip' + (RAIDSET.allyBot === name ? ' selected' : '');
+      chip.title = PERSONALITIES[name].flavor;
+      const face = portraitFor(name);
+      chip.innerHTML = (face ? `<span class="chipface" style="background-image:url('${face}')"></span>` : '') + name;
+      chip.onclick = () => { RAIDSET.allyBot = name; renderRaidSetup(); };
+      row.appendChild(chip);
+    }
+    body.appendChild(row);
+  }
 
   if (RAIDSET.ally === 'hotseat') {
     const row = document.createElement('div');
@@ -3301,7 +3320,7 @@ function renderRaidSetup() {
   begin.onclick = () => {
     closeModal('setupModal');
     logEl.innerHTML = '';
-    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
+    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, allyBot: RAIDSET.allyBot, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
   };
   btns.appendChild(begin);
 }
