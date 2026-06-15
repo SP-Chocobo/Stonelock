@@ -41,13 +41,16 @@ const REGIONS = {
 // the value shifts arrive paired with real rule changes.
 // Each venue keeps its own crowd of regulars (the "usual" company), so the
 // default opponents vary by table instead of always being The Stranger.
+// Listed in campaign order: the two always-open base tables, then each boss's
+// unlock in the order you'd earn it climbing (Warden→Slums, Apothecary→Hall,
+// Quartermaster→Academy, Archivist→Court).
 const VENUES = {
   tavern: { region: 'bar', variant: null, label: 'The Roadside Tavern', desc: 'The Practical Common values. No house rules — the baseline game.', regulars: ['The Old Hand', 'The Tinker', 'The Deckhand', 'The Stranger'] },
-  court: { region: 'house', variant: 'precedence', label: 'The Court of Precedence', desc: 'Statecraft values, under the Writ of Precedence: stones go down FIRST, onto the empty slots, and wait — then you fill the slots with cards. The stones resolve in the order they were placed. Sequence is everything.', regulars: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'] },
   docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.', regulars: ['The Ferryman', 'The Wagoner', 'The Deckhand', 'The Clerk'] },
-  hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.', regulars: ['The Stranger', 'The Lady', 'The Miner', 'The Tinker'] },
   slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.', regulars: ['The Miner', 'The Wagoner', 'The Stranger', 'The Ferryman'] },
+  hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.', regulars: ['The Stranger', 'The Lady', 'The Miner', 'The Tinker'] },
   academy: { region: 'bar', variant: 'gauntlet', label: 'The Academy Gauntlet', desc: 'A drill in pure interaction: no telegraphing, no thinning. Every player holds one of each stone and must place all four, in serpentine turn order. The cards are a fixed canvas — the stones decide it.', regulars: ['The Clerk', 'The Old Hand', 'The Tinker', 'The Lady'] },
+  court: { region: 'house', variant: 'precedence', label: 'The Court of Precedence', desc: 'Statecraft values, under the Writ of Precedence: stones go down FIRST, onto the empty slots, and wait — then you fill the slots with cards. The stones resolve in the order they were placed. Sequence is everything.', regulars: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'] },
 };
 
 const STONES = {
