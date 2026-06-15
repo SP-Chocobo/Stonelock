@@ -3665,17 +3665,6 @@ function renderRaidSetup() {
       trail.appendChild(node);
     });
     body.appendChild(trail);
-    // Alpha bypass: ignore campaign locks while testing (default ON in alpha).
-    const arow = document.createElement('div');
-    arow.className = 'namerow';
-    const on = alphaUnlock();
-    const tog = document.createElement('button');
-    tog.className = 'botchip' + (on ? ' selected' : '');
-    tog.textContent = (on ? '✓ ' : '') + 'Alpha — all bosses unlocked';
-    tog.title = 'Alpha testing: ignore campaign locks. Turn this off to climb the ladder.';
-    tog.onclick = () => { setAlphaUnlock(!on); renderRaidSetup(); };
-    arow.appendChild(tog);
-    body.appendChild(arow);
     const back = document.createElement('button');
     back.className = 'btn'; back.textContent = '‹ Title';
     back.onclick = () => { closeModal('setupModal'); showTitle(); };
@@ -3878,6 +3867,14 @@ function boot() {
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
   $('titleRegulars').onclick = openRegulars;
+  // Alpha bypass lives on the title now: ignore campaign locks while testing.
+  const syncAlpha = () => {
+    const on = alphaUnlock();
+    $('titleAlpha').classList.toggle('selected', on);
+    $('titleAlpha').textContent = (on ? '✓ ' : '') + 'Alpha — all bosses unlocked';
+  };
+  $('titleAlpha').onclick = () => { setAlphaUnlock(!alphaUnlock()); syncAlpha(); };
+  syncAlpha();
   $('regularsBack').onclick = () => closeModal('regularsModal');
   $('coachNext').onclick = () => {}; // assigned per-step by coachShow
   $('coachMin').onclick = coachMinimize;
