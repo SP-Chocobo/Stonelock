@@ -3384,7 +3384,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
-  SETUP = { venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], randomTeams: false, _open: null };
+  SETUP = { step: 'venue', venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], randomTeams: false, _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
 }
@@ -3432,9 +3432,31 @@ function seatRoles(shape, humans) {
 function renderSetup() {
   // Accordion: each setting is a collapsed row showing its current pick;
   // open one to change it. One confirm button at the bottom — no wall.
-  $('setupModal').querySelector('h2').textContent = 'Set the Table';
   const body = $('setupBody');
   body.innerHTML = '';
+  // Screen 1 — venue: just the tables, in campaign order. Pick one to advance.
+  if (SETUP.step !== 'rest') {
+    $('setupModal').querySelector('h2').textContent = 'Choose the Venue';
+    body.innerHTML = '<p class="modalsub small">Pick the table. Locked venues are earned by breaking the boss that keeps them.</p>';
+    const grid = document.createElement('div'); grid.className = 'optgrid';
+    for (const opt of SETUP_STEPS.find(s => s.key === 'venue').options) {
+      const locked = !venueUnlocked(opt.v);
+      const el = document.createElement('div');
+      el.className = 'bigopt' + (SETUP.venue === opt.v ? ' selected' : '') + (locked ? ' locked' : '');
+      el.innerHTML = `<h3>${opt.label}${locked ? ' 🔒' : ''}</h3><div class="bigoptdesc">${locked ? venueLockHint(opt.v) : opt.desc}</div>`;
+      if (!locked) el.onclick = () => { SETUP.venue = opt.v; SETUP.step = 'rest'; SETUP._open = null; renderSetup(); };
+      grid.appendChild(el);
+    }
+    body.appendChild(grid);
+    const vbtns = $('setupBtns'); vbtns.innerHTML = '';
+    const vback = document.createElement('button');
+    vback.className = 'btn'; vback.textContent = '‹ Title';
+    vback.onclick = () => { closeModal('setupModal'); showTitle(); };
+    vbtns.appendChild(vback);
+    return;
+  }
+  // Screen 2 — the rest of the table settings, as the accordion.
+  $('setupModal').querySelector('h2').textContent = `Set the Table — ${VENUES[SETUP.venue].label}`;
   // Keep the players choice valid for the current shape.
   if (!playersOptions(SETUP.mode).some(o => o.v === SETUP.players)) SETUP.players = playersOptions(SETUP.mode)[0].v;
   const humans = humansFromSetup();
@@ -3450,6 +3472,7 @@ function renderSetup() {
   };
 
   for (const section of SETUP_STEPS) {
+    if (section.key === 'venue') continue; // venue is chosen on screen 1
     if (section.key === 'company' && K === 0) continue; // pure hotseat: no AI seats
     const open = SETUP._open === section.key;
     const acc = document.createElement('div');
@@ -3609,8 +3632,8 @@ function renderSetup() {
   btns.innerHTML = '';
   const back = document.createElement('button');
   back.className = 'btn';
-  back.textContent = '‹ Title';
-  back.onclick = () => { closeModal('setupModal'); showTitle(); };
+  back.textContent = '‹ Venue';
+  back.onclick = () => { SETUP.step = 'venue'; SETUP._open = null; renderSetup(); };
   btns.appendChild(back);
   const deal = document.createElement('button');
   deal.id = 'startBtn';
