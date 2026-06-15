@@ -3818,7 +3818,28 @@ function boot() {
   $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
   // The Menu dropdown: new match, sound, fullscreen, and quit-to-title all
   // live here so the sidebar stays uncluttered.
-  const menuPopSet = open => { if (open) renderTableSummary(); $('menuPop').style.display = open ? '' : 'none'; $('menuBtn').classList.toggle('active', open); };
+  const menuPopSet = open => {
+    const pop = $('menuPop');
+    if (open) {
+      renderTableSummary();
+      pop.style.display = '';
+      // Anchor as a fixed, viewport-clamped popover: it never grows the page
+      // (no scroll) and always paints above the board. Prefer above the button;
+      // drop below only if there isn't room.
+      const r = $('menuBtn').getBoundingClientRect();
+      pop.style.position = 'fixed';
+      pop.style.bottom = 'auto';
+      pop.style.transform = 'none';
+      const w = pop.offsetWidth, h = pop.offsetHeight;
+      pop.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
+      let top = r.top - h - 6;
+      if (top < 8) top = Math.min(r.bottom + 6, window.innerHeight - h - 8);
+      pop.style.top = Math.round(Math.max(8, top)) + 'px';
+    } else {
+      pop.style.display = 'none';
+    }
+    $('menuBtn').classList.toggle('active', open);
+  };
   $('menuBtn').onclick = e => { e.stopPropagation(); menuPopSet($('menuPop').style.display === 'none'); };
   document.addEventListener('click', e => {
     if ($('menuPop').style.display !== 'none' && !e.target.closest('.menuwrap')) menuPopSet(false);

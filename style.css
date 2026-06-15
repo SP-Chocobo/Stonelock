@@ -291,7 +291,8 @@ body[data-compact="1"] .epithet { display: none; }
   border: 1px solid var(--gold-dim);
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-  z-index: 90;
+  z-index: 95; /* above the board (cards lift to 60); JS anchors it as fixed */
+  max-height: 86vh; overflow-y: auto; /* tall menus scroll inside, never grow the page */
 }
 .menupop .btn { width: 100%; text-align: left; font-size: 12px; }
 .tablesummary:not(:empty) { padding: 4px 6px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--edge); }
