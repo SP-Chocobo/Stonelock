@@ -63,6 +63,22 @@ boss's extra stones):
 - **Standard:** forward order, **no preview** (you compute it).
 - **Hardcore:** **reverse** order, **no preview** (compute it backwards).
 
+### Balance (decided)
+- **Hard reuses Standard's stone budget** — it is "a wtf version of normal," differing only by
+  reverse resolution, not by more stones. So **tune only Easy and Standard** stone counts;
+  Hard = Standard budget + reverse. Targets vs competent white/order-aware party bots:
+  **Easy ~65–75%, Standard ~45–55%.**
+
+### Build order (for the next session — de-risked)
+1. **Pure resolution engine** (DONE, see `resolveArchivist` + tests): takes slot cards + an
+   ordered placement queue + direction, returns resolved slots with fizzles. Unit-tested
+   forward/reverse incl. lock-vs-swap and black-undoes-last-resolved. No UI.
+2. Engine → scoring adapter (resolved slots → {type,hasRed,poisoned} for bestSelection/twoBestHands).
+3. Raid flow: phases Selection → Placement(on slots) → Commitment(cards to slots) → Resolution playout → Showdown.
+4. Human UI: place a chosen stone on an empty slot; commit a card to a chosen slot; the stone log.
+5. Boss AI for the inverted flow; Easy reference map; forward/reverse by tier.
+6. Tune Easy/Standard; add to RAID_BOSSES only after a full automated playthrough passes.
+
 ## Per-stone behaviour bound to a slot
 - **Red** — the card that lands in this slot gets a phantom duplicate.
 - **White** — the card that lands in this slot is locked (untouchable for later queue entries).

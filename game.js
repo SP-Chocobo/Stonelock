@@ -261,6 +261,50 @@ function variantOpts() {
   };
 }
 
+// ---- The Archivist (4th boss) — pure resolution engine ----
+// Stones are queued onto slots, then resolved in placement order (forward) or
+// last-placed-first (reverse = Hardcore). `slotsIn` is a card-or-null per slot;
+// `queue` is the ordered placements [{color, slot, swap?, by?}]. Returns the
+// resolved slots (cards carry .phantom/.locked, and may have swapped position)
+// plus a per-step log with fizzle flags for the playout. Pure (clones inputs).
+// White locks the card in its slot; Red gives it a phantom; Blue swaps two slots
+// (locked slots block it); Black undoes the last resolved, not-yet-undone stone
+// on its slot. See docs/archivist-design.md.
+function resolveArchivist(slotsIn, queue, reverse) {
+  const slots = slotsIn.map(c => (c ? { ...c, phantom: !!c.phantom, locked: !!c.locked } : null));
+  const order = reverse ? [...queue].reverse() : queue.slice();
+  const history = []; // applied effects in resolution order, for Black to undo
+  const log = [];
+  for (const p of order) {
+    const s = p.slot;
+    const rec = { color: p.color, slot: s, swap: p.swap, by: p.by, fizzled: false };
+    if (p.color === 'white') {
+      if (slots[s] && !slots[s].locked) { slots[s].locked = true; history.push({ slot: s, color: 'white', undone: false }); }
+      else rec.fizzled = true;
+    } else if (p.color === 'red') {
+      if (slots[s] && !slots[s].locked && !slots[s].phantom) { slots[s].phantom = true; history.push({ slot: s, color: 'red', undone: false }); }
+      else rec.fizzled = true;
+    } else if (p.color === 'blue') {
+      const t = p.swap;
+      if (slots[s] && slots[t] && !slots[s].locked && !slots[t].locked) {
+        const tmp = slots[s]; slots[s] = slots[t]; slots[t] = tmp;
+        history.push({ slot: s, color: 'blue', swap: t, undone: false });
+      } else rec.fizzled = true;
+    } else if (p.color === 'black') {
+      let h = null;
+      for (let i = history.length - 1; i >= 0; i--) if (history[i].slot === s && !history[i].undone) { h = history[i]; break; }
+      if (h) {
+        h.undone = true;
+        if (h.color === 'red' && slots[s]) slots[s].phantom = false;
+        else if (h.color === 'white' && slots[s]) slots[s].locked = false;
+        else if (h.color === 'blue') { const tmp = slots[s]; slots[s] = slots[h.swap]; slots[h.swap] = tmp; }
+      } else rec.fizzled = true;
+    }
+    log.push(rec);
+  }
+  return { slots, log };
+}
+
 // The Magistrate's score: the two best non-overlapping three-card
 // hands from its board. We try every split of the cards into two
 // groups (bitmask) and let bestSelection optimize each group's best
@@ -3395,7 +3439,7 @@ if (typeof window !== 'undefined') {
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
-    twoBestHands, undoableEventFor, isLocked, isOpponent,
+    twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
