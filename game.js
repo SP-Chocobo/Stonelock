@@ -74,6 +74,7 @@ const PERSONALITIES = {
   'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.', bio: 'An old campaigner who plays for the alliance, not himself. He White-locks his partner’s prizes and Blacks whatever threatens the pair, scoring quietly while he shields you. The ally you want at your shoulder in a raid.' },
   'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
   'The Archivist': { red: 1.1, white: 1.2, blue: 1.4, black: 1.5, bluff: 0, risk: 1, skill: 1.0, flavor: 'Files your every move in order, then reads the ledger back — sometimes front to back, sometimes back to front.' },
+  'The Quartermaster': { red: 1.2, white: 1.3, blue: 1.2, black: 1.2, bluff: 0, risk: 1, skill: 1.0, flavor: 'Rations the pouch — one colour locked away each hand, for everyone, cycling as the match wears on.' },
   'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.', bio: 'A tinkerer enchanted by phantoms — he Reds nearly everything, hunting Pairs and Triads that are not always there, and now and then fumbles the wrong stone entirely. Lethal when his duplicates land; gift-wrapped when they do not.' },
   'The Deckhand': { red: 1.0, white: 1.0, blue: 1.0, black: 1.0, bluff: 0.12, risk: 1, skill: 0.95, flavor: 'Plays it straight and even — no favorite stone, no grand plan.', bio: 'An honest pair of hands with no particular cunning. He spends whatever the moment asks for, favors no stone, and reads little into yours — a clean, even game with no exploitable habit and no real edge either. The fairest fight at the table.' },
@@ -598,7 +599,7 @@ function newGame(cfg) {
     log(`${bn} takes the high seat — a ${archCfg().label} raid. The order is inverted: both sides commit their layouts, then place stones onto the SLOTS — they do not fire as they land. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} opens ${bossCardCount()} cards face-up and queues ${archStones()} stones. When all are down, the ledger resolves ${archReverse() ? 'BACK TO FRONT — last placed fires first' : 'in placement order'}. Read the queue, commit your cards around it. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else if (G.mode === 'raid') {
     const bn = playerName(1);
-    log(`${bn} takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word.${G.exhaustHands ? ` Every stone spent is exhausted for ${G.exhaustHands} hand${G.exhaustHands === 1 ? '' : 's'} — for both sides.` : ''} It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+    log(`${bn} takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word.${G.exhaustHands ? ` Every stone spent is exhausted for ${G.exhaustHands} hand${G.exhaustHands === 1 ? '' : 's'} — for both sides.` : ''}${isQuartermaster() ? ' Each hand it locks away one stone-colour from the whole table, cycling red → white → blue → black — so you can never lean on a favourite.' : ''} It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else {
     log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
       ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
@@ -734,8 +735,13 @@ function archCfg() { return ARCH_DIFFS[G.raidDiff] || ARCH_DIFFS.standard; }
 function archStones() { return archCfg().stones; }
 function archReverse() { return !!archCfg().reverse; }
 function bossCardCount() { return isArchivist() ? archCfg().cards : RAID_BOSS_CARDS; }
-function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : 'The Magistrate'; }
+function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : boss === 'quartermaster' ? 'The Quartermaster' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
+// The Quartermaster rations the pouch: each hand one stone-colour is locked away
+// from EVERYONE (party and boss), cycling red→white→blue→black hand by hand —
+// you can't lean on a favourite. Also folded into the super boss.
+function isQuartermaster() { return G.mode === 'raid' && G.raidBoss === 'quartermaster'; }
+function deniedColor() { return (isQuartermaster() || G.superBoss) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
 function footprintOf(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().footprint; }
 function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().handSize; }
 
@@ -776,6 +782,9 @@ function startHand() {
     if (G.exhaustHands) {
       for (const color of STONE_KEYS) pool[color] = Math.max(0, pool[color] - slumBlocked(p, color));
     }
+    // The Quartermaster (and the super boss) lock away one colour from all this hand.
+    const denied = deniedColor();
+    if (denied) pool[denied] = 0;
     G.players.push({
       idx: p,
       hand: [],
@@ -986,6 +995,11 @@ function startHand() {
     ];
   }
   log(`— Hand ${G.handNum}. The deck is broken, shuffled clean, and dealt. —`, 'sys');
+  const denied = deniedColor();
+  if (denied) {
+    log(`${playerName(1)} locks away the ${STONES[denied].name} this hand — no one at the table may spend it.`, 'sys');
+    announce(`${STONES[denied].name} is locked away this hand`, denied, 1);
+  }
   run();
 }
 
@@ -3599,6 +3613,7 @@ const RAID_BOSSES = [
   { v: 'magistrate', name: 'The Magistrate', lore: 'A wide, methodical board fielded face-up. It selects from a deep pouch, scores its two best hands, and never bluffs — powerful, and fair only in that. Difficulty sets how many stones it spends.' },
   { v: 'warden', name: 'The Warden', lore: 'Keeps one of every stone within reach and spends without mercy — snuffing, stealing, locking. Every stone it plays is exhausted for a hand, and so is yours: ration your disruption, or be ground down. Viciously tactical.' },
   { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends fewer ordinary stones than the others — because it always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
+  { v: 'quartermaster', name: 'The Quartermaster', lore: 'Keeper of the pouch. Each hand it locks away one stone-colour from the whole table — yours and its own — cycling red → white → blue → black as the match wears on. You can never settle into a favourite; every hand demands a different plan. It fields a wide board and scores its two best hands. Beat it to earn the Academy Gauntlet, where every stone is always at hand.' },
   { v: 'archivist', name: 'The Archivist', lore: 'A keeper of records who inverts the game. Both sides commit their layouts, then place stones onto the SLOTS — and nothing fires until every stone is down. The ledger then resolves in the order the stones were placed… or, on Hardcore, BACK TO FRONT. A boss of sequence and priority: read the queue, commit your cards around it, and win the order war. Advanced targeting is forced — it is a war for position across every layout.' },
 ];
 
@@ -3681,8 +3696,10 @@ function renderRaidSetup() {
   const isWarden = RAIDSET.boss === 'warden';
   const isApothecary = RAIDSET.boss === 'apothecary';
   const isArch = RAIDSET.boss === 'archivist';
+  const isQM = RAIDSET.boss === 'quartermaster';
   const extra = isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.'
     : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
+    : isQM ? ' <b>The Quartermaster</b> locks away one stone-colour from the whole table each hand — yours and its own — cycling <b>red → white → blue → black</b>. You can never lean on a favourite.'
     : '';
   body.innerHTML = isArch
     ? `<p class="modalsub small"><b>The Archivist</b> inverts the game. Both sides commit their layouts (it opens its full board face-up), then place stones onto the <b>slots</b> — nothing fires until every stone is down. The ledger then resolves <b>in placement order</b>, or, on Hardcore, <b>back to front</b>. It scores its <b>two best non-overlapping hands</b>; your two scores combine. <b>Advanced targeting is forced</b> — a war for position across every layout. Read the queue, commit your cards around it, and win the order war.</p>`
