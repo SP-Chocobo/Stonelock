@@ -701,6 +701,11 @@ const RAID_HOLDBACK = {
 };
 const APOTH_DROP_BY_DIFF = { easy: 3, standard: 4, hard: 4 };
 function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff] ?? 4); }
+// The Quartermaster's colour-denial actually eases the boss (it cripples its
+// two-best building more than the party's single hand), so it carries a few EXTRA
+// stones — a probabilistic per-hand bonus that brings its tiers in line with the
+// other bosses (~easy 70 / standard 50 / hard 25-30). Reverse of a hold-back.
+const QM_BONUS = { easy: envNum('QM_E_BONUS', 0.45), standard: envNum('QM_S_BONUS', 0.2), hard: envNum('QM_H_BONUS', 0) };
 // The Archivist (4th boss): inverted flow — stones queue onto SLOTS, then
 // resolve in placement order (Easy/Standard) or REVERSE (Hardcore). Board size
 // is the difficulty lever (validated in tests/archivist-balance.js): Easy 7
@@ -919,6 +924,11 @@ function startHand() {
         const i = RAID_ORDER.lastIndexOf(1);
         if (i >= 0) RAID_ORDER.splice(i, 1);
       }
+    }
+    // The Quartermaster carries a few extra rationed stones (its denial otherwise
+    // eases it) — a probabilistic last-word bonus this hand.
+    if (G.raidBoss === 'quartermaster' && Math.random() < (QM_BONUS[G.raidDiff] || 0)) {
+      RAID_ORDER.push(1);
     }
     const tn = { 0: 0, 1: 0, 2: 0 };
     for (const w of RAID_ORDER) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
