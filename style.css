@@ -683,6 +683,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   border: 1.5px solid rgba(0,0,0,0.55);
   box-shadow: inset -1px -2px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.6);
 }
+/* The Archivist: a stone queued onto a slot but not yet fired — dimmed, with a
+   dashed gold ring, so the open ledger reads as "waiting" rather than resolved. */
+.queuedrow { margin-top: 2px; opacity: 0.95; }
+.stonedot.pending {
+  opacity: 0.5; border: 1.5px dashed var(--gold-bright);
+  box-shadow: none; filter: grayscale(0.25);
+}
 
 .card.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; box-shadow: 0 0 12px rgba(232,196,119,0.35), 0 3px 7px rgba(0,0,0,0.6); }
 /* Rest on a card a beat and it pops bigger so you can read it. The delay

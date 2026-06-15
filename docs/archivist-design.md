@@ -89,6 +89,22 @@ mechanic functions end-to-end and the score responds sanely to the knobs. Key re
   **re-tune against the real raid AI + multi-hand target ledger**, exactly as the
   Apothecary was dialed in.
 
+### Live tuning (SHIPPED — supersedes the synthetic numbers)
+Once wired into the real engine and measured all-AI over a target race
+(`tests/archivist-live.test.js` for function; an all-AI race for balance), the boss
+was **far stronger** than the synthetic harness predicted — the multi-hand race
+amplifies a per-hand edge, and the live boss two-best from a wide board dominates. Board
+size proved a steep cliff in the live game too (8 cards ≈ 9% party, 7 ≈ 59%, 6 ≈ 94% at
+mid stone counts), so **every tier fields a 7-card board** and the stone budget +
+a probabilistic **hold-back** fine-tune the curve. The shipped ladder (the player's
+chosen shape — Easy and Standard share 5 stones, Standard just drops the mercy):
+  - **Easy** — 7 cards, **5 stones, ~50% hold-back**, forward → ~**78%** party.
+  - **Standard** — 7 cards, **5 stones, no hold-back**, forward → ~**57%** party.
+  - **Hardcore** — 7 cards, **6 stones, no hold-back, REVERSE** → ~**29%** party.
+All knobs are env-overridable (`ARCH_E_C/_S`, `ARCH_S_C/_S`, `ARCH_H_C/_S`, `ARCH_HB`)
+for further tuning. Numbers are all-AI, full-knowledge; a human reading the open ledger
+may fare differently — adjust by play.
+
 ### Build order (for the next session — de-risked)
 1. **Pure resolution engine** (DONE, see `resolveArchivist` + tests): takes slot cards + an
    ordered placement queue + direction, returns resolved slots with fizzles. Unit-tested

@@ -73,6 +73,7 @@ const PERSONALITIES = {
   'The Clerk':    { red: 1.6, white: 1.6, blue: 0.6, black: 1.0, bluff: 0.05, risk: 2, skill: 1.0, flavor: 'Builds his ledger and locks it twice. Rarely reaches across the table.', bio: 'A creature of columns and double-entries. He raises a tidy, high-value layout and bolts it down with White, almost never reaching across the table. Patient and predictable — and very hard to dislodge once he has set his figures.' },
   'The Old Hand': { red: 1.0, white: 1.5, blue: 0.9, black: 1.4, bluff: 0.10, risk: 1, skill: 1.0, flavor: 'Keeps his partner alive, and unmakes what threatens the alliance.', bio: 'An old campaigner who plays for the alliance, not himself. He White-locks his partner’s prizes and Blacks whatever threatens the pair, scoring quietly while he shields you. The ally you want at your shoulder in a raid.' },
   'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
+  'The Archivist': { red: 1.1, white: 1.2, blue: 1.4, black: 1.5, bluff: 0, risk: 1, skill: 1.0, flavor: 'Files your every move in order, then reads the ledger back — sometimes front to back, sometimes back to front.' },
   'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.', bio: 'A tinkerer enchanted by phantoms — he Reds nearly everything, hunting Pairs and Triads that are not always there, and now and then fumbles the wrong stone entirely. Lethal when his duplicates land; gift-wrapped when they do not.' },
   'The Deckhand': { red: 1.0, white: 1.0, blue: 1.0, black: 1.0, bluff: 0.12, risk: 1, skill: 0.95, flavor: 'Plays it straight and even — no favorite stone, no grand plan.', bio: 'An honest pair of hands with no particular cunning. He spends whatever the moment asks for, favors no stone, and reads little into yours — a clean, even game with no exploitable habit and no real edge either. The fairest fight at the table.' },
@@ -307,6 +308,142 @@ function resolveArchivist(slotsIn, queue, reverse) {
   return { slots, log };
 }
 
+// ---- The Archivist live adapter ----
+// Maps the running boards onto the flat slot array the engine expects, stages
+// placements onto a queue (open, not yet fired), and writes the resolution back
+// onto the real cards + boards. Boards are static between placement and resolve
+// (deferred), so global slot indices captured at placement time stay valid.
+function archOffsets() {
+  return { 0: 0, 1: G.players[0].board.length, 2: G.players[0].board.length + G.players[1].board.length };
+}
+function archSlotOf(card) {
+  const board = G.players[card.owner].board;
+  const i = board.indexOf(card);
+  return i < 0 ? -1 : archOffsets()[card.owner] + i;
+}
+function archFlatSlots() {
+  const flat = [];
+  for (const o of [0, 1, 2]) for (const c of G.players[o].board) flat.push(c);
+  return flat;
+}
+function archRanges() { // slot ranges per seat in the flat array
+  const off = archOffsets();
+  return [
+    { o: 0, start: off[0], len: G.players[0].board.length },
+    { o: 1, start: off[1], len: G.players[1].board.length },
+    { o: 2, start: off[2], len: G.players[2].board.length },
+  ];
+}
+function archOwnerOfSlot(gi) {
+  for (const r of archRanges()) if (gi >= r.start && gi < r.start + r.len) return r.o;
+  return 0;
+}
+function archSlotLabel(gi) {
+  const o = archOwnerOfSlot(gi);
+  const local = gi - archOffsets()[o];
+  const nm = slotName(local, footprintOf(o)) || `slot ${local + 1}`;
+  return `${playerName(o)} · ${nm}`;
+}
+// A slot is a legal Black target if a prior non-Black stone is queued on it
+// (Black undoes the last resolved stone on its slot; it cannot undo a Black).
+function archBlackable(card) {
+  const gi = archSlotOf(card);
+  return G.archQueue.some(p => p.color !== 'black' && (p.slot === gi || (p.color === 'blue' && p.swap === gi)));
+}
+// Stage a stone onto the ledger instead of applying it. Shows a dimmed pending
+// marker on the card(s); the real effect lands at resolution.
+function archStageStone(actor, color, target) {
+  const rec = { color, by: actor };
+  if (color === 'blue') { rec.slot = archSlotOf(target.give); rec.swap = archSlotOf(target.take); }
+  else rec.slot = archSlotOf(target.card);
+  G.archQueue.push(rec);
+  const cards = color === 'blue' ? [target.give, target.take] : [target.card];
+  for (const c of cards) { (c.queued = c.queued || []).push({ color, by: actor }); }
+  SFX.play('stone');
+  const lab = color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
+  log(`${playerName(actor)} ${verb(actor, 'queue')} a ${STONES[color].name} on ${lab}. It waits in the ledger.`, logClass(actor));
+  announce(`${STONES[color].name} queued — ${lab}`, color, actor);
+  UI.flashIds = cards.map(c => c.id);
+  render();
+}
+// Split a resolved flat-slot array into per-side scoring inputs (by slot range,
+// not by card — a swapped card scores for whoever's slots it ends up in).
+function archScoreSplit(resolvedSlots) {
+  const opts = variantOpts();
+  const mk = gi => { const c = resolvedSlots[gi]; return c ? { type: c.type, hasRed: !!c.phantom, poisoned: false } : null; };
+  const seat = o => { const r = archRanges().find(r => r.o === o); const cs = []; for (let i = r.start; i < r.start + r.len; i++) { const m = mk(i); if (m) cs.push(m); } return cs; };
+  const party = bestSelection(seat(0), G.region.values, opts).score + bestSelection(seat(2), G.region.values, opts).score;
+  const boss = twoBestHands(seat(1), G.region.values, opts).score;
+  return { party, boss };
+}
+// Order-aware bot: shortlist legal placements for each available colour, score
+// each against the queue-so-far resolved in the tier's direction, take the best.
+// Same objective as tests/archivist-balance.js (which set the tuning).
+function archAiPlace(who) {
+  const p = G.players[who];
+  if (!p.active.length) return;
+  const reverse = archReverse();
+  const flat = archFlatSlots();
+  const base = resolveArchivist(flat, G.archQueue, reverse).slots;
+  const val = gi => { const c = base[gi]; return c ? regionVal(c.type) + (c.phantom ? 3 : 0) : 0; };
+  const sideVal = res => { const s = archScoreSplit(res.slots); return who === 1 ? s.boss - s.party : s.party - s.boss; };
+  const mineSlots = [], theirSlots = [];
+  base.forEach((c, gi) => { if (!c) return; const o = archOwnerOfSlot(gi); (((who === 1) ? o === 1 : o !== 1) ? mineSlots : theirSlots).push(gi); });
+  const byVal = (a, b) => val(b) - val(a);
+  mineSlots.sort(byVal); theirSlots.sort(byVal);
+  const cands = [];
+  for (const color of new Set(p.active)) {
+    if (color === 'white' || color === 'red') for (const s of mineSlots.slice(0, 3)) cands.push({ color, slot: s });
+    else if (color === 'black') { for (const s of mineSlots.slice(0, 2)) cands.push({ color, slot: s }); for (const s of theirSlots.slice(0, 2)) cands.push({ color, slot: s }); }
+    else if (color === 'blue') { const lows = mineSlots.slice().reverse().slice(0, 2); for (const a of lows) for (const b of theirSlots.slice(0, 2)) cands.push({ color, slot: a, swap: b }); }
+  }
+  let best = null;
+  for (const cand of cands) {
+    const res = resolveArchivist(flat, G.archQueue.concat([{ color: cand.color, by: who, slot: cand.slot, swap: cand.swap }]), reverse);
+    const v = sideVal(res) * personaOf(who)[cand.color];
+    if (!best || v > best.v) best = { v, cand };
+  }
+  if (!best) { consumeActive(who, p.active[0]); return; }
+  const chosen = (fumbles(who) && cands.length) ? cands[Math.floor(Math.random() * cands.length)] : best.cand;
+  consumeActive(who, chosen.color);
+  const cardAt = gi => archFlatSlots()[gi];
+  if (chosen.color === 'blue') applyStone(who, 'blue', { give: cardAt(chosen.slot), take: cardAt(chosen.swap) });
+  else applyStone(who, chosen.color, { card: cardAt(chosen.slot) });
+}
+// Resolve the whole ledger: build the flat slots, run the engine in the tier's
+// direction, write phantoms/locks onto the real cards and re-seat them into the
+// boards by final slot position, then log the playout (fire/fizzle, in order).
+function archResolve() {
+  const reverse = archReverse();
+  const flat = archFlatSlots();
+  const realById = {}; for (const c of G.cards) realById[c.id] = c;
+  const { slots, log: playlog } = resolveArchivist(flat, G.archQueue, reverse);
+  // clear pending markers + any stale stones; rewrite from the resolved state.
+  for (const c of G.cards) { c.queued = null; }
+  const newBoards = { 0: [], 1: [], 2: [] };
+  slots.forEach((clone, gi) => {
+    if (!clone) return;
+    const c = realById[clone.id];
+    const o = archOwnerOfSlot(gi);
+    c.stones = c.stones.filter(s => s.color !== 'white' && s.color !== 'red');
+    if (clone.phantom) c.stones.push({ color: 'red', by: o });
+    if (clone.locked) c.stones.push({ color: 'white', by: o });
+    c.owner = o;
+    newBoards[o].push(c);
+  });
+  for (const o of [0, 1, 2]) G.players[o].board = newBoards[o];
+  // Narrate the playout in resolution order.
+  log(`The Archivist reads the ledger ${reverse ? 'back to front' : 'in order'}. The stones fire:`, 'sys');
+  for (const rec of playlog) {
+    const lab = rec.color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
+    log(`  ${STONES[rec.color].name} on ${lab} — ${rec.fizzled ? 'fizzles, nothing to bind' : 'takes hold'}.`, rec.fizzled ? 'sys' : logClass(rec.by));
+  }
+  G.archivist = false;
+  UI.flashIds = G.players.flatMap(p => p.board).map(c => c.id);
+  announce(`The ledger resolves ${reverse ? 'in reverse' : 'in order'}`, null, 1);
+  render();
+}
+
 // The Magistrate's score: the two best non-overlapping three-card
 // hands from its board. We try every split of the cards into two
 // groups (bitmask) and let bestSelection optimize each group's best
@@ -371,7 +508,9 @@ function newGame(cfg) {
     raidBoss: raid ? (cfg.raidBoss || 'magistrate') : null,
     // Stone exhaustion: Slumlock venue = 2 hands; the Warden raid = 1.
     exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
-    open: cfg.targeting === 'open', // advanced: any stone, any layout (raids may opt in)
+    open: cfg.targeting === 'open' || (raid && cfg.raidBoss === 'archivist'), // advanced: any stone, any layout (Archivist forces it on — cross-layout slot war)
+    archivist: false, // The Archivist: true only during its deferred placement phase
+    archQueue: [],    // ordered slot placements awaiting resolution
     cardsOnly: !!cfg.cardsOnly, // Academy Lesson 1: cards with no stone phases
     fixedHands: cfg.fixedHands || null, // Academy: seat -> [card types] for deterministic teaching hands
     fixedPool: cfg.fixedPool || null,   // Academy: seat -> stone pool override
@@ -412,7 +551,10 @@ function newGame(cfg) {
     slumlock: ' Slumlock is declared: a stone placed this hand is exhausted for the two that follow.',
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
   }[G.variant] || '';
-  if (G.mode === 'raid') {
+  if (G.mode === 'raid' && G.raidBoss === 'archivist') {
+    const bn = playerName(1);
+    log(`${bn} takes the high seat — a ${archCfg().label} raid. The order is inverted: both sides commit their layouts, then place stones onto the SLOTS — they do not fire as they land. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} opens ${bossCardCount()} cards face-up and queues ${archStones()} stones. When all are down, the ledger resolves ${archReverse() ? 'BACK TO FRONT — last placed fires first' : 'in placement order'}. Read the queue, commit your cards around it. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+  } else if (G.mode === 'raid') {
     const bn = playerName(1);
     log(`${bn} takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word.${G.exhaustHands ? ` Every stone spent is exhausted for ${G.exhaustHands} hand${G.exhaustHands === 1 ? '' : 's'} — for both sides.` : ''} It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else {
@@ -503,10 +645,46 @@ const RAID_HOLDBACK = {
 };
 const APOTH_DROP_BY_DIFF = { easy: 3, standard: 4, hard: 4 };
 function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff] ?? 4); }
-function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : 'The Magistrate'; }
+// The Archivist (4th boss): inverted flow — stones queue onto SLOTS, then
+// resolve in placement order (Easy/Standard) or REVERSE (Hardcore). Board size
+// is the difficulty lever (validated in tests/archivist-balance.js): Easy 7
+// cards / Standard+Hard 8. Hard reuses Standard's stone budget + reverse only.
+// Tuned against the LIVE all-AI race (not the synthetic single-hand harness):
+// board size is a steep lever (8 cards crushes the party, 6 is a pushover), so
+// every tier fields 7 and the stone budget + a probabilistic hold-back fine-tune
+// the curve. Measured ~Easy 70% / Standard 50% / Hardcore 45%.
+// Difficulty ladder (the player's chosen shape): Easy = 5 stones eased by a
+// hold-back; Standard = the same 5 stones played straight; Hardcore = 6 stones,
+// resolved in REVERSE. Every tier fields a 7-card board (the steep lever).
+const ARCH_DIFFS = {
+  easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 5), hold: 0.5, reverse: false, label: 'Easy' },
+  standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 5), hold: 0,   reverse: false, label: 'Standard' },
+  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), hold: 0,   reverse: true,  label: 'Hardcore' },
+};
+function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
+function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
+// Placement/declare order: round the table, the boss answering and keeping the
+// last word(s). Party places 3 each; the boss archStones(). (Matches the order
+// the balance battery was tuned against.)
+function archPlaceOrder(bossN) {
+  const order = [];
+  let pa = 3, pb = 3, bs = (bossN == null ? archStones() : bossN);
+  while (pa + pb + bs > 0) {
+    if (pa > 0) { order.push(0); pa--; }
+    if (bs > 0) { order.push(1); bs--; }
+    if (pb > 0) { order.push(2); pb--; }
+    if (bs > 0 && (pa + pb) > 0) { order.push(1); bs--; }
+  }
+  return order;
+}
+function archCfg() { return ARCH_DIFFS[G.raidDiff] || ARCH_DIFFS.standard; }
+function archStones() { return archCfg().stones; }
+function archReverse() { return !!archCfg().reverse; }
+function bossCardCount() { return isArchivist() ? archCfg().cards : RAID_BOSS_CARDS; }
+function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
-function footprintOf(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().footprint; }
-function handSizeFor(seat) { return isMagistrate(seat) ? RAID_BOSS_CARDS : dealSpec().handSize; }
+function footprintOf(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().footprint; }
+function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().handSize; }
 
 
 function orderFrom(start) {
@@ -585,7 +763,44 @@ function startHand() {
   const dep = spec.deploys;
   const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
 
-  if (raid) {
+  if (raid && G.raidBoss === 'archivist') {
+    // The Archivist: inverted loop. Both sides commit their layouts (the boss
+    // opens its full ledger face-up), then stones are queued onto SLOTS — they
+    // do not fire as placed. When all are down, the ledger resolves: in
+    // placement order (Easy/Standard) or REVERSE (Hardcore).
+    const bn = playerName(1);
+    const bc = bossCardCount();
+    const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
+    const D = (seat, count, faceUp) => ({ t: 'deploy1', seat, count, faceUp });
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Records', note: `${bn} opens its full ledger face-up. Commit your layout — two cards face-up, then two veiled.` },
+      D(1, bc, true),
+      D(0, 2, true), D(2, 2, true),
+      D(0, 1, false), D(2, 1, false),
+      D(0, 1, false), D(2, 1, false),
+      { t: 'discard' },
+      { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks three each; ${bn}, ${archStones()}.` },
+    ];
+    // The boss may quietly hold one stone back this hand (eases the tier).
+    const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0);
+    const order = archPlaceOrder(bossN);
+    const tn = { 0: 0, 1: 0, 2: 0 };
+    for (const w of order) G.queue.push({ t: 'declare', who: w, n: ++tn[w] });
+    G.queue.push(
+      { t: 'raidarm' },
+      { t: 'archinit' },
+      { t: 'phase', label: 'The Placement', note: `Place your stones onto the slots, in turn — they wait in the ledger, unfired. ${bn} answers. When all are down, it resolves ${dir}.` }
+    );
+    for (const w of order) G.queue.push({ t: 'place', who: w });
+    G.queue.push(
+      { t: 'beat', ms: 900 },
+      { t: 'phase', label: 'The Ledger Resolves', note: `The stones fire ${dir}. Read it right and your value lands; misread the order and it fizzles.` },
+      { t: 'archresolve' },
+      { t: 'beat', ms: 2600 },
+      { t: 'showdown' }
+    );
+  } else if (raid) {
     // The Magistrate (seat 1) faces the party (seats 0 and 2). Every
     // action goes round the table You → Magistrate → Ally → Magistrate,
     // so the boss's board and stone picks reveal between your turns.
@@ -847,7 +1062,14 @@ function executeStep(step) {
       aiThin(step.who);
       break;
     case 'place':
-      if (!isHuman(step.who) && G.players[step.who].active.length > 0) aiPlace(step.who);
+      if (!isHuman(step.who) && G.players[step.who].active.length > 0) (G.archivist ? archAiPlace : aiPlace)(step.who);
+      break;
+    case 'archinit':
+      G.archivist = true;
+      G.archQueue = [];
+      break;
+    case 'archresolve':
+      archResolve();
       break;
     case 'apothcut':
       apothecaryCut();
@@ -1007,7 +1229,9 @@ function humanChooseStone(color) {
       break;
     case 'black':
       UI.mode = 'target-black';
-      setPrompt('Black Stone (Disruption) — click a card to undo the last stone effect upon it.');
+      setPrompt(G.archivist
+        ? 'Black Stone (Disruption) — click a slot to undo the last stone queued on it.'
+        : 'Black Stone (Disruption) — click a card to undo the last stone effect upon it.');
       break;
   }
   render();
@@ -1065,6 +1289,14 @@ function humanTargetCard(card) {
     UI.pendingStone = null; UI.blueOwn = null;
     finishHumanStep();
   } else if (UI.mode === 'target-black') {
+    if (G.archivist) {
+      if (card.zone !== 'board' || !archBlackable(card)) return;
+      consumeActive(me, 'black');
+      applyStone(me, 'black', { card });
+      UI.pendingStone = null;
+      finishHumanStep();
+      return;
+    }
     const ev = undoableEventFor(card);
     if (!ev) return;
     consumeActive(me, 'black');
@@ -1106,6 +1338,9 @@ function describeCard(card) {
 function verb(actor, base) { return playerName(actor) === 'You' ? base : base + 's'; }
 
 function applyStone(actor, color, target) {
+  // The Archivist defers everything: stones are queued onto slots and resolved
+  // together at the end, not applied where they land.
+  if (G.archivist) return archStageStone(actor, color, target);
   SFX.play(color === 'black' ? 'undo' : 'stone');
   const ev = { id: G.events.length, color, actor, undone: false };
   switch (color) {
@@ -2512,6 +2747,18 @@ function cardEl(card) {
     }
     el.appendChild(row);
   }
+  // The Archivist: stones queued onto this slot, not yet fired (dimmed, dashed).
+  if (card.queued && card.queued.length) {
+    const row = document.createElement('div');
+    row.className = 'stonerow queuedrow';
+    for (const s of card.queued) {
+      const dot = document.createElement('span');
+      dot.className = `stonedot pending ${s.color}`;
+      dot.title = `Queued ${STONES[s.color].name} (${playerName(s.by)}) — waits in the ledger`;
+      row.appendChild(dot);
+    }
+    el.appendChild(row);
+  }
   if ((UI.flashIds || []).includes(card.id)) el.classList.add('flash');
   if (card.prov) {
     el.classList.add('traded');
@@ -3202,6 +3449,7 @@ const RAID_BOSSES = [
   { v: 'magistrate', name: 'The Magistrate', lore: 'A wide, methodical board fielded face-up. It selects from a deep pouch, scores its two best hands, and never bluffs — powerful, and fair only in that. Difficulty sets how many stones it spends.' },
   { v: 'warden', name: 'The Warden', lore: 'Keeps one of every stone within reach and spends without mercy — snuffing, stealing, locking. Every stone it plays is exhausted for a hand, and so is yours: ration your disruption, or be ground down. Viciously tactical.' },
   { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends fewer ordinary stones than the others — because it always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
+  { v: 'archivist', name: 'The Archivist', lore: 'A keeper of records who inverts the game. Both sides commit their layouts, then place stones onto the SLOTS — and nothing fires until every stone is down. The ledger then resolves in the order the stones were placed… or, on Hardcore, BACK TO FRONT. A boss of sequence and priority: read the queue, commit your cards around it, and win the order war. Advanced targeting is forced — it is a war for position across every layout.' },
 ];
 
 /* ---- Campaign progression ----
@@ -3279,10 +3527,13 @@ function renderRaidSetup() {
   $('setupModal').querySelector('h2').textContent = `Face ${raidBossName(RAIDSET.boss)}`;
   const isWarden = RAIDSET.boss === 'warden';
   const isApothecary = RAIDSET.boss === 'apothecary';
+  const isArch = RAIDSET.boss === 'archivist';
   const extra = isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.'
     : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
     : '';
-  body.innerHTML = `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
+  body.innerHTML = isArch
+    ? `<p class="modalsub small"><b>The Archivist</b> inverts the game. Both sides commit their layouts (it opens its full board face-up), then place stones onto the <b>slots</b> — nothing fires until every stone is down. The ledger then resolves <b>in placement order</b>, or, on Hardcore, <b>back to front</b>. It scores its <b>two best non-overlapping hands</b>; your two scores combine. <b>Advanced targeting is forced</b> — a war for position across every layout. Read the queue, commit your cards around it, and win the order war.</p>`
+    : `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
 
   const section = (title, key, opts, state) => {
     const h = document.createElement('div');
@@ -3345,7 +3596,11 @@ function renderRaidSetup() {
     body.appendChild(row);
   }
 
-  section('Difficulty', 'diff', isApothecary ? [
+  section('Difficulty', 'diff', isArch ? [
+    { v: 'easy', label: 'Easy — forward', desc: 'Five stones, and it sometimes holds one back. The ledger resolves in placement order — what you read is what you get. A coordinated party wins most fights.' },
+    { v: 'standard', label: 'Standard — forward', desc: 'The same five stones, played straight, resolving in placement order. A true test of reading the queue.' },
+    { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Interactions flip and fizzle in non-obvious ways. A sequencing brain-bender.' },
+  ] : isApothecary ? [
     { v: 'easy', label: 'Easy', desc: 'A light hand of stones beneath the scalpel — often just one or two. A coordinated, white-aware party wins most fights.' },
     { v: 'standard', label: 'Standard', desc: 'Two stones and the guaranteed cut. A true coin-flip against good play.' },
     { v: 'hard', label: 'Hardcore', desc: 'Three stones and the last-word cut — it opens, answers, and closes with the scalpel. Only sharp, coordinated play breaks it.' },
@@ -3361,10 +3616,17 @@ function renderRaidSetup() {
     { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
   ]);
 
-  section('Targeting', 'targeting', [
-    { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout; White may shelter an ally. The balanced co-op fight.' },
-    { v: 'open', label: 'Advanced — open table', desc: 'Any stone reaches any layout: lock or build an ally’s card, trade across party seats. Deeper coordination — and an easier raid.' },
-  ]);
+  if (isArch) {
+    const note = document.createElement('div');
+    note.className = 'rolesline';
+    note.innerHTML = 'Targeting: <b>Advanced (forced)</b> — the Archivist is a war for position; every stone reaches every layout.';
+    body.appendChild(note);
+  } else {
+    section('Targeting', 'targeting', [
+      { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout; White may shelter an ally. The balanced co-op fight.' },
+      { v: 'open', label: 'Advanced — open table', desc: 'Any stone reaches any layout: lock or build an ally’s card, trade across party seats. Deeper coordination — and an easier raid.' },
+    ]);
+  }
 
   const back = document.createElement('button');
   back.className = 'btn'; back.textContent = '‹ Boss';
