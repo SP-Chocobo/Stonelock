@@ -772,13 +772,18 @@ function startHand() {
     const bc = bossCardCount();
     const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
     const D = (seat, count, faceUp) => ({ t: 'deploy1', seat, count, faceUp });
+    // The Archivist files its ledger face-up across the rounds (2,2 / 1,1 / 1 = 7),
+    // round-the-table with the party — not all at once.
+    const bf = [2, 2, 1, 1, 1]; let extra = bc - 7;
+    while (extra > 0) { bf[0]++; extra--; } // never trims below the scripted shape
     G.queue = [
       dealNote,
-      { t: 'phase', label: 'The Records', note: `${bn} opens its full ledger face-up. Commit your layout — two cards face-up, then two veiled.` },
-      D(1, bc, true),
-      D(0, 2, true), D(2, 2, true),
-      D(0, 1, false), D(2, 1, false),
-      D(0, 1, false), D(2, 1, false),
+      { t: 'phase', label: 'The Records', note: `Commit two cards face-up. ${bn} files its ledger face-up, in turn.` },
+      D(0, 2, true), D(1, bf[0], true), D(2, 2, true), D(1, bf[1], true),
+      { t: 'phase', label: 'The Veil', note: `Commit one card face-down. ${bn} files more of its ledger, face-up.` },
+      D(0, 1, false), D(1, bf[2], true), D(2, 1, false), D(1, bf[3], true),
+      { t: 'phase', label: 'The Final Commitment', note: `One final veiled card. ${bn} lays its last. Leftover party cards are discarded dead.` },
+      D(0, 1, false), D(1, bf[4], true), D(2, 1, false),
       { t: 'discard' },
       { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks three each; ${bn}, ${archStones()}.` },
     ];
