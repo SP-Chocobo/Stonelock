@@ -1633,7 +1633,7 @@ function raidShowdown(sel) {
   G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + diff));
 
   let matchWinner = null;
-  if (G.ledger >= G.target) matchWinner = 'party';
+  if (G.ledger >= G.target) { matchWinner = 'party'; markCampaignWin(G.raidBoss, G.raidDiff); }
   else if (G.ledger <= -G.target) matchWinner = 'magistrate';
 
   const bn = playerName(1);
@@ -3068,6 +3068,31 @@ const RAID_BOSSES = [
   { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends fewer ordinary stones than the others — because it always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
 ];
 
+/* ---- Campaign progression ----
+   Beating a boss at a difficulty unlocks the next difficulty of that boss AND
+   that difficulty of the next boss — a diagonal climb from Magistrate · Easy.
+   During alpha, an unlock-all bypass (default ON) keeps everything open. */
+const RAID_DIFF_ORDER = ['easy', 'standard', 'hard'];
+const ls = {
+  get(k, d) { try { return typeof localStorage !== 'undefined' ? localStorage.getItem(k) : null; } catch (e) { return d; } },
+  set(k, v) { try { if (typeof localStorage !== 'undefined') localStorage.setItem(k, v); } catch (e) {} },
+};
+function campaignBeaten() { try { return new Set(JSON.parse(ls.get('stonelock-campaign') || '[]')); } catch (e) { return new Set(); } }
+function markCampaignWin(boss, diff) { const s = campaignBeaten(); s.add(`${boss}-${diff}`); ls.set('stonelock-campaign', JSON.stringify([...s])); }
+function alphaUnlock() { const v = ls.get('stonelock-alpha'); return v === null ? true : v === '1'; } // default ON in alpha
+function setAlphaUnlock(on) { ls.set('stonelock-alpha', on ? '1' : '0'); }
+function raidUnlocked(boss, diff) {
+  if (alphaUnlock()) return true;
+  const bosses = RAID_BOSSES.map(b => b.v);
+  const bi = bosses.indexOf(boss), di = RAID_DIFF_ORDER.indexOf(diff);
+  if (bi === 0 && di === 0) return true; // the entry point
+  const beaten = campaignBeaten();
+  if (di > 0 && beaten.has(`${boss}-${RAID_DIFF_ORDER[di - 1]}`)) return true;   // next difficulty of this boss
+  if (bi > 0 && beaten.has(`${bosses[bi - 1]}-${diff}`)) return true;             // this difficulty of the next boss
+  return false;
+}
+function raidBossUnlocked(boss) { return RAID_DIFF_ORDER.some(d => raidUnlocked(boss, d)); }
+
 function renderRaidSetup() {
   const body = $('setupBody');
   const btns = $('setupBtns');
@@ -3079,19 +3104,38 @@ function renderRaidSetup() {
     body.innerHTML = '<p class="modalsub small">Three sit the high seat. Pick the one you mean to break.</p>';
     const grid = document.createElement('div');
     grid.className = 'optgrid';
+    const beaten = campaignBeaten();
     for (const b of RAID_BOSSES) {
+      const unlocked = raidBossUnlocked(b.v);
+      const wins = RAID_DIFF_ORDER.filter(d => beaten.has(`${b.v}-${d}`));
       const el = document.createElement('div');
-      el.className = 'bigopt bosscard';
-      el.innerHTML = `<h3>${b.name}</h3><div class="bigoptdesc">${b.lore}</div>`;
-      el.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
+      el.className = 'bigopt bosscard' + (unlocked ? '' : ' locked');
+      const tag = unlocked ? (wins.length ? ` <span class="campwin">${wins.length === RAID_DIFF_ORDER.length ? 'mastered' : 'broken ×' + wins.length}</span>` : '') : ' 🔒';
+      el.innerHTML = `<h3>${b.name}${tag}</h3><div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it in the campaign to earn your seat at this table.'}</div>`;
+      if (unlocked) el.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
       grid.appendChild(el);
     }
     body.appendChild(grid);
+    // Alpha bypass: ignore campaign locks while testing (default ON in alpha).
+    const arow = document.createElement('div');
+    arow.className = 'namerow';
+    const on = alphaUnlock();
+    const tog = document.createElement('button');
+    tog.className = 'botchip' + (on ? ' selected' : '');
+    tog.textContent = (on ? '✓ ' : '') + 'Alpha — all bosses unlocked';
+    tog.title = 'Alpha testing: ignore campaign locks. Turn this off to climb the ladder.';
+    tog.onclick = () => { setAlphaUnlock(!on); renderRaidSetup(); };
+    arow.appendChild(tog);
+    body.appendChild(arow);
     const back = document.createElement('button');
     back.className = 'btn'; back.textContent = '‹ Title';
     back.onclick = () => { closeModal('setupModal'); showTitle(); };
     btns.appendChild(back);
     return;
+  }
+  // Keep the chosen difficulty valid for this boss's unlock state.
+  if (!raidUnlocked(RAIDSET.boss, RAIDSET.diff)) {
+    RAIDSET.diff = RAID_DIFF_ORDER.find(d => raidUnlocked(RAIDSET.boss, d)) || 'easy';
   }
 
   // Step 2: the rest of the raid options.
@@ -3103,19 +3147,26 @@ function renderRaidSetup() {
     : '';
   body.innerHTML = `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
 
-  const section = (title, key, opts) => {
+  const section = (title, key, opts, state) => {
     const h = document.createElement('div');
     h.className = 'steptitle'; h.textContent = title; body.appendChild(h);
     const grid = document.createElement('div'); grid.className = 'optgrid';
     for (const o of opts) {
+      const st = state ? state(o) : {};
       const el = document.createElement('div');
-      el.className = 'bigopt' + (RAIDSET[key] === o.v ? ' selected' : '');
-      el.innerHTML = `<h3>${o.label}</h3><div class="bigoptdesc">${o.desc}</div>`;
-      el.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
+      el.className = 'bigopt' + (RAIDSET[key] === o.v ? ' selected' : '') + (st.locked ? ' locked' : '');
+      const tag = st.locked ? ' 🔒' : st.beaten ? ' <span class="campwin">✓</span>' : '';
+      el.innerHTML = `<h3>${o.label}${tag}</h3><div class="bigoptdesc">${st.locked ? (st.hint || 'Locked.') : o.desc}</div>`;
+      if (!st.locked) el.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
       grid.appendChild(el);
     }
     body.appendChild(grid);
   };
+  const diffState = o => ({
+    locked: !raidUnlocked(RAIDSET.boss, o.v),
+    beaten: campaignBeaten().has(`${RAIDSET.boss}-${o.v}`),
+    hint: 'Locked — win a lower difficulty here, or this difficulty against the previous boss, to unlock.',
+  });
 
   section('The party', 'ally', [
     { v: 'bot', label: 'You + an Ally bot', desc: 'The Old Hand fights at your side, AI-controlled.' },
@@ -3146,7 +3197,7 @@ function renderRaidSetup() {
     { v: 'easy', label: 'Easy — 5 stones', desc: 'The boss spends five stones. A coordinated party wins most fights.' },
     { v: 'standard', label: 'Standard — 6 stones', desc: 'Six stones, answering every move. A true coin-flip against good play.' },
     { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
-  ]);
+  ], diffState);
 
   section('How far to break it', 'target', [
     { v: 10, label: 'Skirmish — to 10', desc: 'A quick clash. High variance; one good hand swings it.' },
