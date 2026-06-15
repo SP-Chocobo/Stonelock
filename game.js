@@ -3634,23 +3634,37 @@ function renderRaidSetup() {
   btns.innerHTML = '';
 
   if (RAIDSET.step === 'boss') {
-    $('setupModal').querySelector('h2').textContent = 'Choose Your Boss';
-    body.innerHTML = '<p class="modalsub small">Three sit the high seat. Pick the one you mean to break.</p>';
-    const grid = document.createElement('div');
-    grid.className = 'optgrid';
+    $('setupModal').querySelector('h2').textContent = 'The Campaign';
+    body.innerHTML = '<p class="modalsub small">Climb the high seats in turn — break one to earn your place at the next.</p>';
     const beaten = campaignBeaten();
-    for (const b of RAID_BOSSES) {
+    // The frontier: the first unlocked boss you haven't yet mastered — your "next".
+    const frontier = RAID_BOSSES.findIndex(b => raidBossUnlocked(b.v) && !RAID_DIFF_ORDER.every(d => beaten.has(`${b.v}-${d}`)));
+    const trail = document.createElement('div');
+    trail.className = 'camptrail';
+    RAID_BOSSES.forEach((b, i) => {
       const unlocked = raidBossUnlocked(b.v);
       const wins = RAID_DIFF_ORDER.filter(d => beaten.has(`${b.v}-${d}`));
-      const el = document.createElement('div');
-      el.className = 'bigopt bosscard' + (unlocked ? '' : ' locked');
-      const tag = unlocked ? (wins.length ? ` <span class="campwin">${wins.length === RAID_DIFF_ORDER.length ? 'mastered' : 'broken ×' + wins.length}</span>` : '') : ' 🔒';
+      const mastered = wins.length === RAID_DIFF_ORDER.length;
+      const isFrontier = i === frontier;
+      const node = document.createElement('div');
+      node.className = 'campnode' + (unlocked ? '' : ' locked') + (isFrontier ? ' frontier' : '') + (mastered ? ' mastered' : '');
+      const status = !unlocked ? '🔒 Locked'
+        : mastered ? '★ Mastered'
+        : wins.length ? `Broken ×${wins.length}`
+        : isFrontier ? 'Your next challenge' : 'Unlocked';
+      const pips = RAID_DIFF_ORDER.map(d =>
+        `<span class="camppip${beaten.has(`${b.v}-${d}`) ? ' done' : ''}${!raidUnlocked(b.v, d) ? ' lk' : ''}" title="${d}"></span>`).join('');
       const portrait = portraitFor(b.name);
-      el.innerHTML = `${portrait ? `<div class="bossportrait" style="background-image:url('${portrait}')"></div>` : ''}<div class="bosstext"><h3>${b.name}${tag}</h3><div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it in the campaign to earn your seat at this table.'}</div></div>`;
-      if (unlocked) el.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
-      grid.appendChild(el);
-    }
-    body.appendChild(grid);
+      node.innerHTML =
+        `<div class="camprail"><div class="campstep">${mastered ? '★' : i + 1}</div></div>` +
+        (portrait ? `<div class="campportrait" style="background-image:url('${portrait}')"></div>` : '') +
+        `<div class="campinfo"><div class="camphead"><h3>${b.name}</h3><span class="campstatus">${status}</span></div>` +
+        `<div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it to earn your seat at this table.'}</div>` +
+        `<div class="camppips" title="Difficulties cleared">${pips}</div></div>`;
+      if (unlocked) node.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
+      trail.appendChild(node);
+    });
+    body.appendChild(trail);
     // Alpha bypass: ignore campaign locks while testing (default ON in alpha).
     const arow = document.createElement('div');
     arow.className = 'namerow';
