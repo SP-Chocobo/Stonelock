@@ -114,7 +114,7 @@ const matrix = [
   { mode: 'duel', deal: 'house', venue: 'docks' },
   { mode: 'ffa', deal: 'small', venue: 'hall' },
   { mode: 'ffa', deal: 'house', venue: 'slums' },
-  { mode: 'teams', deal: 'small', venue: 'court' },
+  { mode: 'teams', deal: 'small', venue: 'tavern' },
   { mode: 'teams', deal: 'house', venue: 'slums' },
   { mode: 'duel', deal: 'small', venue: 'academy' },
   { mode: 'ffa', deal: 'house', venue: 'academy' },

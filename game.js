@@ -43,7 +43,7 @@ const REGIONS = {
 // default opponents vary by table instead of always being The Stranger.
 const VENUES = {
   tavern: { region: 'bar', variant: null, label: 'The Roadside Tavern', desc: 'The Practical Common values. No house rules — the baseline game.', regulars: ['The Old Hand', 'The Tinker', 'The Deckhand', 'The Stranger'] },
-  court: { region: 'house', variant: null, label: 'The Sovereign Court', desc: 'Statecraft values — Chain, Crest, Quill high. Formal play, no deviations.', regulars: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'] },
+  court: { region: 'house', variant: 'precedence', label: 'The Court of Precedence', desc: 'Statecraft values, under the Writ of Precedence: stones go down FIRST, onto the empty slots, and wait — then you fill the slots with cards. The stones resolve in the order they were placed. Sequence is everything.', regulars: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'] },
   docks: { region: 'dock', variant: 'riverlock', label: 'The River Docks', desc: 'Fluvial Exchange values, under Riverlock: field a Road or Ferry among your final three, or the hand is docked 2 points.', regulars: ['The Ferryman', 'The Wagoner', 'The Deckhand', 'The Clerk'] },
   hall: { region: 'bar', variant: 'cursed', label: 'The Gambling Hall', desc: 'Common values, under the Cursed Register: each hand one card type is drawn cursed — it scores nothing and builds nothing.', regulars: ['The Stranger', 'The Lady', 'The Miner', 'The Tinker'] },
   slums: { region: 'bar', variant: 'slumlock', label: 'The Slum Tables', desc: 'Common values, under Slumlock: a stone placed this hand is exhausted for the next two hands.', regulars: ['The Miner', 'The Wagoner', 'The Stranger', 'The Ferryman'] },
@@ -322,15 +322,18 @@ function resolveArchivist(slotsIn, queue, reverse) {
 // placement order, or REVERSE on Hardcore. A global slot index is the seat's
 // footprint offset + local position, stable all hand (footprints are fixed).
 function archFP(o) { return footprintOf(o); }
-function archOffsets() { return { 0: 0, 1: archFP(0), 2: archFP(0) + archFP(1) }; }
+// Slot model generalized to any seat count: a global slot index is the running
+// footprint offset of seat o plus the local position. Used by both the Archivist
+// raid (3 seats) and the stone-first venue (2-4 seats).
+function archOffsets() { const off = {}; let acc = 0; for (let s = 0; s < G.nPlayers; s++) { off[s] = acc; acc += archFP(s); } return off; }
 function archGlobal(o, pos) { return archOffsets()[o] + pos; }
-function archLocal(gi) { const off = archOffsets(); for (const o of [2, 1, 0]) if (gi >= off[o]) return { o, pos: gi - off[o] }; return { o: 0, pos: gi }; }
+function archLocal(gi) { const off = archOffsets(); for (let o = G.nPlayers - 1; o >= 0; o--) if (gi >= off[o]) return { o, pos: gi - off[o] }; return { o: 0, pos: gi }; }
 function archOwnerOfSlot(gi) { return archLocal(gi).o; }
 function archCardAt(gi) { const { o, pos } = archLocal(gi); return G.players[o].board[pos] || null; }
 // The flat slot array the engine reads, built from board positions (null = empty).
 function archFlatSlots() {
   const flat = [];
-  for (const o of [0, 1, 2]) { const b = G.players[o].board; for (let pos = 0; pos < archFP(o); pos++) flat.push(b[pos] || null); }
+  for (let o = 0; o < G.nPlayers; o++) { const b = G.players[o].board; for (let pos = 0; pos < archFP(o); pos++) flat.push(b[pos] || null); }
   return flat;
 }
 function archSlotLabel(gi) {
@@ -363,14 +366,24 @@ function archQueueStone(actor, color, slot, swap) {
   announce(`${STONES[color].name} queued — ${lab}`, color, actor);
   render();
 }
-// Split a resolved flat-slot array into per-side scoring inputs (by slot range,
-// not by card — a swapped card scores for whoever's slots it ends up in).
-function archScoreSplit(resolvedSlots) {
+// Per-seat scores from a resolved flat-slot array (by slot range, not by card —
+// a swapped card scores for whoever's slots it ends up in). The boss scores its
+// two best hands; everyone else their single best.
+function archSeatScores(resolvedSlots) {
   const opts = variantOpts();
-  const seat = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: false }); } return cs; };
-  const party = bestSelection(seat(0), G.region.values, opts).score + bestSelection(seat(2), G.region.values, opts).score;
-  const boss = twoBestHands(seat(1), G.region.values, opts).score;
-  return { party, boss };
+  const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: false }); } return cs; };
+  return G.players.map(p => (isMagistrate(p.idx) ? twoBestHands : bestSelection)(cardsOf(p.idx), G.region.values, opts).score);
+}
+// What `who` is playing to maximize: own side's total minus the best rival side's.
+// Team-agnostic, so it serves the raid (party vs boss) and the venue (per-seat /
+// per-team) alike.
+function archObjective(who, resolvedSlots) {
+  const s = archSeatScores(resolvedSlots);
+  const teams = [...new Set(G.players.map(p => teamOf(p.idx)))];
+  const teamSum = t => G.players.filter(p => teamOf(p.idx) === t).reduce((a, p) => a + s[p.idx], 0);
+  const myTeam = teamOf(who);
+  const rivals = teams.filter(t => t !== myTeam).map(teamSum);
+  return teamSum(myTeam) - (rivals.length ? Math.max(...rivals) : 0);
 }
 // AI stone placement onto EMPTY slots (no cards yet, so this is positional):
 // lock/build your own slots, swap one of yours for an opponent's, undo a
@@ -381,7 +394,7 @@ function archAiPlaceSlots(who) {
   if (!p.active.length) return;
   const color = p.active[0];
   const ownSlots = []; for (let pos = 0; pos < archFP(who); pos++) ownSlots.push(archGlobal(who, pos));
-  const oppSeats = (who === 1) ? [0, 2] : [1];
+  const oppSeats = opponentsOf(who);
   const oppSlots = oppSeats.flatMap(o => { const a = []; for (let pos = 0; pos < archFP(o); pos++) a.push(archGlobal(o, pos)); return a; });
   const queuedAny = gi => G.archQueue.some(q => q.slot === gi || (q.color === 'blue' && q.swap === gi));
   const hasColor = (gi, c) => G.archQueue.some(q => q.slot === gi && q.color === c);
@@ -403,7 +416,7 @@ function archAiPlaceSlots(who) {
 function archAiCommit(seat, count, faceUp) {
   const p = G.players[seat];
   const reverse = archReverse();
-  const subRate = (seat === 1) ? archSub() : 0; // the boss occasionally takes its 2nd-best
+  const subRate = isMagistrate(seat) ? archSub() : 0; // the boss occasionally takes its 2nd-best
   for (let n = 0; n < count && p.hand.length; n++) {
     const emptyPos = []; for (let pos = 0; pos < archFP(seat); pos++) if (!p.board[pos]) emptyPos.push(pos);
     if (!emptyPos.length) break;
@@ -411,8 +424,7 @@ function archAiCommit(seat, count, faceUp) {
     for (const card of p.hand) {
       for (const pos of emptyPos) {
         p.board[pos] = card;
-        const s = archScoreSplit(resolveArchivist(archFlatSlots(), G.archQueue, reverse).slots);
-        const v = (seat === 1 ? s.boss - s.party : s.party - s.boss);
+        const v = archObjective(seat, resolveArchivist(archFlatSlots(), G.archQueue, reverse).slots);
         p.board[pos] = null;
         if (!best || v > best.v) { second = best; best = { v, card, pos }; }
         else if (!second || v > second.v) second = { v, card, pos };
@@ -434,7 +446,7 @@ function archAiCommit(seat, count, faceUp) {
 // for the final state, so every frame is exactly what the tested engine says.
 function archWriteState(slots) {
   const realById = {}; for (const c of G.cards) realById[c.id] = c;
-  const nb = { 0: new Array(archFP(0)).fill(null), 1: new Array(archFP(1)).fill(null), 2: new Array(archFP(2)).fill(null) };
+  const nb = {}; for (let o = 0; o < G.nPlayers; o++) nb[o] = new Array(archFP(o)).fill(null);
   slots.forEach((clone, gi) => {
     if (!clone) return;
     const { o, pos } = archLocal(gi);
@@ -445,7 +457,7 @@ function archWriteState(slots) {
     c.owner = o;
     nb[o][pos] = c;
   });
-  for (const o of [0, 1, 2]) G.players[o].board = nb[o];
+  for (let o = 0; o < G.nPlayers; o++) G.players[o].board = nb[o];
 }
 // Begin the animated playout: snapshot the committed board, fix the resolution
 // order, and expand the queue into one visible step per stone (with beats to
@@ -455,7 +467,7 @@ function archResolveBegin() {
   const reverse = archReverse();
   G.archSnapshot = archFlatSlots();
   G.archResOrder = reverse ? [...G.archQueue].reverse() : G.archQueue.slice();
-  log(`The Archivist reads the ledger ${reverse ? 'back to front — last placed fires first' : 'in placement order'}. The stones fire:`, 'sys');
+  log(`${isArchivist() ? 'The Archivist reads the ledger' : 'The writ is read'} ${reverse ? 'back to front — last placed fires first' : 'in placement order'}. The stones fire:`, 'sys');
   const steps = [];
   for (let k = 1; k <= G.archResOrder.length; k++) { steps.push({ t: 'archstep', k }); steps.push({ t: 'beat', ms: 850 }); }
   steps.push({ t: 'archfinal' });
@@ -480,10 +492,10 @@ function archShowStep(k) {
 }
 function archResolveFinal() {
   archWriteState(resolveArchivist(G.archSnapshot, G.archResOrder, false).slots);
-  for (const o of [0, 1, 2]) G.players[o].board = G.players[o].board.filter(Boolean);
+  for (let o = 0; o < G.nPlayers; o++) G.players[o].board = G.players[o].board.filter(Boolean);
   G.archivist = false; G.archSnapshot = null;
   UI.flashIds = G.players.flatMap(p => p.board).map(c => c.id);
-  announce(`The ledger resolves ${archReverse() ? 'in reverse' : 'in order'}`, null, 1);
+  announce(`The order resolves ${archReverse() ? 'in reverse' : 'in placement order'}`, null, isArchivist() ? 1 : G.viewer);
   render();
 }
 
@@ -593,6 +605,7 @@ function newGame(cfg) {
     cursed: ' The Cursed Register is declared: each hand, one card type is voided entirely.',
     slumlock: ' Slumlock is declared: a stone placed this hand is exhausted for the two that follow.',
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
+    precedence: ' The Writ of Precedence is declared: stones are placed first, onto the empty slots, then cards fill the slots — and the stones resolve in the order they were placed.',
   }[G.variant] || '';
   if (G.mode === 'raid' && G.raidBoss === 'archivist') {
     const bn = playerName(1);
@@ -716,6 +729,10 @@ function archParty() { return archCfg().party || 3; }
 function archSub() { return envNum('ARCH_SUB', archCfg().sub || 0); }
 function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
 function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
+// The Court of Precedence venue: the Archivist's stone-first inverted loop as a
+// normal-table house rule (forward resolution, any seat count).
+function isStoneFirst() { return G.variant === 'precedence'; }
+function isSlotMode() { return isArchivist() || isStoneFirst(); }
 // Placement/declare order: round the table, the boss answering and keeping the
 // last word(s). Party places 3 each; the boss archStones(). (Matches the order
 // the balance battery was tuned against.)
@@ -733,7 +750,7 @@ function archPlaceOrder(bossN, partyN) {
 }
 function archCfg() { return ARCH_DIFFS[G.raidDiff] || ARCH_DIFFS.standard; }
 function archStones() { return archCfg().stones; }
-function archReverse() { return !!archCfg().reverse; }
+function archReverse() { return isArchivist() && !!archCfg().reverse; } // reverse is the boss's Hardcore twist only
 function bossCardCount() { return isArchivist() ? archCfg().cards : RAID_BOSS_CARDS; }
 function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : boss === 'quartermaster' ? 'The Quartermaster' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
@@ -792,7 +809,7 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      active: gauntlet ? STONE_KEYS.filter(c => pool[c] > 0) : [], // raid arms active after telegraphing
+      active: (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [], // raid arms active after telegraphing
       aiPlan: null,
     });
   }
@@ -916,6 +933,27 @@ function startHand() {
     } else {
       G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
     }
+  } else if (isStoneFirst()) {
+    // The Court of Precedence: the Archivist's inverted loop as a house rule —
+    // stones go down FIRST onto the empty slots (two each, in turn), then players
+    // fill the slots with cards reading the open queue, and the stones resolve in
+    // placement order. Forward only (the boss owns reverse). Any seat count.
+    G.queue = [
+      dealNote,
+      { t: 'archinit' },
+      { t: 'phase', label: 'The Writ — Stones First', note: 'Place your stones onto the empty SLOTS, in turn — they wait in the writ, unfired. No cards yet.' },
+    ];
+    for (let r = 0; r < 2; r++) for (const w of dOrd) G.queue.push({ t: 'place', who: w });
+    G.queue.push({ t: 'phase', label: 'The Commitment', note: 'Now fill the slots with cards — read the open queue and place your cards to exploit it. The stones resolve in the order they were placed.' });
+    for (const d of dep) for (const w of dOrd) G.queue.push({ t: 'archcommit', seat: w, count: d.c, faceUp: d.up });
+    G.queue.push(
+      { t: 'discard' },
+      { t: 'beat', ms: 700 },
+      { t: 'phase', label: 'Precedence Resolves', note: 'The stones fire in placement order — what you read is what you get.' },
+      { t: 'archresolve' },
+      { t: 'beat', ms: 2200 },
+      { t: 'showdown' }
+    );
   } else if (gauntlet) {
     // No telegraphing, no thinning — commit the cards, then place all
     // four stones across four serpentine rounds (deal / reverse / …).
@@ -1139,7 +1177,7 @@ function executeStep(step) {
     case 'archinit':
       G.archivist = true;
       G.archQueue = [];
-      for (const o of [0, 1, 2]) G.players[o].board = new Array(footprintOf(o)).fill(null);
+      for (let o = 0; o < G.nPlayers; o++) G.players[o].board = new Array(footprintOf(o)).fill(null);
       break;
     case 'archcommit':
       if (!isHuman(step.seat)) archAiCommit(step.seat, step.count, step.faceUp);
@@ -2933,7 +2971,7 @@ function renderBoard(who, container) {
     }
     // The Archivist: paint the stones queued onto this slot, and make slots
     // clickable for stone-placement / card-commit.
-    if (isArchivist() && (G.archivist || (G.archQueue && G.archQueue.length))) {
+    if (isSlotMode() && (G.archivist || (G.archQueue && G.archQueue.length))) {
       const gi = archGlobal(who, i);
       const pend = archPendingOn(gi);
       if (pend.length) {
@@ -3645,10 +3683,10 @@ function raidUnlocked(boss, diff) {
 function raidBossUnlocked(boss) { return RAID_DIFF_ORDER.some(d => raidUnlocked(boss, d)); }
 
 /* ---- Venue unlocks: beat a boss (any difficulty) to earn its themed table ----
-   Warden→Slum Tables, Apothecary→Gambling Hall, Quartermaster→Academy Gauntlet.
-   (The reworked High Court will gate behind the Archivist once it's a stone-first
-   table.) Venues not listed here are always open. Alpha bypass opens all. */
-const VENUE_UNLOCK = { slums: 'warden', hall: 'apothecary', academy: 'quartermaster' };
+   Warden→Slum Tables, Apothecary→Gambling Hall, Quartermaster→Academy Gauntlet,
+   Archivist→Court of Precedence (its stone-first inverted loop as a house rule).
+   Venues not listed here are always open. Alpha bypass opens all. */
+const VENUE_UNLOCK = { slums: 'warden', hall: 'apothecary', academy: 'quartermaster', court: 'archivist' };
 function venueUnlocked(v) {
   if (alphaUnlock()) return true;
   const boss = VENUE_UNLOCK[v];
