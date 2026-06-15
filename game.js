@@ -3419,10 +3419,12 @@ function renderSetup() {
       const accbody = document.createElement('div');
       accbody.className = 'accbody';
       const buildOpt = (opt) => {
+        const locked = section.key === 'venue' && !venueUnlocked(opt.v);
         const el = document.createElement('div');
-        el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '');
+        el.className = 'bigopt' + (SETUP[section.key] === opt.v ? ' selected' : '') + (locked ? ' locked' : '');
         el.dataset.v = opt.v;
-        el.innerHTML = `<h3>${opt.label}</h3><div class="bigoptdesc">${opt.desc}</div>`;
+        el.innerHTML = `<h3>${opt.label}${locked ? ' 🔒' : ''}</h3><div class="bigoptdesc">${locked ? venueLockHint(opt.v) : opt.desc}</div>`;
+        if (locked) return el;
         el.onclick = () => {
           SETUP[section.key] = opt.v;
           // Changing the shape resets the players choice to that shape's
@@ -3641,6 +3643,20 @@ function raidUnlocked(boss, diff) {
   return false;
 }
 function raidBossUnlocked(boss) { return RAID_DIFF_ORDER.some(d => raidUnlocked(boss, d)); }
+
+/* ---- Venue unlocks: beat a boss (any difficulty) to earn its themed table ----
+   Warden→Slum Tables, Apothecary→Gambling Hall, Quartermaster→Academy Gauntlet.
+   (The reworked High Court will gate behind the Archivist once it's a stone-first
+   table.) Venues not listed here are always open. Alpha bypass opens all. */
+const VENUE_UNLOCK = { slums: 'warden', hall: 'apothecary', academy: 'quartermaster' };
+function venueUnlocked(v) {
+  if (alphaUnlock()) return true;
+  const boss = VENUE_UNLOCK[v];
+  if (!boss) return true; // a base / always-open table
+  const beaten = campaignBeaten();
+  return RAID_DIFF_ORDER.some(d => beaten.has(`${boss}-${d}`));
+}
+function venueLockHint(v) { return `Locked — beat <b>${raidBossName(VENUE_UNLOCK[v])}</b> in the campaign to earn this table.`; }
 
 function renderRaidSetup() {
   const body = $('setupBody');
