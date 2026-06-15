@@ -1885,30 +1885,16 @@ const LESSONS = [
     submenu: true,
   },
   {
-    id: 'hand', title: 'Lesson 3 — A Full Hand', blurb: 'Put cards and stones together, with light coaching.',
+    id: 'match', title: 'Lesson 3 — Winning the Match', blurb: 'Play a full hand on your own — and learn how a match is won.',
     cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
     intro: [
-      { sel: '.game', text: 'Now run a full hand yourself. The order: <b>telegraph</b> a stone, <b>commit</b> cards, <b>thin</b> to two stones, then <b>resolve</b> them — and the showdown settles it.' },
-      { sel: '.game', text: 'Think a step ahead. A stone you telegraph may be best <b>saved</b> for a later card, and what you <b>hide</b> is harder for the Stranger to attack. Play your read.' },
-    ],
-    live: {
-      declare: { sel: '#stoneTray', text: 'Telegraph a stone — plan or bluff.' },
-      thin: { sel: '#stoneTray', text: 'Abandon one stone; keep your two best.' },
-      place: { sel: '#stoneTray', text: 'Resolve a stone on its target.' },
-    },
-    showdown: '<b>Well played.</b> You ran a whole hand on your own. One lesson left — what all of this is <i>for</i>.',
-  },
-  {
-    id: 'match', title: 'Lesson 4 — Winning the Match', blurb: 'The ledger, turn order, and how a match is won.',
-    cfg: { mode: 'duel', deal: 'small', target: 10, targeting: 'standard' },
-    intro: [
-      { sel: '.ledger', text: 'This is <b>the ledger</b>. Win a showdown and the <b>Ledger Stone</b> slides toward your side by the point <b>difference</b> — win by 4, it moves 4.' },
-      { sel: '.ledger', text: 'Drive it the whole way to the target (here, <b>10</b>) and the match is yours. Lose hands, and it slides back the other way.' },
-      { sel: '#panels', text: 'The sidebar tracks each seat: the <b>Dealer Token</b> (it rotates each hand and sets turn order), the stones still in the pouch, and what’s been telegraphed.' },
-      { sel: '.game', text: 'That’s Stonelock: win hands by the most points, drive the ledger home. Play this match out — you’ve got the tools now.' },
+      { sel: '.ledger', text: 'Last lesson — and this time you run a <b>full hand on your own</b>, no step-by-step coaching. First, the goal: this is <b>the ledger</b>.' },
+      { sel: '.ledger', text: 'Win a showdown and the <b>Ledger Stone</b> slides toward your side by the point <b>difference</b> — win by 4, it moves 4. Drive it the whole way to the target and the match is yours; lose hands and it slides back.' },
+      { sel: '#panels', text: 'The sidebar tracks each seat: the <b>Dealer Token</b> (it rotates each hand and sets turn order), the stones left in the pouch, and what’s been telegraphed.' },
+      { sel: '.game', text: 'Now play the hand — telegraph, commit, thin, resolve — all yourself. Show what you’ve learned.' },
     ],
     live: {},
-    showdown: '<b>The ledger moves.</b> It shifts by your margin; first to drive it the full distance wins. From here, the Menu’s “New match” sets your own table — venue, format, length. Good luck out there.',
+    showdown: '<b>The ledger moves</b> by your margin — and first to drive it the full distance wins the match. That’s Stonelock, start to finish. From the title, set your own table — venue, format, length. Good luck out there.',
   },
 ];
 
@@ -2080,7 +2066,7 @@ function tutorialTick() {
 
 // The linear path through every runnable lesson — "Next" walks it straight,
 // no menu in between. (The Stones submenu is only for deliberate selection.)
-const LESSON_FLOW = ['cards', 'st-how', 'st-red', 'st-white', 'st-blue', 'st-black', 'hand', 'match'];
+const LESSON_FLOW = ['cards', 'st-how', 'st-red', 'st-white', 'st-blue', 'st-black', 'match'];
 
 function tutFinish() {
   const lesson = TUT.lesson;
@@ -2611,6 +2597,9 @@ function showShowdownModal(d, review) {
   // In a lesson, the coach drives ("Finish lesson") — hide the Next-hand button
   // so it can't deal another hand of the same lesson out from under the coaching.
   $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
+  // The peek/minimize machinery is for normal play; in a guided lesson it just
+  // lets you close the showdown out from under the coaching. Hide it.
+  $('showdownPeek').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
   m.classList.add('open');
 }
