@@ -78,6 +78,7 @@ const PERSONALITIES = {
   'The Magistrate': { red: 1.2, white: 1.3, blue: 1.2, black: 1.3, bluff: 0, risk: 1, skill: 1.0, flavor: 'Fields a wide board, face-up, and scores its two best hands. Powerful, methodical, and fair only in that it never bluffs.' },
   'The Archivist': { red: 1.1, white: 1.2, blue: 1.4, black: 1.5, bluff: 0, risk: 1, skill: 1.0, flavor: 'Files your every move in order, then reads the ledger back — sometimes front to back, sometimes back to front.' },
   'The Quartermaster': { red: 1.2, white: 1.3, blue: 1.2, black: 1.2, bluff: 0, risk: 1, skill: 1.0, flavor: 'Rations the pouch — one colour locked away each hand, for everyone, cycling as the match wears on.' },
+  'The Crucible': { red: 1.2, white: 1.3, blue: 1.3, black: 1.4, bluff: 0, risk: 1, skill: 1.0, flavor: 'Every trial at once — reverse order, colour-denial, exhaustion, and a buried Green scalpel.' },
   'The Warden': { red: 1.0, white: 1.2, blue: 1.5, black: 1.7, bluff: 0, risk: 0, skill: 1.0, flavor: 'Keeps one of every stone in hand and never wastes a hand of it — exhaustion be damned. It snuffs, steals, and locks without mercy.' },
   'The Tinker':   { red: 1.7, white: 1.2, blue: 0.7, black: 0.8, bluff: 0.12, risk: 1, skill: 0.93, flavor: 'In love with phantoms — reds everything, defends out of habit, and sometimes plays the wrong stone entirely.', bio: 'A tinkerer enchanted by phantoms — he Reds nearly everything, hunting Pairs and Triads that are not always there, and now and then fumbles the wrong stone entirely. Lethal when his duplicates land; gift-wrapped when they do not.' },
   'The Deckhand': { red: 1.0, white: 1.0, blue: 1.0, black: 1.0, bluff: 0.12, risk: 1, skill: 0.95, flavor: 'Plays it straight and even — no favorite stone, no grand plan.', bio: 'An honest pair of hands with no particular cunning. He spends whatever the moment asks for, favors no stone, and reads little into yours — a clean, even game with no exploitable habit and no real edge either. The fairest fight at the table.' },
@@ -278,7 +279,7 @@ function variantOpts() {
 // (locked slots block it); Black undoes the last resolved, not-yet-undone stone
 // on its slot. See docs/archivist-design.md.
 function resolveArchivist(slotsIn, queue, reverse) {
-  const slots = slotsIn.map(c => (c ? { ...c, phantom: !!c.phantom, locked: !!c.locked } : null));
+  const slots = slotsIn.map(c => (c ? { ...c, phantom: !!c.phantom, locked: !!c.locked, poisoned: !!c.poisoned } : null));
   const order = reverse ? [...queue].reverse() : queue.slice();
   const history = []; // applied effects in resolution order, for Black to undo
   const log = [];
@@ -291,6 +292,11 @@ function resolveArchivist(slotsIn, queue, reverse) {
     } else if (p.color === 'red') {
       if (slots[s] && !slots[s].locked && !slots[s].phantom) { slots[s].phantom = true; history.push({ slot: s, color: 'red', undone: false }); }
       else rec.fizzled = true;
+    } else if (p.color === 'green') {
+      // The Crucible's poison: voids the card in the slot. A White lock shields
+      // it; like White it cannot be undone (Black can't pull a Green).
+      if (slots[s] && !slots[s].locked && !slots[s].poisoned) { slots[s].poisoned = true; history.push({ slot: s, color: 'green', undone: false }); }
+      else rec.fizzled = true;
     } else if (p.color === 'blue') {
       const t = p.swap;
       if (slots[s] && slots[t] && !slots[s].locked && !slots[t].locked) {
@@ -298,13 +304,14 @@ function resolveArchivist(slotsIn, queue, reverse) {
         history.push({ slot: s, color: 'blue', swap: t, undone: false });
       } else rec.fizzled = true;
     } else if (p.color === 'black') {
-      // White is an untouchable shield: a locked slot can't be undone at all, and
-      // Black never pulls a White. It undoes the last resolved Red or Blue.
+      // White and Green are untouchable shields: a locked/poisoned-by-shield slot
+      // blocks Black, and Black never pulls a White or Green. It undoes the last
+      // resolved Red or Blue.
       let h = null;
       for (let i = history.length - 1; i >= 0; i--) {
         const e = history[i];
         if (e.slot !== s || e.undone) continue;
-        if (e.color === 'white') break; // the lock shields everything beneath it
+        if (e.color === 'white' || e.color === 'green') break; // shields everything beneath
         h = e; break;
       }
       if (h) {
@@ -374,7 +381,7 @@ function archQueueStone(actor, color, slot, swap) {
 // two best hands; everyone else their single best.
 function archSeatScores(resolvedSlots) {
   const opts = variantOpts();
-  const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: false }); } return cs; };
+  const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: !!c.poisoned }); } return cs; };
   return G.players.map(p => (isMagistrate(p.idx) ? twoBestHands : bestSelection)(cardsOf(p.idx), G.region.values, opts).score);
 }
 // What `who` is playing to maximize: own side's total minus the best rival side's.
@@ -404,6 +411,9 @@ function archAiPlaceSlots(who) {
   let slot = null, swap;
   if (color === 'white' || color === 'red') {
     slot = ownSlots.find(gi => !hasColor(gi, color)) ?? ownSlots[0];
+  } else if (color === 'green') {
+    // The Crucible's poison: drop it on an opponent slot not already poisoned/locked.
+    slot = oppSlots.find(gi => !hasColor(gi, 'green') && !hasColor(gi, 'white')) ?? oppSlots[0];
   } else if (color === 'blue') {
     slot = ownSlots.find(gi => !queuedAny(gi)) ?? ownSlots[ownSlots.length - 1];
     swap = oppSlots.find(gi => !G.archQueue.some(q => q.color === 'blue' && (q.slot === gi || q.swap === gi))) ?? oppSlots[0];
@@ -454,9 +464,10 @@ function archWriteState(slots) {
     if (!clone) return;
     const { o, pos } = archLocal(gi);
     const c = realById[clone.id];
-    c.stones = c.stones.filter(s => s.color !== 'white' && s.color !== 'red');
+    c.stones = c.stones.filter(s => s.color !== 'white' && s.color !== 'red' && s.color !== 'green');
     if (clone.phantom) c.stones.push({ color: 'red', by: o });
     if (clone.locked) c.stones.push({ color: 'white', by: o });
+    if (clone.poisoned) c.stones.push({ color: 'green', by: 1 });
     c.owner = o;
     nb[o][pos] = c;
   });
@@ -559,14 +570,14 @@ function newGame(cfg) {
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
-    deal: raid ? 'small' : cfg.deal,
+    deal: raid ? (cfg.raidBoss === 'crucible' ? 'house' : 'small') : cfg.deal, // the Crucible forces the deep draw
     target: cfg.target,
     venue,
     variant: raid ? null : venue.variant,
     raidBoss: raid ? (cfg.raidBoss || 'magistrate') : null,
     // Stone exhaustion: Slumlock venue = 2 hands; the Warden raid = 1.
-    exhaustHands: raid ? (cfg.raidBoss === 'warden' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
-    open: cfg.targeting === 'open' || (raid && cfg.raidBoss === 'archivist'), // advanced: any stone, any layout (Archivist forces it on — cross-layout slot war)
+    exhaustHands: raid ? (cfg.raidBoss === 'warden' || cfg.raidBoss === 'crucible' ? 1 : 0) : (venue.variant === 'slumlock' ? 2 : 0),
+    open: cfg.targeting === 'open' || (raid && (cfg.raidBoss === 'archivist' || cfg.raidBoss === 'crucible')), // advanced forced for the slot bosses (cross-layout slot war)
     archivist: false, // The Archivist: true only during its deferred placement phase
     archQueue: [],    // ordered slot placements awaiting resolution
     cardsOnly: !!cfg.cardsOnly, // Academy Lesson 1: cards with no stone phases
@@ -610,7 +621,10 @@ function newGame(cfg) {
     gauntlet: ' The Gauntlet: no telegraphing or thinning — every player holds one of each stone and places all four in serpentine order.',
     precedence: ' The Writ of Precedence is declared: stones are placed first, onto the empty slots, then cards fill the slots — and the stones resolve in the order they were placed.',
   }[G.variant] || '';
-  if (G.mode === 'raid' && G.raidBoss === 'archivist') {
+  if (G.mode === 'raid' && isCrucible()) {
+    const bn = playerName(1);
+    log(`${bn} — the Crucible. Every trial at once: the inverted slot order resolved BACK TO FRONT, one stone-colour locked from the whole table each hand, every stone exhausted for a hand, a deep draw, advanced targeting forced — and a single Green scalpel the boss may bury anywhere. It opens ${bossCardCount()} cards and queues ${archStones()} stones plus the Green; the party places ${archParty()} each. Break it if you can.`, 'sys');
+  } else if (G.mode === 'raid' && G.raidBoss === 'archivist') {
     const bn = playerName(1);
     log(`${bn} takes the high seat — a ${archCfg().label} raid. The order is inverted: both sides commit their layouts, then place stones onto the SLOTS — they do not fire as they land. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} opens ${bossCardCount()} cards face-up and queues ${archStones()} stones. When all are down, the ledger resolves ${archReverse() ? 'BACK TO FRONT — last placed fires first' : 'in placement order'}. Read the queue, commit your cards around it. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
   } else if (G.mode === 'raid') {
@@ -737,10 +751,15 @@ function archParty() { return archCfg().party || 3; }
 function archSub() { return envNum('ARCH_SUB', archCfg().sub || 0); }
 function archHoldback() { return envNum('ARCH_HB', archCfg().hold ?? 0); }
 function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist'; }
+// The Crucible super boss: every layer at once — the Archivist's inverted slot
+// loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
+// Green stone for the boss, deep draw + forced advanced. One difficulty.
+function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
+const CRUCIBLE = { cards: 8, stones: 7, party: 3, sub: 0, reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
-function isSlotMode() { return isArchivist() || isStoneFirst(); }
+function isSlotMode() { return isArchivist() || isCrucible() || isStoneFirst(); }
 // Placement/declare order: round the table, the boss answering and keeping the
 // last word(s). Party places 3 each; the boss archStones(). (Matches the order
 // the balance battery was tuned against.)
@@ -756,17 +775,17 @@ function archPlaceOrder(bossN, partyN) {
   }
   return order;
 }
-function archCfg() { return ARCH_DIFFS[G.raidDiff] || ARCH_DIFFS.standard; }
+function archCfg() { return isCrucible() ? CRUCIBLE : (ARCH_DIFFS[G.raidDiff] || ARCH_DIFFS.standard); }
 function archStones() { return archCfg().stones; }
-function archReverse() { return isArchivist() && !!archCfg().reverse; } // reverse is the boss's Hardcore twist only
-function bossCardCount() { return isArchivist() ? archCfg().cards : RAID_BOSS_CARDS; }
-function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : boss === 'quartermaster' ? 'The Quartermaster' : 'The Magistrate'; }
+function archReverse() { return (isArchivist() || isCrucible()) && !!archCfg().reverse; } // reverse: Archivist Hardcore + the Crucible
+function bossCardCount() { return (isArchivist() || isCrucible()) ? archCfg().cards : RAID_BOSS_CARDS; }
+function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : boss === 'quartermaster' ? 'The Quartermaster' : boss === 'crucible' ? 'The Crucible' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
 // The Quartermaster rations the pouch: each hand one stone-colour is locked away
 // from EVERYONE (party and boss), cycling red→white→blue→black hand by hand —
-// you can't lean on a favourite. Also folded into the super boss.
+// you can't lean on a favourite. Also folded into the Crucible.
 function isQuartermaster() { return G.mode === 'raid' && G.raidBoss === 'quartermaster'; }
-function deniedColor() { return (isQuartermaster() || G.superBoss) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
+function deniedColor() { return (isQuartermaster() || isCrucible()) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
 function footprintOf(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().footprint; }
 function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().handSize; }
 
@@ -850,11 +869,13 @@ function startHand() {
   const dep = spec.deploys;
   const dealNote = { t: 'phase', label: `Hand ${G.handNum} — The Deal`, note: `${playerName(G.dealer)} hold${G.dealer === 0 ? '' : 's'} the Dealer Token. ${spec.handSize} cards each from a fresh-shuffled pool.` };
 
-  if (raid && G.raidBoss === 'archivist') {
-    // The Archivist: inverted loop. Select stones → queue them onto EMPTY slots
-    // (blind, nothing fires) → THEN commit cards into the slots, reading the open
-    // queue → the ledger resolves in placement order (Easy/Standard) or REVERSE
-    // (Hardcore). No card is played until every stone is down.
+  if (raid && (G.raidBoss === 'archivist' || isCrucible())) {
+    // The Archivist (and the Crucible, which reuses this inverted loop): select
+    // stones → queue them onto EMPTY slots (blind) → commit cards into the slots →
+    // resolve in placement order, or REVERSE (Archivist Hardcore / the Crucible).
+    // The Crucible also adds a lone Green for the boss, plus colour-denial and
+    // one-hand exhaustion handled in the pool build. No card plays until all stones
+    // are down.
     const bn = playerName(1);
     const bc = bossCardCount();
     const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
@@ -872,17 +893,20 @@ function startHand() {
       { t: 'phase', label: 'The Placement', note: `Place your stones onto the empty SLOTS, in turn — no cards yet. They wait in the ledger, unfired. ${bn} answers.` }
     );
     for (const w of order) G.queue.push({ t: 'place', who: w });
+    // The Crucible's lone Green: one extra boss placement, last (its scalpel).
+    if (isCrucible()) G.queue.push({ t: 'place', who: 1 });
     // Commitment is interleaved round-the-table (like the Magistrate) so neither
     // side gets a clean last look — the informational edge is shared. The boss
     // files its bc cards across four turns; the party two face-up, then two veiled.
     const turns = 4, base = Math.floor(bc / turns), bch = new Array(turns).fill(base);
     for (let i = 0, rem = bc - base * turns; rem > 0; i = (i + 1) % turns, rem--) bch[i]++;
+    const pf = footprintOf(0), pUp = Math.min(2, pf), pDown = pf - pUp; // party fills its whole footprint (4 small / 5 deep)
     G.queue.push(
       { t: 'phase', label: 'The Commitment', note: `Now fill the slots, round by round — read the open queue and place your cards to exploit it. When all are down, the ledger resolves ${dir}.` },
-      { t: 'archcommit', seat: 0, count: 2, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[0], faceUp: true },
-      { t: 'archcommit', seat: 2, count: 2, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[1], faceUp: true },
-      { t: 'archcommit', seat: 0, count: 2, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[2], faceUp: true },
-      { t: 'archcommit', seat: 2, count: 2, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[3], faceUp: true },
+      { t: 'archcommit', seat: 0, count: pUp, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[0], faceUp: true },
+      { t: 'archcommit', seat: 2, count: pUp, faceUp: true }, { t: 'archcommit', seat: 1, count: bch[1], faceUp: true },
+      { t: 'archcommit', seat: 0, count: pDown, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[2], faceUp: true },
+      { t: 'archcommit', seat: 2, count: pDown, faceUp: false }, { t: 'archcommit', seat: 1, count: bch[3], faceUp: true },
       { t: 'discard' },
       { t: 'beat', ms: 700 },
       { t: 'phase', label: 'The Ledger Resolves', note: `The stones fire ${dir}. Read it right and your value lands; misread the order and it fizzles.` },
@@ -1179,6 +1203,7 @@ function executeStep(step) {
       break;
     case 'raidarm':
       for (const p of G.players) p.active = p.declared.slice(); // spend from the telegraphed pool
+      if (isCrucible()) G.players[1].active.push('green'); // the boss's lone scalpel, always at hand
       G.armed = true;
       break;
     case 'thin':
@@ -3691,6 +3716,7 @@ const RAID_BOSSES = [
   { v: 'apothecary', name: 'The Apothecary', lore: 'A healer who deals in poisons. It fields a wide board and spends fewer ordinary stones than the others — because it always keeps a Green Stone for the last word, cutting the single best card you left unlocked to nothing. You cannot answer the scalpel after it falls; lock what matters most before it does.' },
   { v: 'quartermaster', name: 'The Quartermaster', lore: 'Keeper of the pouch. Each hand it locks away one stone-colour from the whole table — yours and its own — cycling red → white → blue → black as the match wears on. You can never settle into a favourite; every hand demands a different plan. It fields a wide board and scores its two best hands. Beat it to earn the Academy Gauntlet, where every stone is always at hand.' },
   { v: 'archivist', name: 'The Archivist', lore: 'A keeper of records who inverts the game. Both sides commit their layouts, then place stones onto the SLOTS — and nothing fires until every stone is down. The ledger then resolves in the order the stones were placed… or, on Hardcore, BACK TO FRONT. A boss of sequence and priority: read the queue, commit your cards around it, and win the order war. Advanced targeting is forced — it is a war for position across every layout.' },
+  { v: 'crucible', name: 'The Crucible', super: true, lore: 'The final trial — every boss’s method at once. The inverted slot order, read BACK TO FRONT. One stone-colour locked from the whole table each hand. Every stone exhausted for a hand. A deep draw, advanced targeting forced — and a single Green scalpel the boss may bury anywhere, unanswerable. One difficulty: brutal. Earned only by breaking every other boss on Hardcore.' },
 ];
 
 /* ---- Campaign progression ----
@@ -3708,6 +3734,8 @@ function alphaUnlock() { const v = ls.get('stonelock-alpha'); return v === null 
 function setAlphaUnlock(on) { ls.set('stonelock-alpha', on ? '1' : '0'); }
 function raidUnlocked(boss, diff) {
   if (alphaUnlock()) return true;
+  // The Crucible: one trial, earned only by breaking every other boss on Hardcore.
+  if (boss === 'crucible') return RAID_BOSSES.filter(b => b.v !== 'crucible').every(b => campaignBeaten().has(`${b.v}-hard`));
   const bosses = RAID_BOSSES.map(b => b.v);
   const bi = bosses.indexOf(boss), di = RAID_DIFF_ORDER.indexOf(diff);
   if (bi === 0 && di === 0) return true; // the entry point
@@ -3787,11 +3815,15 @@ function renderRaidSetup() {
   const isApothecary = RAIDSET.boss === 'apothecary';
   const isArch = RAIDSET.boss === 'archivist';
   const isQM = RAIDSET.boss === 'quartermaster';
+  const isCru = RAIDSET.boss === 'crucible';
+  if (isCru) RAIDSET.diff = 'hard'; // the Crucible has a single trial
   const extra = isWarden ? ' <b>The Warden</b> spends ruthlessly, and every stone spent is <b>exhausted for a hand</b> — for both sides.'
     : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
     : isQM ? ' <b>The Quartermaster</b> locks away one stone-colour from the whole table each hand — yours and its own — cycling <b>red → white → blue → black</b>. You can never lean on a favourite.'
     : '';
-  body.innerHTML = isArch
+  body.innerHTML = isCru
+    ? `<p class="modalsub small"><b>The Crucible</b> — every trial at once. The inverted slot order, resolved <b>back to front</b>; one stone-colour <b>locked from the whole table</b> each hand; every stone <b>exhausted for a hand</b>; a <b>deep draw</b>, <b>advanced targeting forced</b>; and a single <b>Green scalpel</b> the boss may bury anywhere, unanswerable. <b>One difficulty — brutal.</b> Read everything, commit around it, and survive.</p>`
+    : isArch
     ? `<p class="modalsub small"><b>The Archivist</b> inverts the game. Both sides commit their layouts (it opens its full board face-up), then place stones onto the <b>slots</b> — nothing fires until every stone is down. The ledger then resolves <b>in placement order</b>, or, on Hardcore, <b>back to front</b>. It scores its <b>two best non-overlapping hands</b>; your two scores combine. <b>Advanced targeting is forced</b> — a war for position across every layout. Read the queue, commit your cards around it, and win the order war.</p>`
     : `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
 
@@ -3856,7 +3888,7 @@ function renderRaidSetup() {
     body.appendChild(row);
   }
 
-  section('Difficulty', 'diff', isArch ? [
+  if (!isCru) section('Difficulty', 'diff', isArch ? [
     { v: 'easy', label: 'Easy — forward', desc: 'Your party comes loaded — five stones each against the boss’s three — resolving in placement order. What you read is what you get; you win most fights.' },
     { v: 'standard', label: 'Standard — forward', desc: 'Six stones, resolving in placement order, and it plays its records shrewdly. A true coin-flip — read the open queue and commit your cards around it.' },
     { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Your forward reads betray you; interactions flip and fizzle. A sequencing brain-bender.' },
@@ -3876,10 +3908,10 @@ function renderRaidSetup() {
     { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
   ]);
 
-  if (isArch) {
+  if (isArch || isCru) {
     const note = document.createElement('div');
     note.className = 'rolesline';
-    note.innerHTML = 'Targeting: <b>Advanced (forced)</b> — the Archivist is a war for position; every stone reaches every layout.';
+    note.innerHTML = `Targeting: <b>Advanced (forced)</b> — ${isCru ? 'the Crucible' : 'the Archivist'} is a war for position; every stone reaches every layout.`;
     body.appendChild(note);
   } else {
     section('Targeting', 'targeting', [
