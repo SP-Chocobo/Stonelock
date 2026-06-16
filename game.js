@@ -755,7 +755,7 @@ function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist';
 // loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
 // Green stone for the boss, deep draw + forced advanced. One difficulty.
 function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
-const CRUCIBLE = { cards: envNum('CRU_C', 9), foot: envNum('CRU_F', 4), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), green: envNum('CRU_G', 2), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
+const CRUCIBLE = { cards: envNum('CRU_C', 9), foot: envNum('CRU_F', 4), hand: envNum('CRU_H', 9), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), green: envNum('CRU_G', 2), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
@@ -789,7 +789,7 @@ function deniedColor() { return (isQuartermaster() || isCrucible()) ? STONE_KEYS
 // The Crucible keeps the deep DRAW (9 in hand) but fields a LEAN footprint — you
 // see lots, commit few — so the party can't out-score the boss on raw selection.
 function footprintOf(seat) { return isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint); }
-function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : dealSpec().handSize; }
+function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().hand || dealSpec().handSize) : dealSpec().handSize); }
 
 
 function orderFrom(start) {
