@@ -755,7 +755,7 @@ function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist';
 // loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
 // Green stone for the boss, deep draw + forced advanced. One difficulty.
 function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
-const CRUCIBLE = { cards: 8, stones: 7, party: 3, sub: 0, reverse: true, label: 'The Crucible' };
+const CRUCIBLE = { cards: envNum('CRU_C', 8), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
@@ -1537,9 +1537,10 @@ function consumeActive(who, color) {
   const a = G.players[who].active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
-  // Exhaustion (Slumlock / the Warden): a placed stone is unavailable
-  // for the next G.exhaustHands hands.
-  if (G.exhaustHands) G.slum[who].push({ color, until: G.handNum + G.exhaustHands });
+  // Exhaustion (Slumlock / the Warden): a placed stone is unavailable for the next
+  // G.exhaustHands hands. The Crucible exhausts the PARTY only — the boss keeps its
+  // pouch full (otherwise it disarms itself spending 7 stones + a Green each hand).
+  if (G.exhaustHands && !(isCrucible() && who === 1)) G.slum[who].push({ color, until: G.handNum + G.exhaustHands });
 }
 
 function slumBlocked(who, color) {
