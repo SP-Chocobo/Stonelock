@@ -3756,7 +3756,7 @@ function renderRaidSetup() {
       const status = !unlocked ? '🔒 Locked'
         : mastered ? '★ Mastered'
         : wins.length ? `Broken ×${wins.length}`
-        : isFrontier ? 'Your next challenge' : 'Unlocked';
+        : isFrontier ? 'Up Next' : 'Unlocked';
       const pips = RAID_DIFF_ORDER.map(d =>
         `<span class="camppip${beaten.has(`${b.v}-${d}`) ? ' done' : ''}${!raidUnlocked(b.v, d) ? ' lk' : ''}" title="${d}"></span>`).join('');
       const portrait = portraitFor(b.name);
