@@ -20,7 +20,7 @@ for (let i = 0; i < 8; i++) {
     if (guard++ > 120000) assert(false, 'Crucible did not terminate');
     if (!G.queue.length) {
       assert(G.players[1].board.length === 9, 'boss fields nine, got ' + G.players[1].board.length);
-      assert(G.players[0].board.length === 5 && G.players[2].board.length === 5, 'party fields its full deep footprint (5)');
+      assert(G.players[0].board.length === 4 && G.players[2].board.length === 4, 'party fields the lean footprint (4) off the deep draw');
       assert(!G.archivist, 'slot mode cleared after the hand');
       assert(G.players.flatMap(p => p.board).every(c => !c.queued || !c.queued.length), 'no pending stones linger');
       if (G.players.flatMap(p => p.board).some(c => c.stones.some(s => s.color === 'green'))) greenLandings++;
