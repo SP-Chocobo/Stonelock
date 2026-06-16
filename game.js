@@ -755,7 +755,7 @@ function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist';
 // loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
 // Green stone for the boss, deep draw + forced advanced. One difficulty.
 function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
-const CRUCIBLE = { cards: envNum('CRU_C', 8), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
+const CRUCIBLE = { cards: envNum('CRU_C', 9), stones: envNum('CRU_S', 4), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
@@ -880,7 +880,19 @@ function startHand() {
     const bc = bossCardCount();
     const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
     const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0); // may hold one back (eases the tier)
-    const order = archPlaceOrder(bossN);
+    let order;
+    if (isCrucible()) {
+      // The Crucible brackets the order war: the boss opens with half its stones and
+      // closes with the rest. Under reverse resolution those bracket the playout —
+      // the boss gets both the first and the last word.
+      const openN = Math.ceil(bossN / 2), closeN = bossN - openN;
+      order = [];
+      for (let i = 0; i < openN; i++) order.push(1);
+      for (let r = 0; r < archParty(); r++) for (const w of [0, 2]) order.push(w);
+      for (let i = 0; i < closeN; i++) order.push(1);
+    } else {
+      order = archPlaceOrder(bossN);
+    }
     G.queue = [
       dealNote,
       { t: 'phase', label: 'Choose Your Stones', note: `Select the stones you will spend — shown to the table, kept in full. The party picks ${archParty()} each; ${bn}, ${bossN}.` },
