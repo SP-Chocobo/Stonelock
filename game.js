@@ -755,7 +755,7 @@ function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist';
 // loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
 // Green stone for the boss, deep draw + forced advanced. One difficulty.
 function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
-const CRUCIBLE = { cards: envNum('CRU_C', 9), stones: envNum('CRU_S', 4), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
+const CRUCIBLE = { cards: envNum('CRU_C', 9), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
@@ -882,14 +882,20 @@ function startHand() {
     const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0); // may hold one back (eases the tier)
     let order;
     if (isCrucible()) {
-      // The Crucible brackets the order war: the boss opens with half its stones and
-      // closes with the rest. Under reverse resolution those bracket the playout —
-      // the boss gets both the first and the last word.
-      const openN = Math.ceil(bossN / 2), closeN = bossN - openN;
-      order = [];
-      for (let i = 0; i < openN; i++) order.push(1);
-      for (let r = 0; r < archParty(); r++) for (const w of [0, 2]) order.push(w);
-      for (let i = 0; i < closeN; i++) order.push(1);
+      // The Crucible weaves the order war: the boss opens with 2 stones, spreads the
+      // rest evenly through the party's placements, and closes with 2. Under reverse
+      // resolution it threads first, middle, and last — pressure all the way down.
+      const party = [];
+      for (let r = 0; r < archParty(); r++) for (const w of [0, 2]) party.push(w);
+      const mid = Math.max(0, bossN - 4); // 2 open + mid + 2 close = bossN
+      const middle = [];
+      let placed = 0;
+      for (let i = 0; i < party.length; i++) {
+        while (placed < mid && i >= party.length * (placed + 1) / (mid + 1)) { middle.push(1); placed++; }
+        middle.push(party[i]);
+      }
+      while (placed < mid) { middle.push(1); placed++; }
+      order = [1, 1, ...middle, 1, 1];
     } else {
       order = archPlaceOrder(bossN);
     }
