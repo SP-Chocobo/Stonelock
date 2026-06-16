@@ -623,7 +623,7 @@ function newGame(cfg) {
   }[G.variant] || '';
   if (G.mode === 'raid' && isCrucible()) {
     const bn = playerName(1);
-    log(`${bn} — the Crucible. Every trial at once: the inverted slot order resolved BACK TO FRONT, one stone-colour locked from the whole table each hand, every stone exhausted for a hand, a deep draw, advanced targeting forced — and a single Green scalpel the boss may bury anywhere. It opens ${bossCardCount()} cards and queues ${archStones()} stones plus the Green; the party places ${archParty()} each. Break it if you can.`, 'sys');
+    log(`${bn} — the Crucible. Every trial at once: the inverted slot order resolved BACK TO FRONT, one stone-colour locked from the whole table each hand, every stone exhausted for a hand, a deep draw, advanced targeting forced — and a single Green scalpel the boss may bury anywhere. It opens ${bossCardCount()} cards and queues ${archStones()} stones — ${archCfg().green} of them Green scalpels, immune to the colour-denial; the party places ${archParty()} each. Break it if you can.`, 'sys');
   } else if (G.mode === 'raid' && G.raidBoss === 'archivist') {
     const bn = playerName(1);
     log(`${bn} takes the high seat — a ${archCfg().label} raid. The order is inverted: both sides commit their layouts, then place stones onto the SLOTS — they do not fire as they land. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} opens ${bossCardCount()} cards face-up and queues ${archStones()} stones. When all are down, the ledger resolves ${archReverse() ? 'BACK TO FRONT — last placed fires first' : 'in placement order'}. Read the queue, commit your cards around it. It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
@@ -755,7 +755,7 @@ function isArchivist() { return G.mode === 'raid' && G.raidBoss === 'archivist';
 // loop resolved in REVERSE, colour-denial each hand, one-hand exhaustion, a lone
 // Green stone for the boss, deep draw + forced advanced. One difficulty.
 function isCrucible() { return G.mode === 'raid' && G.raidBoss === 'crucible'; }
-const CRUCIBLE = { cards: envNum('CRU_C', 9), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
+const CRUCIBLE = { cards: envNum('CRU_C', 9), stones: envNum('CRU_S', 7), party: envNum('CRU_P', 3), green: envNum('CRU_G', 3), sub: envNum('CRU_SUB', 0), reverse: true, label: 'The Crucible' };
 // The Court of Precedence venue: the Archivist's stone-first inverted loop as a
 // normal-table house rule (forward resolution, any seat count).
 function isStoneFirst() { return G.variant === 'precedence'; }
@@ -911,8 +911,8 @@ function startHand() {
       { t: 'phase', label: 'The Placement', note: `Place your stones onto the empty SLOTS, in turn — no cards yet. They wait in the ledger, unfired. ${bn} answers.` }
     );
     for (const w of order) G.queue.push({ t: 'place', who: w });
-    // The Crucible's lone Green: one extra boss placement, last (its scalpel).
-    if (isCrucible()) G.queue.push({ t: 'place', who: 1 });
+    // (The Crucible's Greens are woven into the boss's active mix at raidarm, so
+    // they ride the normal placement steps — no extra step needed.)
     // Commitment is interleaved round-the-table (like the Magistrate) so neither
     // side gets a clean last look — the informational edge is shared. The boss
     // files its bc cards across four turns; the party two face-up, then two veiled.
@@ -1221,7 +1221,19 @@ function executeStep(step) {
       break;
     case 'raidarm':
       for (const p of G.players) p.active = p.declared.slice(); // spend from the telegraphed pool
-      if (isCrucible()) G.players[1].active.push('green'); // the boss's lone scalpel, always at hand
+      if (isCrucible()) {
+        // Swap a few of the boss's colored stones for Green scalpels, interleaved
+        // evenly so they thread through its placements like any other stone.
+        const g = archCfg().green || 0;
+        const colored = G.players[1].active.slice(0, Math.max(0, G.players[1].active.length - g));
+        const mix = []; let gi = 0;
+        for (let i = 0; i < colored.length; i++) {
+          while (gi < g && i >= colored.length * gi / g) { mix.push('green'); gi++; }
+          mix.push(colored[i]);
+        }
+        while (gi < g) { mix.push('green'); gi++; }
+        G.players[1].active = mix;
+      }
       G.armed = true;
       break;
     case 'thin':
