@@ -712,6 +712,7 @@ const envNum = (k, d) => (typeof process !== 'undefined' && process.env[k] !== u
 const RAID_HOLDBACK = {
   'magistrate-hard': envNum('MAG_HARD_HB', 0.45), // eased toward ~30% at the locked target-15
   'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
+  'warden-hard': envNum('WAR_HARD_HB', 0.75),     // party-only exhaustion makes 7 stones brutal (~7%); hold back to ~30
   // The Apothecary's cut is worth far more than one stone, so it spends several
   // fewer regular ones (APOTH_DROP_BY_DIFF) and these hold-backs fine-tune the
   // tiers: measured ~easy 70% / standard ~55% / hardcore ~25% vs competent,
@@ -748,7 +749,7 @@ const QM_BONUS = { easy: envNum('QM_E_BONUS', 0.45), standard: envNum('QM_S_BONU
 const ARCH_DIFFS = {
   easy:     { cards: envNum('ARCH_E_C', 7), stones: envNum('ARCH_E_S', 3), party: envNum('ARCH_E_P', 5), sub: 0,   reverse: false, label: 'Easy' },
   standard: { cards: envNum('ARCH_S_C', 7), stones: envNum('ARCH_S_S', 6), party: envNum('ARCH_S_P', 3), sub: 0.15, reverse: false, label: 'Standard' },
-  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), party: envNum('ARCH_H_P', 3), sub: 0,   reverse: true,  label: 'Hardcore' },
+  hard:     { cards: envNum('ARCH_H_C', 7), stones: envNum('ARCH_H_S', 6), party: envNum('ARCH_H_P', 2), sub: 0,   reverse: true,  label: 'Hardcore' },
 };
 function archParty() { return archCfg().party || 3; }
 function archSub() { return envNum('ARCH_SUB', archCfg().sub || 0); }
@@ -1575,7 +1576,11 @@ function consumeActive(who, color) {
   // Exhaustion (Slumlock / the Warden): a placed stone is unavailable for the next
   // G.exhaustHands hands. The Crucible exhausts the PARTY only — the boss keeps its
   // pouch full (otherwise it disarms itself spending 7 stones + a Green each hand).
-  if (G.exhaustHands && !(isCrucible() && who === 1)) G.slum[who].push({ color, until: G.handNum + G.exhaustHands });
+  // The Crucible and the Warden exhaust the PARTY only — the boss keeps its pouch
+  // full (symmetric exhaustion self-caps the boss's difficulty). Slumlock venue
+  // still exhausts everyone.
+  const bossKeepsPouch = who === 1 && (isCrucible() || G.raidBoss === 'warden');
+  if (G.exhaustHands && !bossKeepsPouch) G.slum[who].push({ color, until: G.handNum + G.exhaustHands });
 }
 
 function slumBlocked(who, color) {
