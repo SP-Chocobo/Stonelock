@@ -691,6 +691,9 @@ function dealSpec() {
 // face-up, and scores its two best non-overlapping three-card hands.
 // Card/stone counts are tuned for a hard-but-winnable fight.
 const RAID_BOSS_CARDS = 7;
+// Raids are a fixed-length trial (no picking a lucky short race) — uniform across
+// the campaign so the tuned win-rates are honest and unlocks mean the same thing.
+const RAID_TARGET = (typeof process !== 'undefined' && process.env.RAID_TARGET) ? +process.env.RAID_TARGET : 15;
 // Difficulty = how many stones the Magistrate spends, and the swing
 // order it spends them in (it always closes with the last word).
 // Party places three stones each (seats 0, 2); the boss 5/6/7.
@@ -707,14 +710,14 @@ function raidDiff() { return RAID_DIFFS[G.raidDiff] || RAID_DIFFS.standard; }
 // untouched. (A die-roll that eases only where it's needed.)
 const envNum = (k, d) => (typeof process !== 'undefined' && process.env[k] !== undefined) ? +process.env[k] : d;
 const RAID_HOLDBACK = {
-  'magistrate-hard': envNum('MAG_HARD_HB', 0.25), // ~31% party (was ~20)
+  'magistrate-hard': envNum('MAG_HARD_HB', 0.45), // eased toward ~30% at the locked target-15
   'warden-standard': envNum('WAR_STD_HB', 0.3),   // ~44% party (was ~37)
   // The Apothecary's cut is worth far more than one stone, so it spends several
   // fewer regular ones (APOTH_DROP_BY_DIFF) and these hold-backs fine-tune the
   // tiers: measured ~easy 70% / standard ~55% / hardcore ~25% vs competent,
   // white-aware party bots. Tunable by play.
   'apothecary-easy': envNum('APO_EASY_HB', 0.4),
-  'apothecary-hard': envNum('APO_HARD_HB', 0.3),
+  'apothecary-hard': envNum('APO_HARD_HB', 0.45),
 };
 const APOTH_DROP_BY_DIFF = { easy: 3, standard: 4, hard: 4 };
 function apothDrop() { return envNum('APOTH_DROP', APOTH_DROP_BY_DIFF[G.raidDiff] ?? 4); }
@@ -3737,7 +3740,7 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
-  RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: 16, targeting: 'standard', names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: RAID_TARGET, targeting: 'standard', names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
 }
@@ -3935,11 +3938,11 @@ function renderRaidSetup() {
     { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
   ], diffState);
 
-  section('How far to break it', 'target', [
-    { v: 10, label: 'Skirmish — to 10', desc: 'A quick clash. High variance; one good hand swings it.' },
-    { v: 16, label: 'Siege — to 16', desc: 'The standard raid. Coordination starts to tell.' },
-    { v: 24, label: 'Campaign — to 24', desc: 'A long grind against the high seat.' },
-  ]);
+  RAIDSET.target = RAID_TARGET; // raids are a fixed-length trial — no picking a lucky short race
+  const tnote = document.createElement('div');
+  tnote.className = 'rolesline';
+  tnote.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid, so the climb is the same trial for everyone.`;
+  body.appendChild(tnote);
 
   if (isArch || isCru) {
     const note = document.createElement('div');
