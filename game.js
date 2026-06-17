@@ -635,6 +635,7 @@ function newGame(cfg) {
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
+    venueKey: cfg.venue || 'tavern', // remembered so a paused match can restore its backdrop on resume
     deal: raid ? (cfg.raidBoss === 'crucible' ? 'house' : 'small') : cfg.deal, // the Crucible forces the deep draw
     target: cfg.target,
     venue,
@@ -2501,6 +2502,10 @@ let INGAME = false;
 
 function hideTitle() { if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden'); }
 
+// Go to the title — and PAUSE rather than abandon. The match state (G) and its
+// board DOM are kept intact behind the title, so "Continue match" can drop the
+// player straight back in. A match is only discarded when a new one is started
+// (newGame replaces G). A finished match (G.over) simply offers no Continue.
 function showTitle() {
   if (typeof document === 'undefined') return;
   clearTimeout(runTimer);
@@ -2508,11 +2513,32 @@ function showTitle() {
   Music.setTrack('menu'); // back to the menu loop
   TUT.active = false;
   coachHide();
-  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal']) closeModal(id);
-  if (typeof document !== 'undefined') $('showdownResume').style.display = 'none';
-  G = null;
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal', 'logModal']) closeModal(id);
+  $('showdownResume').style.display = 'none';
   setVenueBackdrop(null);
+  refreshTitleButtons();
   $('titleScreen').classList.remove('hidden');
+}
+
+// Drop back into a paused match exactly where it was left. The board DOM
+// persisted behind the title; repaint it and resume the loop (run() re-prompts
+// the human or restarts the AI beat, whichever the current step needs).
+function resumeMatch() {
+  if (typeof document === 'undefined' || !G || G.over) return;
+  INGAME = true;
+  if (typeof Music !== 'undefined') Music.setTrack(G.mode === 'raid' ? 'boss' : 'menu');
+  setVenueBackdrop(G.venueKey || 'tavern');
+  UI.reviewing = false;
+  hideTitle();
+  render();
+  run();
+}
+
+// Show "Continue match" on the title only when a paused, unfinished match waits.
+function refreshTitleButtons() {
+  if (typeof document === 'undefined') return;
+  const btn = $('titleContinue');
+  if (btn) btn.style.display = (G && !G.over) ? '' : 'none';
 }
 
 // Set (or clear) the per-venue in-game backdrop. The dark overlay is baked in so
@@ -2527,8 +2553,8 @@ function setVenueBackdrop(key) {
 }
 
 function requestQuitToTitle() {
-  if (INGAME) $('quitModal').classList.add('open');
-  else showTitle();
+  // Leaving a match now pauses it (showTitle keeps G); no abandon prompt.
+  showTitle();
 }
 
 /* ---------- Tutorial ---------- */
@@ -4296,10 +4322,24 @@ function boot() {
   };
   $('victoryNew').onclick = () => { const raid = G && G.mode === 'raid'; closeModal('victoryModal'); raid ? openRaidSetup() : openSetup(); };
   $('titleBtn').onclick = () => { menuPopSet(false); requestQuitToTitle(); };
-  $('quitYes').onclick = () => { closeModal('quitModal'); showTitle(); };
-  $('quitNo').onclick = () => closeModal('quitModal');
-  $('titleStandard').onclick = openSetup;
-  $('titleRaid').onclick = openRaidSetup;
+  $('titleContinue').onclick = resumeMatch;
+  // quitModal is now the "start a new match — discard the paused one?" confirm.
+  let pendingNewMatch = null;
+  const startNewFromTitle = fn => {
+    if (G && !G.over) {
+      pendingNewMatch = fn;
+      const m = $('quitModal');
+      m.querySelector('h2').textContent = 'Start a new match?';
+      m.querySelector('p').textContent = 'Your paused match will be discarded once you set a new table.';
+      $('quitYes').textContent = 'New match';
+      $('quitNo').textContent = 'Keep paused match';
+      m.classList.add('open');
+    } else fn();
+  };
+  $('quitYes').onclick = () => { closeModal('quitModal'); const fn = pendingNewMatch; pendingNewMatch = null; if (fn) fn(); };
+  $('quitNo').onclick = () => { pendingNewMatch = null; closeModal('quitModal'); };
+  $('titleStandard').onclick = () => startNewFromTitle(openSetup);
+  $('titleRaid').onclick = () => startNewFromTitle(openRaidSetup);
   $('titleTutorial').onclick = openAcademy;
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
