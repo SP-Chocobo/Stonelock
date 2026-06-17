@@ -2384,9 +2384,9 @@ function buildTableDOM() {
     seat.className = 'seat' + (isMagistrate(i) ? ' bossseat' : '');
     seat.style.setProperty('--seatc', seatColor(i));
     const head = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div>`;
-    // Raid party seats field four — lay them 3-then-1 (matching the Crucible's
-    // deep-draw board) rather than a flat row of four.
-    const boardCls = 'board' + (G.mode === 'raid' && !isMagistrate(i) ? ' foot31' : '');
+    // Raid party seats field four — keep them in a single row (override the deep
+    // draw's narrow board cap so the Crucible's party matches the other raids).
+    const boardCls = 'board' + (G.mode === 'raid' && !isMagistrate(i) ? ' partyboard' : '');
     const board = `<div id="board-${i}" class="${boardCls}"></div>`;
     if (isMagistrate(i)) {
       // The boss looms over its half of the table: its portrait stands down the

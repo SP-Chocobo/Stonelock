@@ -419,8 +419,9 @@ body[data-compact="1"] .board { gap: 6px; }
 /* House deal lays five slots — cap the width so they wrap a centered 3+2
    rather than a lopsided 4+1. (62px slot ×3 + 6px gap ×2 = 198.) */
 body[data-compact="1"][data-deal="house"] .board { max-width: 204px; margin: 0 auto; }
-/* Raid party boards field four — cap to three across so they lay 3-then-1. */
-body[data-compact="1"] .board.foot31 { max-width: 204px; margin: 0 auto; }
+/* Raid party boards field four — keep them on one row even under the deep
+   draw, whose 204px cap would otherwise wrap them 3-then-1. (62px ×4 + 6px ×3.) */
+body[data-compact="1"][data-deal="house"] .board.partyboard { max-width: 276px; }
 body[data-compact="1"] .slot { width: 62px; min-height: 96px; }
 body[data-compact="1"] .slot.empty::before { width: 58px; height: 80px; }
 body[data-compact="1"] .slotlabel { display: none; }
