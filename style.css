@@ -755,9 +755,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .slot.slottarget:hover { background: rgba(232,196,119,0.20); }
 .slot.slottarget.selected { outline-style: solid; background: rgba(232,196,119,0.28); }
 .stonedot.pending {
-  opacity: 0.5; border: 1.5px dashed var(--gold-bright);
-  box-shadow: none; filter: grayscale(0.25);
+  opacity: 0.95; border: 2px dashed var(--gold-bright);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6); filter: none;
 }
+/* Queued-stone indicators read at a glance — keep them legible even on the
+   compact raid boards (where ordinary board dots shrink to ~13px). */
+.slotqueue .stonedot, body[data-compact="1"] .board .slotqueue .stonedot { width: 20px; height: 20px; }
 
 .card.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; box-shadow: 0 0 12px rgba(232,196,119,0.35), 0 3px 7px rgba(0,0,0,0.6); }
 /* Rest on a card a beat and it pops bigger so you can read it. The delay

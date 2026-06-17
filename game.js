@@ -423,7 +423,11 @@ function archPendingOn(gi) {
 }
 // A slot is a legal Black target if a Red or Blue is queued onto it (Black undoes
 // the last resolved Red/Blue on its slot — never a White, which is untouchable).
+// Reverse order (Archivist Hardcore / the Crucible) flips this: later-placed
+// stones resolve FIRST, so a Black may be set down before the Red/Blue it will
+// catch — any slot is fair game, and it simply fizzles if nothing lands there.
 function archBlackableSlot(gi) {
+  if (archReverse()) return true;
   return G.archQueue.some(p => (p.color === 'red' || p.color === 'blue') && p.slot === gi);
 }
 function archQueueStone(actor, color, slot, swap) {
@@ -1478,7 +1482,7 @@ function humanChooseStone(color) {
   // The Archivist queues stones onto empty SLOTS (positions), not cards.
   if (G.archivist) {
     if (color === 'blue') { UI.mode = 'arch-slot-blue-a'; setPrompt('Blue Stone (Exchange) — click the first SLOT of the swap (any layout).'); }
-    else if (color === 'black') { UI.mode = 'arch-slot'; setPrompt('Black Stone (Disruption) — click a SLOT carrying a queued stone to undo its last.'); }
+    else if (color === 'black') { UI.mode = 'arch-slot'; setPrompt(archReverse() ? 'Black Stone (Disruption) — reverse order: click ANY slot; it catches a Red/Blue placed onto it later.' : 'Black Stone (Disruption) — click a SLOT carrying a queued Red/Blue to undo its last.'); }
     else { UI.mode = 'arch-slot'; setPrompt(`${STONES[color].name} (${STONES[color].power}) — click a SLOT to queue it on (any layout).`); }
     render(); autoScrollToPrompt();
     return;
