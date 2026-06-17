@@ -3691,7 +3691,7 @@ function renderSetup() {
     focus.className = 'campfocus venuefocus' + (unlocked ? '' : ' locked');
     focus.innerHTML =
       `<div class="campfocus-art" style="background-image:url('${venueArt(vopt.v)}')">` +
-        (unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo">${venueLockHint(vopt.v)}</div>`) +
+        (unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo"><span>${venueLockHint(vopt.v)}</span></div>`) +
       `</div>` +
       `<div class="campfocus-name">${vopt.label}</div>` +
       (unlocked ? `<div class="campfocus-desc">${vopt.desc}</div>` : '');
