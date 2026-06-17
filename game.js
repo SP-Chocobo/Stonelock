@@ -2336,6 +2336,13 @@ function buildTableDOM() {
   document.body.dataset.compact = G.nPlayers > 2 ? '1' : '0';
   document.body.dataset.deal = G.deal;
 
+  // Wipe the centre display so nothing survives from a prior match — e.g.
+  // backing to the menu mid-hand and starting a different boss would otherwise
+  // leave the last announce ("The Crucible telegraphs…") under the new prompt.
+  ['announce', 'prompt', 'phaseNote', 'actionBar'].forEach(id => { const e = $(id); if (e) e.innerHTML = ''; });
+  if ($('phaseLabel')) $('phaseLabel').textContent = 'Stonelock';
+  if ($('cursedBadge')) $('cursedBadge').style.display = 'none';
+
   // Sidebar player panels: opponents in seat order, you last.
   const panels = $('panels');
   panels.innerHTML = '';
@@ -2377,14 +2384,17 @@ function buildTableDOM() {
     seat.className = 'seat' + (isMagistrate(i) ? ' bossseat' : '');
     seat.style.setProperty('--seatc', seatColor(i));
     const head = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div>`;
-    const board = `<div id="board-${i}" class="board"></div>`;
+    // Raid party seats field four — lay them 3-then-1 (matching the Crucible's
+    // deep-draw board) rather than a flat row of four.
+    const boardCls = 'board' + (G.mode === 'raid' && !isMagistrate(i) ? ' foot31' : '');
+    const board = `<div id="board-${i}" class="${boardCls}"></div>`;
     if (isMagistrate(i)) {
       // The boss looms over its half of the table: its portrait stands down the
       // left of the seat, the same rectangular framing as the campaign screen.
       const art = portraitFor(playerName(i));
       const bossStrip = `<div class="bosstglabel">Telegraphed stones — spent as it acts</div><div id="bosstg" class="bosstg"></div>`;
       seat.innerHTML =
-        (art ? `<div class="bossportrait-rect" style="background-image:url('${art}')"></div>` : '') +
+        (art ? `<div class="bossportrait-rect boss-${G.raidBoss}" style="background-image:url('${art}')"></div>` : '') +
         `<div class="bossseat-body">${head}${bossStrip}${board}</div>`;
     } else {
       seat.innerHTML = head + board;

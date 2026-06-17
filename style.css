@@ -419,6 +419,8 @@ body[data-compact="1"] .board { gap: 6px; }
 /* House deal lays five slots — cap the width so they wrap a centered 3+2
    rather than a lopsided 4+1. (62px slot ×3 + 6px gap ×2 = 198.) */
 body[data-compact="1"][data-deal="house"] .board { max-width: 204px; margin: 0 auto; }
+/* Raid party boards field four — cap to three across so they lay 3-then-1. */
+body[data-compact="1"] .board.foot31 { max-width: 204px; margin: 0 auto; }
 body[data-compact="1"] .slot { width: 62px; min-height: 96px; }
 body[data-compact="1"] .slot.empty::before { width: 58px; height: 80px; }
 body[data-compact="1"] .slotlabel { display: none; }
@@ -443,6 +445,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   background: center top / cover no-repeat;
   border: 1px solid var(--seatc, var(--gold-dim)); box-shadow: 0 2px 12px rgba(0,0,0,0.6);
 }
+/* Per-boss framing tweaks (square art cropped to a tall strip). Archivist:
+   shift right to reveal a little more of the scene to his left. Crucible: a
+   full-body wide composition — cap the strip height and anchor near the top so
+   it frames the hooded head + orbs instead of a thin centre slice. */
+.bossportrait-rect.boss-archivist { background-position: 38% top; }
+.bossportrait-rect.boss-crucible { align-self: flex-start; max-height: 220px; background-position: center 6%; }
 .bossseat .board { max-width: 286px; margin: 0 auto; }
 .bossseat .seathead { color: var(--seatc); font-size: 13px; }
 .bosstglabel { text-align: center; font-size: 10px; font-style: italic; color: var(--parchment-dim); margin: 1px 0 3px; }
@@ -493,8 +501,8 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .campfocus.frontier .campfocus-name { color: var(--gold-bright); }
 .campenter { font-size: 12.5px; letter-spacing: 0.05em; color: var(--gold-dim); text-transform: uppercase; }
 .campfocus:not(.locked):hover .campenter { color: var(--gold-bright); }
-.campfocus-art .camppips { position: absolute; right: 9px; bottom: 9px; left: auto; margin: 0; gap: 9px; padding: 6px 9px; background: rgba(8,6,4,0.5); border-radius: 12px; }
-.campfocus-art .camppip { width: 22px; height: 22px; border-width: 2px; }
+.campfocus-art .camppips { position: absolute; right: 8px; bottom: 8px; left: auto; margin: 0; gap: 7px; padding: 5px 7px; background: rgba(8,6,4,0.5); border-radius: 11px; }
+.campfocus-art .camppip { width: 16px; height: 16px; border-width: 2px; }
 
 .campstatus { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--parchment-dim); white-space: nowrap; }
 .camppips { display: flex; gap: 6px; }
