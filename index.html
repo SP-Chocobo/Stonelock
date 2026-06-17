@@ -6,15 +6,19 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=125">
+<link rel="stylesheet" href="style.css?v=126">
 </head>
 <body>
 
 <!-- Per-venue backdrop (set in JS; dark overlay keeps the UI readable) -->
 <div id="venuebg" class="venuebg"></div>
 
-<!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings) -->
-<audio id="bgm" loop preload="auto" src="assets/audio/lost-at-sea-loop.ogg?v=125"></audio>
+<!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
+     OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
+<audio id="bgm" loop preload="auto">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=126" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=126" type="audio/mpeg">
+</audio>
 
 <!-- Title screen -->
 <div id="titleScreen" class="titlescreen">
@@ -353,6 +357,6 @@
   </div>
 </div>
 
-<script src="game.js?v=125"></script>
+<script src="game.js?v=126"></script>
 </body>
 </html>
