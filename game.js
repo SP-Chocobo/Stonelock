@@ -104,7 +104,7 @@ const PORTRAITS = {
   'The Tinker': 'tinker', 'The Deckhand': 'deckhand', 'The Old Hand': 'oldhand',
   'The Lady': 'lady', 'The Miner': 'miner', 'The Wagoner': 'wagon-driver',
   'The Magistrate': 'magistrate', 'The Warden': 'warden', 'The Apothecary': 'apothecary',
-  'The Archivist': 'archivist',
+  'The Archivist': 'archivist', 'The Quartermaster': 'quartermaster', 'The Crucible': 'crucible',
 };
 function portraitFor(name) { return PORTRAITS[name] ? `assets/portraits/${PORTRAITS[name]}.jpg` : null; }
 
@@ -194,27 +194,49 @@ const SFX = (() => {
   };
 })();
 
-// Looping menu music (the processed "Lost at Sea" loop). Volume + mute share the
+// Looping background music. Two tracks: 'menu' (Lost at Sea — menus + standard
+// matches, unbroken) and 'boss' (Lost Ruins — boss raids). Volume + mute share the
 // audio settings; playback only begins after a user gesture (browser autoplay).
 const MUSIC_MAX = 0.5; // slider 0.5 -> 0.25 gain (the calibrated music sweet spot)
 const Music = (() => {
-  let vol = 0.5, muted = false, wanted = false; // slider fraction
+  let vol = 0.5, muted = false, wanted = false, active = 'menu', fade = null; // vol is slider fraction
   try { const v = localStorage.getItem('stonelock-musicv2'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
   try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) {}
-  const el = () => (typeof document !== 'undefined') ? document.getElementById('bgm') : null;
-  function apply() {
-    const a = el(); if (!a) return;
-    a.volume = muted ? 0 : vol * MUSIC_MAX;
-    if (wanted && !muted && vol > 0) { if (a.paused) a.play().catch(() => {}); }
-    else a.pause();
+  const elFor = t => (typeof document !== 'undefined') ? document.getElementById(t === 'boss' ? 'bgmBoss' : 'bgm') : null;
+  const target = () => muted ? 0 : vol * MUSIC_MAX;
+  const clearFade = () => { if (fade) { clearInterval(fade); fade = null; } };
+  // Smoothly ramp the active track toward its target volume and any others to 0,
+  // over `dur` ms — used for fade-in on start, crossfade on track change, and
+  // fade on mute/unmute, so nothing ever cuts in or out sharply.
+  function transition(dur) {
+    clearFade();
+    const toEl = elFor(active);
+    const others = ['menu', 'boss'].filter(t => t !== active).map(elFor).filter(Boolean);
+    if (!toEl) return;
+    const playable = wanted && !muted && vol > 0;
+    if (playable && toEl.paused) { toEl.volume = 0; toEl.play().catch(() => {}); }
+    const tgt = target();
+    const fromTo = toEl.volume, fromOthers = others.map(e => e.volume);
+    let p = 0; const inc = 50 / Math.max(50, dur);
+    fade = setInterval(() => {
+      p = Math.min(1, p + inc);
+      if (toEl) toEl.volume = playable ? fromTo + (tgt - fromTo) * p : fromTo * (1 - p);
+      others.forEach((e, i) => { e.volume = fromOthers[i] * (1 - p); });
+      if (p >= 1) { clearFade(); if (!playable && toEl) toEl.pause(); others.forEach(e => e.pause()); }
+    }, 50);
   }
   return {
-    // Called on the first user gesture / when menus show — marks music wanted and tries to play.
-    start() { wanted = true; apply(); },
-    stop() { wanted = false; const a = el(); if (a) a.pause(); },
-    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicv2', String(vol)); } catch (e) {} apply(); },
+    start() { wanted = true; transition(1000); },              // fade in from silence
+    stop() { wanted = false; transition(600); },
+    setTrack(t) { t = (t === 'boss') ? 'boss' : 'menu'; if (t === active) return; active = t; if (wanted) transition(1400); }, // crossfade menu<->boss
+    setVolume(v) {
+      vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicv2', String(vol)); } catch (e) {}
+      if (fade) return; // a fade is mid-flight; let it finish at the new target
+      const a = elFor(active);
+      if (a) { if (wanted && !muted && vol > 0) { a.volume = target(); if (a.paused) a.play().catch(() => {}); } else a.pause(); }
+    },
     getVolume() { return vol; },
-    setMuted(m) { muted = !!m; apply(); },
+    setMuted(m) { muted = !!m; transition(400); },             // fade on mute/unmute
   };
 })();
 // One global mute across music + effects.
@@ -598,6 +620,7 @@ function newGame(cfg) {
   INGAME = true;
   hideTitle();
   const raid = cfg.mode === 'raid';
+  if (typeof Music !== 'undefined') Music.setTrack(raid ? 'boss' : 'menu'); // boss raids get their own theme; standard play keeps the menu loop unbroken
   const n = raid ? 3 : seatCountOf(cfg.mode);
   const cfgHumans = raid ? null : (cfg.humans || humansFor(cfg.mode));
   const venue = VENUES[cfg.venue || 'tavern'];
@@ -2439,6 +2462,7 @@ function showTitle() {
   if (typeof document === 'undefined') return;
   clearTimeout(runTimer);
   INGAME = false;
+  Music.setTrack('menu'); // back to the menu loop
   TUT.active = false;
   coachHide();
   for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal']) closeModal(id);
@@ -4009,6 +4033,9 @@ function renderRaidSetup() {
 }
 
 function boot() {
+  // Start buffering the music at page load so it plays the instant the first
+  // gesture lands (otherwise it downloads on-click, a ~3s awkward gap).
+  try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
   logEl = $('log');
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
