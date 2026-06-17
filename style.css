@@ -967,12 +967,17 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   .castcard { flex-direction: row; text-align: left; gap: 11px; }
   .castcard .castportrait { width: 64px; height: 64px; }
   .castportrait-lg { width: 160px; height: 160px; }
-  .campselect { gap: 10px; }
+  .campselect { gap: 18px; }
   .campdot { width: 40px; height: 40px; }
   .campdot:not(:last-child) { margin-bottom: 22px; }
   .campdot:not(:last-child)::after { height: 22px; }
   .camparrow { font-size: 34px; padding: 0 2px; }
   .campfocus-name { font-size: 18px; }
+  /* Let chip rows shrink so 3 difficulties stay on one line (no Hardcore drop). */
+  .chiprow .pillopt { min-width: 0; }
+  /* Bot chips: give the portrait room from the pill's rounded edge. */
+  .botchip { padding: 4px 13px 4px 6px; }
+  .chipface { margin-right: 9px; }
 }
 .botchip .ordnum { color: var(--gold-bright); margin-right: 6px; font-weight: bold; }
 .rolesline { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
