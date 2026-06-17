@@ -4503,6 +4503,7 @@ if (typeof window !== 'undefined') {
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
+    campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
