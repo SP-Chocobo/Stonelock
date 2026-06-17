@@ -3900,14 +3900,19 @@ function renderRaidSetup() {
       a.onclick = () => { RAIDSET.focus = fi + dir; renderRaidSetup(); };
       return a;
     };
+    const prev = RAID_BOSSES[fi - 1];
+    const unlockHint = b.v === 'crucible' ? 'Break every other boss on Hardcore to unlock'
+      : prev ? `Defeat ${prev.name} to unlock this seat` : 'Locked';
     const focus = document.createElement('div');
     focus.className = 'campfocus' + (f.unlocked ? '' : ' locked') + (f.frontier ? ' frontier' : '');
+    // Just the name under the portrait — the art and pips tell the rest. Locked
+    // seats reveal their unlock requirement on hover.
     focus.innerHTML =
       `<div class="campfocus-art" style="background-image:url('${portraitFor(b.name)}')">` +
         `<div class="camppips" title="Difficulties cleared">${pips}</div>` +
-        (f.unlocked ? '' : '<div class="camplockbig">🔒</div>') + `</div>` +
-      `<div class="campfocus-name">${b.name}</div><div class="campstatus">${status}</div>` +
-      `<div class="campenter">${f.unlocked ? 'Enter ›' : 'Locked'}</div>`;
+        (f.unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo">${unlockHint}</div>`) +
+      `</div>` +
+      `<div class="campfocus-name">${b.name}</div>`;
     if (f.unlocked) focus.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
     stage.append(arrow(-1), focus, arrow(1));
 
