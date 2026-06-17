@@ -228,7 +228,11 @@ const Music = (() => {
   return {
     start() { wanted = true; transition(1000); },              // fade in from silence
     stop() { wanted = false; transition(600); },
-    setTrack(t) { t = (t === 'boss') ? 'boss' : 'menu'; if (t === active) return; active = t; if (wanted) transition(1400); }, // crossfade menu<->boss
+    // Crossfade menu<->boss. On an actual track change, restart the incoming track
+    // from the top (so the boss theme always gets its intro/drop and the menu its
+    // opening) — resuming mid-phrase felt stark. Menu<->standard isn't a change, so
+    // that bed stays unbroken.
+    setTrack(t) { t = (t === 'boss') ? 'boss' : 'menu'; if (t === active) return; active = t; const a = elFor(active); if (a) { try { a.currentTime = 0; } catch (e) {} } if (wanted) transition(1400); },
     setVolume(v) {
       vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicv2', String(vol)); } catch (e) {}
       if (fade) return; // a fade is mid-flight; let it finish at the new target
@@ -3507,6 +3511,7 @@ const SETUP_STEPS = [
 let SETUP = null;
 
 function openSetup() {
+  if (typeof Music !== 'undefined') Music.setTrack('menu'); // menus carry the menu bed (e.g. after a raid)
   SETUP = { step: 'venue', venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], randomTeams: false, _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
@@ -3802,6 +3807,7 @@ function startFromSetup() {
 let RAIDSET = null;
 
 function openRaidSetup() {
+  if (typeof Music !== 'undefined') Music.setTrack('menu'); // the campaign screen is a menu — menu bed, not the boss theme
   RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: RAID_TARGET, targeting: 'standard', names: ['', ''] };
   renderRaidSetup();
   $('setupModal').classList.add('open');
