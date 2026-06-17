@@ -469,7 +469,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .campdot .dotbadge { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; text-shadow: 0 1px 3px #000; }
 
 /* focused stage — ▲ above / big portrait / ▼ below (matches the vertical dock) */
-.campstage { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; justify-content: center; min-width: 0; }
+.campstage { display: flex; flex-direction: column; align-items: center; gap: 6px; justify-content: center; min-width: 0; }
 .camparrow { background: none; border: none; color: var(--gold-dim); font-size: 26px; line-height: 1; cursor: pointer; padding: 2px 14px; }
 .camparrow:hover:not(.off) { color: var(--gold-bright); }
 .camparrow.off { opacity: 0.16; cursor: default; }
