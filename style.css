@@ -503,7 +503,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Venue carousel: a touch shorter art (scenes, not portraits) and the house
    rule riding under the name, since no later screen carries it. */
 .venuefocus .campfocus-art { width: 460px; height: 300px; max-width: 70vw; max-height: 46vw; background-position: center center; }
-.campfocus-desc { max-width: 460px; font-size: 12.5px; font-style: italic; line-height: 1.45; color: var(--parchment-dim); text-align: center; margin-top: -2px; }
+.campfocus-desc { max-width: 460px; font-size: 12.5px; font-style: italic; line-height: 1.45; color: var(--parchment-dim); text-align: center; margin-top: 3px; }
+.campfocus-desc b { font-style: normal; font-weight: 600; color: var(--gold); }
+.venuefocus .campfocus-name { margin-top: 3px; }
 .campenter { font-size: 12.5px; letter-spacing: 0.05em; color: var(--gold-dim); text-transform: uppercase; }
 .campfocus:not(.locked):hover .campenter { color: var(--gold-bright); }
 .campfocus-art .camppips { position: absolute; right: 8px; bottom: 8px; left: auto; margin: 0; gap: 7px; padding: 5px 7px; background: rgba(8,6,4,0.5); border-radius: 11px; }
