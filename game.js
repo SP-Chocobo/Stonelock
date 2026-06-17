@@ -3663,17 +3663,58 @@ function renderSetup() {
   // Screen 1 — venue: just the tables, in campaign order. Pick one to advance.
   if (SETUP.step !== 'rest') {
     $('setupModal').querySelector('h2').textContent = 'Choose the Venue';
-    body.innerHTML = '<p class="modalsub small">Pick the table. Locked venues are earned by breaking the boss that keeps them.</p>';
-    const grid = document.createElement('div'); grid.className = 'optgrid';
-    for (const opt of SETUP_STEPS.find(s => s.key === 'venue').options) {
-      const locked = !venueUnlocked(opt.v);
-      const el = document.createElement('div');
-      el.className = 'bigopt' + (SETUP.venue === opt.v ? ' selected' : '') + (locked ? ' locked' : '');
-      el.innerHTML = `<h3>${opt.label}${locked ? ' 🔒' : ''}</h3><div class="bigoptdesc">${locked ? venueLockHint(opt.v) : opt.desc}</div>`;
-      if (!locked) el.onclick = () => { SETUP.venue = opt.v; SETUP.step = 'rest'; SETUP._open = null; renderSetup(); };
-      grid.appendChild(el);
+    const venues = SETUP_STEPS.find(s => s.key === 'venue').options;
+    const N = venues.length;
+    if (SETUP.vfocus == null) {
+      const cur = venues.findIndex(o => o.v === SETUP.venue);
+      SETUP.vfocus = cur >= 0 ? cur : Math.max(0, venues.findIndex(o => venueUnlocked(o.v)));
     }
-    body.appendChild(grid);
+    SETUP.vfocus = Math.max(0, Math.min(N - 1, SETUP.vfocus));
+    const fi = SETUP.vfocus, vopt = venues[fi], unlocked = venueUnlocked(vopt.v);
+    const venueArt = v => `assets/bg/${v}.jpg`;
+
+    body.innerHTML = '<p class="modalsub small">Pick the table — locked venues are earned by breaking the boss that keeps them.</p>';
+
+    // A focused venue scene with a dock of thumbnails down the side — the same
+    // carousel as the campaign. The house rule rides under the name (no later
+    // screen carries it).
+    const stage = document.createElement('div');
+    stage.className = 'campstage';
+    const arrow = (dir) => {
+      const off = (dir < 0 && fi === 0) || (dir > 0 && fi === N - 1);
+      const a = document.createElement('button');
+      a.className = 'camparrow' + (off ? ' off' : ''); a.innerHTML = dir < 0 ? '▲' : '▼'; a.disabled = off;
+      a.onclick = () => { SETUP.vfocus = fi + dir; renderSetup(); };
+      return a;
+    };
+    const focus = document.createElement('div');
+    focus.className = 'campfocus venuefocus' + (unlocked ? '' : ' locked');
+    focus.innerHTML =
+      `<div class="campfocus-art" style="background-image:url('${venueArt(vopt.v)}')">` +
+        (unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo">${venueLockHint(vopt.v)}</div>`) +
+      `</div>` +
+      `<div class="campfocus-name">${vopt.label}</div>` +
+      `<div class="campfocus-desc">${unlocked ? vopt.desc : venueLockHint(vopt.v)}</div>`;
+    if (unlocked) focus.onclick = () => { SETUP.venue = vopt.v; SETUP.step = 'rest'; SETUP._open = null; renderSetup(); };
+    stage.append(arrow(-1), focus, arrow(1));
+
+    const dock = document.createElement('div');
+    dock.className = 'campdock';
+    venues.forEach((o, j) => {
+      const ul = venueUnlocked(o.v);
+      const dot = document.createElement('button');
+      dot.className = 'campdot' + (j === fi ? ' current' : '') + (ul ? '' : ' locked');
+      dot.style.backgroundImage = `url('${venueArt(o.v)}')`;
+      dot.title = o.label + (ul ? '' : ' — locked');
+      dot.innerHTML = ul ? '' : '<span class="dotbadge">🔒</span>';
+      dot.onclick = () => { SETUP.vfocus = j; renderSetup(); };
+      dock.appendChild(dot);
+    });
+    const sel = document.createElement('div');
+    sel.className = 'campselect';
+    sel.append(dock, stage);
+    body.appendChild(sel);
+
     const vbtns = $('setupBtns'); vbtns.innerHTML = '';
     const vback = document.createElement('button');
     vback.className = 'btn'; vback.textContent = '‹ Title';
