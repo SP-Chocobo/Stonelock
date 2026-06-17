@@ -2290,6 +2290,17 @@ function log(msg, cls) {
   div.textContent = msg;
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+  // Keep the expanded overlay live while it's open (phone Table Talk).
+  const lm = $('logModal');
+  if (lm && lm.classList.contains('open')) { const b = $('logModalBody'); b.appendChild(div.cloneNode(true)); b.scrollTop = b.scrollHeight; }
+}
+
+function openLogModal() {
+  if (typeof document === 'undefined') return;
+  const b = $('logModalBody');
+  b.innerHTML = $('log').innerHTML;
+  $('logModal').classList.add('open');
+  b.scrollTop = b.scrollHeight;
 }
 
 function setPhase(label, note) {
@@ -3566,6 +3577,7 @@ let SETUP = null;
 
 function openSetup() {
   if (typeof Music !== 'undefined') Music.setTrack('menu'); // menus carry the menu bed (e.g. after a raid)
+  if (typeof document !== 'undefined') $('titleScreen').classList.remove('hidden'); // sit over the title, never a live match behind
   SETUP = { step: 'venue', venue: 'tavern', mode: 'duel', players: 'solo', company: 'usual', targeting: 'standard', deal: 'small', target: 20, names: ['', '', '', ''], picks: [], randomTeams: false, _open: null };
   renderSetup();
   $('setupModal').classList.add('open');
@@ -3862,6 +3874,7 @@ let RAIDSET = null;
 
 function openRaidSetup() {
   if (typeof Music !== 'undefined') Music.setTrack('menu'); // the campaign screen is a menu — menu bed, not the boss theme
+  if (typeof document !== 'undefined') $('titleScreen').classList.remove('hidden'); // sit over the title, never a live match behind
   RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: RAID_TARGET, targeting: 'standard', names: ['', ''], anim: 'boss' };
   renderRaidSetup();
   $('setupModal').classList.add('open');
@@ -4269,6 +4282,12 @@ function boot() {
   window.addEventListener('pointerdown', tryStartMusic);
   window.addEventListener('keydown', tryStartMusic);
   $('rulesClose').onclick = () => closeModal('rulesModal');
+  // Table Talk is cramped and hard to scroll on a phone — tap it there to read
+  // the full log in a roomy, scrollable overlay.
+  $('logClose').onclick = () => closeModal('logModal');
+  $('log').addEventListener('click', () => {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 760px)').matches) openLogModal();
+  });
   $('newGameBtn').onclick = () => { menuPopSet(false); (G && G.mode === 'raid' ? openRaidSetup() : openSetup()); };
   $('fsBtn').onclick = () => {
     menuPopSet(false);
@@ -4279,8 +4298,8 @@ function boot() {
   $('titleBtn').onclick = () => { menuPopSet(false); requestQuitToTitle(); };
   $('quitYes').onclick = () => { closeModal('quitModal'); showTitle(); };
   $('quitNo').onclick = () => closeModal('quitModal');
-  $('titleStandard').onclick = () => { hideTitle(); openSetup(); };
-  $('titleRaid').onclick = () => { hideTitle(); openRaidSetup(); };
+  $('titleStandard').onclick = openSetup;
+  $('titleRaid').onclick = openRaidSetup;
   $('titleTutorial').onclick = openAcademy;
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
