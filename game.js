@@ -2257,7 +2257,7 @@ function raidShowdown(sel) {
   G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + diff));
 
   let matchWinner = null;
-  if (G.ledger >= G.target) { matchWinner = 'party'; markCampaignWin(G.raidBoss, G.raidDiff); }
+  if (G.ledger >= G.target) { matchWinner = 'party'; G.unlocked = recordCampaignWin(G.raidBoss, G.raidDiff); }
   else if (G.ledger <= -G.target) matchWinner = 'magistrate';
 
   const bn = playerName(1);
@@ -3575,6 +3575,8 @@ function showRaidShowdown(d, review) {
 function showVictory() {
   if (typeof document === 'undefined') return;
   const m = $('victoryModal');
+  const uw = $('victoryUnlocks');
+  if (uw) { uw.style.display = 'none'; uw.innerHTML = ''; }
   if (G.mode === 'raid') {
     const won = G.ledger >= G.target;
     SFX.play(won ? 'win' : 'lose');
@@ -3582,6 +3584,12 @@ function showVictory() {
     $('victoryText').textContent = won
       ? `Your party drove the marker the full ${G.target} after ${G.handNum} hands. The high seat is empty — for now.`
       : `${playerName(1)} held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
+    const lines = won ? unlockLines(G.unlocked) : [];
+    if (uw && lines.length) {
+      uw.style.display = '';
+      uw.innerHTML = `<div class="unlockhead">Newly Unlocked</div>` +
+        lines.map(l => `<div class="unlockitem ${l.kind}">${l.text}</div>`).join('');
+    }
     m.classList.add('open');
     return;
   }
@@ -4021,14 +4029,15 @@ function campaignBeaten() { try { return new Set(JSON.parse(ls.get('stonelock-ca
 function markCampaignWin(boss, diff) { const s = campaignBeaten(); s.add(`${boss}-${diff}`); ls.set('stonelock-campaign', JSON.stringify([...s])); }
 function alphaUnlock() { const v = ls.get('stonelock-alpha'); return v === null ? true : v === '1'; } // default ON in alpha
 function setAlphaUnlock(on) { ls.set('stonelock-alpha', on ? '1' : '0'); }
-function raidUnlocked(boss, diff) {
-  if (alphaUnlock()) return true;
+function raidUnlocked(boss, diff) { return alphaUnlock() || bossDiffEarned(boss, diff, campaignBeaten()); }
+// The real progression rule (independent of the alpha bypass) — used both for
+// gating and for reporting what a win newly earns.
+function bossDiffEarned(boss, diff, beaten) {
   // The Crucible: one trial, earned only by breaking every other boss on Hardcore.
-  if (boss === 'crucible') return RAID_BOSSES.filter(b => b.v !== 'crucible').every(b => campaignBeaten().has(`${b.v}-hard`));
+  if (boss === 'crucible') return RAID_BOSSES.filter(b => b.v !== 'crucible').every(b => beaten.has(`${b.v}-hard`));
   const bosses = RAID_BOSSES.map(b => b.v);
   const bi = bosses.indexOf(boss), di = RAID_DIFF_ORDER.indexOf(diff);
   if (bi === 0 && di === 0) return true; // the entry point
-  const beaten = campaignBeaten();
   if (di > 0 && beaten.has(`${boss}-${RAID_DIFF_ORDER[di - 1]}`)) return true;   // next difficulty of this boss
   if (bi > 0 && beaten.has(`${bosses[bi - 1]}-${diff}`)) return true;             // this difficulty of the next boss
   return false;
@@ -4040,14 +4049,50 @@ function raidBossUnlocked(boss) { return RAID_DIFF_ORDER.some(d => raidUnlocked(
    Archivist→Court of Precedence (its stone-first inverted loop as a house rule).
    Venues not listed here are always open. Alpha bypass opens all. */
 const VENUE_UNLOCK = { slums: 'warden', hall: 'apothecary', academy: 'quartermaster', court: 'archivist' };
-function venueUnlocked(v) {
-  if (alphaUnlock()) return true;
+function venueEarned(v, beaten) {
   const boss = VENUE_UNLOCK[v];
   if (!boss) return true; // a base / always-open table
-  const beaten = campaignBeaten();
   return RAID_DIFF_ORDER.some(d => beaten.has(`${boss}-${d}`));
 }
+function venueUnlocked(v) { return alphaUnlock() || venueEarned(v, campaignBeaten()); }
 function venueLockHint(v) { return `Locked — beat <b>${raidBossName(VENUE_UNLOCK[v])}</b> in the campaign to earn this table.`; }
+
+// A snapshot of everything EARNED in the real progression for a given beaten
+// set (boss seats, difficulties, venues), as tokens. Diffing two snapshots
+// across a win tells us exactly what that win newly opened.
+function unlockSnapshot(beaten) {
+  const s = new Set();
+  for (const b of RAID_BOSSES) {
+    if (RAID_DIFF_ORDER.some(d => bossDiffEarned(b.v, d, beaten))) s.add('boss:' + b.v);
+    for (const d of RAID_DIFF_ORDER) if (bossDiffEarned(b.v, d, beaten)) s.add(`diff:${b.v}-${d}`);
+  }
+  for (const v of Object.keys(VENUE_UNLOCK)) if (venueEarned(v, beaten)) s.add('venue:' + v);
+  return s;
+}
+// Record the win and return the tokens it newly earned (independent of alpha).
+function recordCampaignWin(boss, diff) {
+  const before = unlockSnapshot(campaignBeaten());
+  markCampaignWin(boss, diff);
+  const after = unlockSnapshot(campaignBeaten());
+  return [...after].filter(x => !before.has(x));
+}
+// Turn newly-earned tokens into display lines for the victory screen.
+function unlockLines(gained) {
+  if (!gained || !gained.length) return [];
+  const bosses = gained.filter(t => t.startsWith('boss:')).map(t => t.slice(5));
+  const bossSet = new Set(bosses);
+  const venues = gained.filter(t => t.startsWith('venue:')).map(t => t.slice(6));
+  const DIFF_LABEL = { easy: 'Easy', standard: 'Standard', hard: 'Hardcore' };
+  const diffs = gained.filter(t => t.startsWith('diff:')).map(t => t.slice(5))
+    .map(bd => { const i = bd.lastIndexOf('-'); return { boss: bd.slice(0, i), diff: bd.slice(i + 1) }; })
+    .filter(x => !bossSet.has(x.boss)); // a brand-new boss's first tier is covered by its boss line
+  const lines = [];
+  if (bossSet.has('crucible')) lines.push({ kind: 'crucible', text: `<b>The Crucible</b> — every trial at once. The final seat opens.` });
+  for (const b of bosses) if (b !== 'crucible') lines.push({ kind: 'boss', text: `<b>${raidBossName(b)}</b> takes the high seat — a new boss to break.` });
+  for (const v of venues) lines.push({ kind: 'venue', text: `<b>${VENUES[v] ? VENUES[v].label : v}</b> — a new table to play.` });
+  for (const x of diffs) lines.push({ kind: 'diff', text: `<b>${DIFF_LABEL[x.diff]}</b> opens against ${raidBossName(x.boss)}.` });
+  return lines;
+}
 
 function renderRaidSetup() {
   const body = $('setupBody');
