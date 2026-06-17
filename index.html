@@ -6,12 +6,15 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=123">
+<link rel="stylesheet" href="style.css?v=124">
 </head>
 <body>
 
 <!-- Per-venue backdrop (set in JS; dark overlay keeps the UI readable) -->
 <div id="venuebg" class="venuebg"></div>
+
+<!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings) -->
+<audio id="bgm" loop preload="auto" src="assets/audio/lost-at-sea-loop.ogg?v=124"></audio>
 
 <!-- Title screen -->
 <div id="titleScreen" class="titlescreen">
@@ -57,6 +60,7 @@
       <button id="titleTutorial" class="btn big">The Academy</button>
       <button id="titleRegulars" class="btn big">The Regulars</button>
       <button id="titleRules" class="btn big">Rules</button>
+      <button id="titleAudio" class="btn big">Audio</button>
     </div>
     <button id="titleAlpha" class="btn ghost titlealpha">Alpha — all bosses unlocked</button>
     <div class="titlefoot">A game of regional leverage, point optimization, and tactical wills.</div>
@@ -112,7 +116,7 @@
         <div id="menuPop" class="menupop" style="display:none">
           <div id="tableSummary" class="tablesummary"></div>
           <button id="newGameBtn" class="btn ghost">New match — set the table</button>
-          <button id="muteBtn" class="btn ghost">Sound: on</button>
+          <button id="audioBtn" class="btn ghost">Audio…</button>
           <button id="fsBtn" class="btn ghost">Fullscreen</button>
           <button id="titleBtn" class="btn ghost">Return to title…</button>
         </div>
@@ -175,6 +179,27 @@
 </div>
 
 <!-- Quit-to-title confirmation -->
+<div id="audioModal" class="modal">
+  <div class="modalcard">
+    <h2>Audio</h2>
+    <p class="modalsub small">Set the levels, or silence the table.</p>
+    <div class="audiopanel">
+      <button id="muteToggle" class="btn audmute">Sound: On</button>
+      <div class="audrow">
+        <label for="musicVol">Music</label>
+        <input type="range" id="musicVol" min="0" max="100" step="1" value="40">
+        <span id="musicVolVal" class="audval">40</span>
+      </div>
+      <div class="audrow">
+        <label for="sfxVol">Effects</label>
+        <input type="range" id="sfxVol" min="0" max="100" step="1" value="80">
+        <span id="sfxVolVal" class="audval">80</span>
+      </div>
+    </div>
+    <div class="modalbtns"><button id="audioClose" class="btn primary">Done</button></div>
+  </div>
+</div>
+
 <div id="quitModal" class="modal">
   <div class="modalcard">
     <h2>Leave the table?</h2>
@@ -328,6 +353,6 @@
   </div>
 </div>
 
-<script src="game.js?v=123"></script>
+<script src="game.js?v=124"></script>
 </body>
 </html>

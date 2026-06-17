@@ -119,18 +119,21 @@ function slotName(i, footprint) {
    load. Muting persists in localStorage. */
 
 const SFX = (() => {
-  let ctx = null;
-  let muted = false;
+  let ctx = null, master = null;
+  let muted = false, vol = 0.8;
   try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) { /* headless */ }
+  try { const v = localStorage.getItem('stonelock-sfxvol'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
 
   function ensure() {
     if (typeof window === 'undefined') return null;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     if (!ctx) ctx = new AC();
+    if (!master) { master = ctx.createGain(); master.gain.value = muted ? 0 : vol; master.connect(ctx.destination); }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
+  function applyGain() { if (master) master.gain.value = muted ? 0 : vol; }
 
   function tone(c, t0, freq, dur, type = 'sine', peak = 0.1, slideTo = null) {
     const o = c.createOscillator(), g = c.createGain();
@@ -140,7 +143,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(c.destination);
+    o.connect(g).connect(master);
     o.start(t0);
     o.stop(t0 + dur + 0.05);
   }
@@ -157,7 +160,7 @@ const SFX = (() => {
     f.frequency.value = freq;
     const g = c.createGain();
     g.gain.value = peak;
-    src.connect(f).connect(g).connect(c.destination);
+    src.connect(f).connect(g).connect(master);
     src.start(t0);
   }
 
@@ -174,19 +177,44 @@ const SFX = (() => {
 
   return {
     play(name) {
-      if (muted) return;
+      if (muted || vol <= 0) return;
       const c = ensure();
       if (!c || !recipes[name]) return;
       try { recipes[name](c, c.currentTime); } catch (e) { /* never break the game for a sound */ }
     },
-    toggle() {
-      muted = !muted;
-      try { localStorage.setItem('stonelock-muted', muted ? '1' : '0'); } catch (e) {}
-      return muted;
-    },
+    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-sfxvol', String(vol)); } catch (e) {} applyGain(); },
+    getVolume() { return vol; },
+    setMuted(m) { muted = !!m; try { localStorage.setItem('stonelock-muted', muted ? '1' : '0'); } catch (e) {} applyGain(); },
+    toggle() { this.setMuted(!muted); return muted; },
     isMuted() { return muted; },
   };
 })();
+
+// Looping menu music (the processed "Lost at Sea" loop). Volume + mute share the
+// audio settings; playback only begins after a user gesture (browser autoplay).
+const Music = (() => {
+  let vol = 0.4, muted = false, wanted = false;
+  try { const v = localStorage.getItem('stonelock-musicvol'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
+  try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) {}
+  const el = () => (typeof document !== 'undefined') ? document.getElementById('bgm') : null;
+  function apply() {
+    const a = el(); if (!a) return;
+    a.volume = muted ? 0 : vol;
+    if (wanted && !muted && vol > 0) { if (a.paused) a.play().catch(() => {}); }
+    else a.pause();
+  }
+  return {
+    // Called on the first user gesture / when menus show — marks music wanted and tries to play.
+    start() { wanted = true; apply(); },
+    stop() { wanted = false; const a = el(); if (a) a.pause(); },
+    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicvol', String(vol)); } catch (e) {} apply(); },
+    getVolume() { return vol; },
+    setMuted(m) { muted = !!m; apply(); },
+  };
+})();
+// One global mute across music + effects.
+function setGlobalMute(m) { SFX.setMuted(m); Music.setMuted(m); }
+function isGlobalMute() { return SFX.isMuted(); }
 
 /* ---------------- Utilities ---------------- */
 
@@ -3998,7 +4026,6 @@ function boot() {
   };
   $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
   $('passBtn').onclick = passConfirm;
-  $('muteBtn').textContent = SFX.isMuted() ? '🔇' : '🔊';
   // The Menu dropdown: new match, sound, fullscreen, and quit-to-title all
   // live here so the sidebar stays uncluttered.
   const menuPopSet = open => {
@@ -4027,9 +4054,27 @@ function boot() {
   document.addEventListener('click', e => {
     if ($('menuPop').style.display !== 'none' && !e.target.closest('.menuwrap')) menuPopSet(false);
   });
-  const setSoundLabel = () => { $('muteBtn').textContent = SFX.isMuted() ? 'Sound: off' : 'Sound: on'; };
-  setSoundLabel();
-  $('muteBtn').onclick = () => { SFX.toggle(); setSoundLabel(); }; // stay open to show the new state
+  // ---- Audio settings panel (music vol, effects vol, mute) ----
+  const syncAudio = () => {
+    const m = isGlobalMute();
+    $('muteToggle').textContent = m ? 'Sound: Off' : 'Sound: On';
+    $('muteToggle').classList.toggle('muted', m);
+    const mv = Math.round(Music.getVolume() * 100), sv = Math.round(SFX.getVolume() * 100);
+    $('musicVol').value = mv; $('musicVolVal').textContent = mv;
+    $('sfxVol').value = sv; $('sfxVolVal').textContent = sv;
+    $('musicVol').disabled = m; $('sfxVol').disabled = m;
+  };
+  const openAudio = () => { syncAudio(); $('audioModal').classList.add('open'); };
+  $('audioBtn').onclick = () => { menuPopSet(false); openAudio(); };
+  $('titleAudio').onclick = openAudio;
+  $('audioClose').onclick = () => closeModal('audioModal');
+  $('muteToggle').onclick = () => { setGlobalMute(!isGlobalMute()); syncAudio(); };
+  $('musicVol').oninput = e => { Music.setVolume(+e.target.value / 100); $('musicVolVal').textContent = e.target.value; };
+  $('sfxVol').oninput = e => { SFX.setVolume(+e.target.value / 100); $('sfxVolVal').textContent = e.target.value; SFX.play('stone'); };
+  // Browsers block audio until a user gesture — kick the loop off on first interaction.
+  const startMusicOnce = () => { Music.start(); window.removeEventListener('pointerdown', startMusicOnce); window.removeEventListener('keydown', startMusicOnce); };
+  window.addEventListener('pointerdown', startMusicOnce);
+  window.addEventListener('keydown', startMusicOnce);
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = () => { menuPopSet(false); (G && G.mode === 'raid' ? openRaidSetup() : openSetup()); };
   $('fsBtn').onclick = () => {

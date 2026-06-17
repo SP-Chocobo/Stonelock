@@ -1151,6 +1151,16 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Alpha bypass — a discreet testing toggle under the menu. */
 .titlealpha { margin-top: 16px; font-size: 11.5px; padding: 5px 12px; opacity: 0.7; }
 .titlealpha.selected { opacity: 1; border-color: var(--gold); color: var(--gold-bright); }
+
+/* Audio settings panel */
+.audiopanel { display: flex; flex-direction: column; gap: 16px; margin: 10px 0 6px; }
+.audmute { align-self: center; min-width: 150px; }
+.audmute.muted { border-color: var(--red); color: #d98a7e; }
+.audrow { display: flex; align-items: center; gap: 12px; }
+.audrow label { width: 76px; font-family: 'Cinzel', Georgia, serif; color: var(--gold-dim); text-transform: uppercase; font-size: 12px; letter-spacing: 0.06em; }
+.audrow input[type="range"] { flex: 1; accent-color: var(--gold); height: 4px; cursor: pointer; }
+.audrow input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
+.audval { width: 30px; text-align: right; color: var(--parchment); font-size: 13px; font-variant-numeric: tabular-nums; }
 .titlefoot {
   margin-top: 26px;
   font-size: 13px;
