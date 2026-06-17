@@ -2376,10 +2376,19 @@ function buildTableDOM() {
     seat.id = `seat-${i}`;
     seat.className = 'seat' + (isMagistrate(i) ? ' bossseat' : '');
     seat.style.setProperty('--seatc', seatColor(i));
-    const bossStrip = isMagistrate(i)
-      ? `<div class="bosstglabel">Telegraphed stones — spent as it acts</div><div id="bosstg" class="bosstg"></div>`
-      : '';
-    seat.innerHTML = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div>${bossStrip}<div id="board-${i}" class="board"></div>`;
+    const head = `<div class="seathead">${playerName(i)}${isMagistrate(i) ? ' — the raid boss' : ''}</div>`;
+    const board = `<div id="board-${i}" class="board"></div>`;
+    if (isMagistrate(i)) {
+      // The boss looms over its half of the table: its portrait stands down the
+      // left of the seat, the same rectangular framing as the campaign screen.
+      const art = portraitFor(playerName(i));
+      const bossStrip = `<div class="bosstglabel">Telegraphed stones — spent as it acts</div><div id="bosstg" class="bosstg"></div>`;
+      seat.innerHTML =
+        (art ? `<div class="bossportrait-rect" style="background-image:url('${art}')"></div>` : '') +
+        `<div class="bossseat-body">${head}${bossStrip}${board}</div>`;
+    } else {
+      seat.innerHTML = head + board;
+    }
     if (isOpponent(0, i)) oppSeats.appendChild(seat);
     else youSeats.appendChild(seat);
   }
@@ -4050,10 +4059,13 @@ function renderRaidSetup() {
     }
     choices.appendChild(row);
   };
+  const firstBoss = RAID_BOSSES.findIndex(bb => bb.v === RAIDSET.boss) === 0;
   const diffState = o => ({
     locked: !raidUnlocked(RAIDSET.boss, o.v),
     beaten: campaignBeaten().has(`${RAIDSET.boss}-${o.v}`),
-    hint: 'Locked — win a lower difficulty here, or this difficulty against the previous boss, to unlock.',
+    hint: firstBoss
+      ? 'Locked — clear the lower difficulty here to unlock.'
+      : 'Locked — win a lower difficulty here, or this difficulty against the previous boss, to unlock.',
   });
 
   chips('The party', 'ally', [
