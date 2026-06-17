@@ -4076,10 +4076,20 @@ function boot() {
   $('muteToggle').onclick = () => { setGlobalMute(!isGlobalMute()); syncAudio(); };
   $('musicVol').oninput = e => { Music.setVolume(+e.target.value / 100); $('musicVolVal').textContent = e.target.value; };
   $('sfxVol').oninput = e => { SFX.setVolume(+e.target.value / 100); $('sfxVolVal').textContent = e.target.value; SFX.play('stone'); };
-  // Browsers block audio until a user gesture — kick the loop off on first interaction.
-  const startMusicOnce = () => { Music.start(); window.removeEventListener('pointerdown', startMusicOnce); window.removeEventListener('keydown', startMusicOnce); };
-  window.addEventListener('pointerdown', startMusicOnce);
-  window.addEventListener('keydown', startMusicOnce);
+  // Browsers block audio until a user gesture. Retry on EVERY gesture until the
+  // loop is actually playing (the first click can land before the file buffers,
+  // so a one-shot attempt silently fails), then unhook.
+  const tryStartMusic = () => {
+    const a = document.getElementById('bgm');
+    if (a && !a.paused) {
+      window.removeEventListener('pointerdown', tryStartMusic);
+      window.removeEventListener('keydown', tryStartMusic);
+      return;
+    }
+    Music.start();
+  };
+  window.addEventListener('pointerdown', tryStartMusic);
+  window.addEventListener('keydown', tryStartMusic);
   $('rulesClose').onclick = () => closeModal('rulesModal');
   $('newGameBtn').onclick = () => { menuPopSet(false); (G && G.mode === 'raid' ? openRaidSetup() : openSetup()); };
   $('fsBtn').onclick = () => {
