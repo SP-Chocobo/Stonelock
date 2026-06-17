@@ -874,6 +874,10 @@ function startHand() {
   G.cards = [];
   G.armed = false; // telegraphed stones become "spendable" once arming runs
   UI = { mode: 'idle', selected: [], pendingStone: null, blueOwn: null, flashIds: [] };
+  // Reset the centre callout every hand so no prior announce — a denied colour,
+  // a telegraph, even one left over from a different match — lingers beneath the
+  // new prompt. Denial bosses re-announce immediately below.
+  if (typeof document !== 'undefined') { const a = $('announce'); if (a) { a.innerHTML = ''; a.classList.remove('pop'); } }
 
   // Build the 64-card Ledger Deck, full shuffle, scale to 16 per player.
   let id = 0;
