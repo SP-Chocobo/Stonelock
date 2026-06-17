@@ -2788,6 +2788,43 @@ function openAllyPicker() {
   b.textContent = '‹ Back'; b.onclick = () => closeModal('regularsModal');
   $('regularsModal').classList.add('open');
 }
+// Standard-game company picker: the same cast grid, but an ordered multi-pick —
+// tap regulars in seat order (numbered), tap again to drop. Overlays the setup
+// modal; on phones the grid is the Regulars' one-column scroll.
+function openCompanyPicker() {
+  if (typeof document === 'undefined') return;
+  const humans = humansFromSetup();
+  const K = botSeatsOf(SETUP.mode, humans).length;
+  const setTitle = () => { $('regularsModal').querySelector('h2').textContent = `Choose Your Company — ${SETUP.picks.length}/${K}`; };
+  const draw = () => {
+    const body = $('regularsBody');
+    body.className = 'castgrid';
+    body.innerHTML = '';
+    for (const name of BOT_POOL) {
+      const p = PERSONALITIES[name];
+      if (!p) continue;
+      const ord = SETUP.picks.indexOf(name);
+      const portrait = portraitFor(name);
+      const full = ord < 0 && SETUP.picks.length >= K;
+      const card = document.createElement('div');
+      card.className = 'castcard' + (ord >= 0 ? ' selected' : '') + (full ? ' dim' : '');
+      card.innerHTML =
+        `${portrait ? `<div class="castportrait" style="background-image:url('${portrait}')">${ord >= 0 ? `<span class="pickord">${ord + 1}</span>` : ''}</div>` : ''}` +
+        `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>`;
+      card.onclick = () => {
+        const i = SETUP.picks.indexOf(name);
+        if (i >= 0) SETUP.picks.splice(i, 1);
+        else if (SETUP.picks.length < K) SETUP.picks.push(name);
+        draw(); setTitle();
+      };
+      body.appendChild(card);
+    }
+  };
+  draw(); setTitle();
+  const b = $('regularsBack');
+  b.textContent = 'Done'; b.onclick = () => { closeModal('regularsModal'); renderSetup(); };
+  $('regularsModal').classList.add('open');
+}
 function showRegular(name) {
   const p = PERSONALITIES[name];
   if (!p) return openRegulars();
@@ -3801,35 +3838,23 @@ function renderSetup() {
         accbody.appendChild(grid);
       }
 
-      // The seat-by-seat picker, right under the company choice.
+      // The seat-by-seat picker opens the cast grid (like the campaign ally
+      // picker) — a numbered, ordered multi-pick rather than a row of chips.
       if (section.key === 'company' && SETUP.company === 'choose' && K > 0) {
-        const row = document.createElement('div');
-        row.className = 'namerow';
-        const lab = document.createElement('span');
-        lab.className = 'arealabel';
-        lab.textContent = `The lineup (${SETUP.picks.length}/${K}):`;
-        row.appendChild(lab);
-        for (const name of BOT_POOL) {
-          const chip = document.createElement('button');
-          const ord = SETUP.picks.indexOf(name);
-          chip.className = 'botchip' + (ord >= 0 ? ' selected' : '');
-          chip.title = PERSONALITIES[name].flavor;
-          const face = portraitFor(name);
-          chip.innerHTML = (face ? `<span class="chipface" style="background-image:url('${face}')"></span>` : '') +
-            (ord >= 0 ? `<span class="ordnum">${ord + 1}</span>` : '') + name;
-          chip.onclick = () => {
-            const i = SETUP.picks.indexOf(name);
-            if (i >= 0) SETUP.picks.splice(i, 1);
-            else if (SETUP.picks.length < K) SETUP.picks.push(name);
-            renderSetup();
-          };
-          row.appendChild(chip);
-        }
+        const card = document.createElement('button');
+        card.className = 'allycard';
+        const names = SETUP.picks.length
+          ? SETUP.picks.map((n, i) => `${i + 1}. ${n}`).join('  ·  ')
+          : 'Tap to pick who sits down, seat by seat.';
+        card.innerHTML =
+          `<span class="allymeta"><span class="allyname">Your company — ${SETUP.picks.length}/${K} chosen</span>` +
+          `<span class="allyflavor">${names}</span></span><span class="allychev">Choose ›</span>`;
+        card.onclick = openCompanyPicker;
+        accbody.appendChild(card);
         const roles = document.createElement('div');
         roles.className = 'rolesline';
         roles.textContent = 'Seats in order: ' + seatRoles(SETUP.mode, humans).map((r, i) => `${i + 1} — ${r}`).join(' · ');
-        row.appendChild(roles);
-        accbody.appendChild(row);
+        accbody.appendChild(roles);
       }
       acc.appendChild(accbody);
     }
