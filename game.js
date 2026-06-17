@@ -3889,13 +3889,14 @@ function renderRaidSetup() {
 
     body.innerHTML = '<p class="modalsub small">Climb the high seats in turn — break one to earn your place at the next.</p>';
 
-    // Focused stage: ‹  [big portrait + name + status]  ›
+    // Focused stage: ▲ above / [big portrait + name + status] / ▼ below — the
+    // up/down paning matches the vertical dock climb.
     const stage = document.createElement('div');
     stage.className = 'campstage';
     const arrow = (dir) => {
       const off = (dir < 0 && fi === 0) || (dir > 0 && fi === N - 1);
       const a = document.createElement('button');
-      a.className = 'camparrow' + (off ? ' off' : ''); a.innerHTML = dir < 0 ? '‹' : '›'; a.disabled = off;
+      a.className = 'camparrow' + (off ? ' off' : ''); a.innerHTML = dir < 0 ? '▲' : '▼'; a.disabled = off;
       a.onclick = () => { RAIDSET.focus = fi + dir; renderRaidSetup(); };
       return a;
     };

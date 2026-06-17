@@ -468,14 +468,14 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .campdot.locked { filter: grayscale(0.65) brightness(0.5); }
 .campdot .dotbadge { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; text-shadow: 0 1px 3px #000; }
 
-/* focused stage — ‹ big portrait › */
-.campstage { display: flex; align-items: center; gap: 4px; flex: 1; justify-content: center; min-width: 0; }
-.camparrow { background: none; border: none; color: var(--gold-dim); font-size: 46px; line-height: 1; cursor: pointer; padding: 0 4px; font-family: 'Cinzel', Georgia, serif; }
+/* focused stage — ▲ above / big portrait / ▼ below (matches the vertical dock) */
+.campstage { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; justify-content: center; min-width: 0; }
+.camparrow { background: none; border: none; color: var(--gold-dim); font-size: 26px; line-height: 1; cursor: pointer; padding: 2px 14px; }
 .camparrow:hover:not(.off) { color: var(--gold-bright); }
 .camparrow.off { opacity: 0.16; cursor: default; }
 .campfocus { display: flex; flex-direction: column; align-items: center; gap: 9px; cursor: pointer; }
 .campfocus.locked { cursor: not-allowed; }
-.campfocus-art { position: relative; width: 240px; height: 240px; max-width: 52vw; max-height: 52vw; border-radius: 14px;
+.campfocus-art { position: relative; width: 320px; height: 320px; max-width: 62vw; max-height: 62vw; border-radius: 14px;
   background-size: cover; background-position: center top; border: 1px solid var(--gold-dim); box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
 .campfocus.locked .campfocus-art { filter: grayscale(0.6) brightness(0.55); }
 .campfocus:not(.locked):hover .campfocus-art { border-color: var(--gold-bright); box-shadow: 0 10px 34px rgba(0,0,0,0.7), 0 0 16px rgba(232,196,119,0.25); }
