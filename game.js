@@ -3835,9 +3835,16 @@ let RAIDSET = null;
 
 function openRaidSetup() {
   if (typeof Music !== 'undefined') Music.setTrack('menu'); // the campaign screen is a menu — menu bed, not the boss theme
-  RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: RAID_TARGET, targeting: 'standard', names: ['', ''] };
+  RAIDSET = { step: 'boss', boss: null, ally: 'bot', allyBot: 'The Old Hand', diff: 'standard', target: RAID_TARGET, targeting: 'standard', names: ['', ''], anim: 'boss' };
   renderRaidSetup();
   $('setupModal').classList.add('open');
+}
+
+// PC + motion-OK gate for the campaign-screen slide transitions; everywhere
+// else the screens simply swap, with no deferred render.
+function raidShouldAnimate() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia('(min-width: 761px) and (prefers-reduced-motion: no-preference)').matches;
 }
 
 // Step 1: choose the boss. Each gets a lore card; picking one advances.
@@ -3899,6 +3906,9 @@ function renderRaidSetup() {
   body.className = '';
   if (card) card.classList.remove('raidcompact');
   btns.innerHTML = '';
+  // One-shot entrance flag, set only at genuine screen changes (open / focus /
+  // back) so in-place re-renders — chip toggles, arrow paging — never replay it.
+  const anim = RAIDSET.anim; RAIDSET.anim = null;
 
   if (RAIDSET.step === 'boss') {
     $('setupModal').querySelector('h2').textContent = 'The Campaign';
@@ -3942,7 +3952,12 @@ function renderRaidSetup() {
         (f.unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo">${unlockHint}</div>`) +
       `</div>` +
       `<div class="campfocus-name">${b.name}</div>`;
-    if (f.unlocked) focus.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
+    if (f.unlocked) focus.onclick = () => {
+      const go = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; RAIDSET.anim = 'options'; renderRaidSetup(); };
+      // Fade the circle chain + arrows out, then hand off to the options screen.
+      if (raidShouldAnimate()) { sel.classList.remove('preanim'); sel.classList.add('out'); setTimeout(go, 230); }
+      else go();
+    };
     stage.append(arrow(-1), focus, arrow(1));
 
     // Dock: the six bosses as connected circles down the left; the centred one is
@@ -3960,9 +3975,12 @@ function renderRaidSetup() {
       dock.appendChild(dot);
     });
     const sel = document.createElement('div');
-    sel.className = 'campselect';
+    const animBoss = anim === 'boss' && raidShouldAnimate();
+    sel.className = 'campselect' + (animBoss ? ' preanim' : '');
     sel.append(dock, stage);
     body.appendChild(sel);
+    // Returning from a boss: let the circle chain slide back into view.
+    if (animBoss) requestAnimationFrame(() => requestAnimationFrame(() => sel.classList.remove('preanim')));
 
     const back = document.createElement('button');
     back.className = 'btn'; back.textContent = '‹ Title';
@@ -3995,18 +4013,30 @@ function renderRaidSetup() {
     : `A raid boss fields <b>${RAID_BOSS_CARDS} cards face-up</b>, telegraphs from a deep pouch, answers every move and keeps the last word. You and an ally combine your two scores — drive the marker the full distance to break it.${extra}`;
   body.className = 'raidopts';
   if (card) card.classList.add('raidcompact');
-  body.innerHTML =
-    `<div class="bosshead">` +
-      (bossArt ? `<div class="bosshead-art" style="background-image:url('${bossArt}')"></div>` : '') +
-      `<p class="bosshead-lore">${intro}</p>` +
-    `</div>`;
+  // Two columns: a tall portrait dominating the left, full height of the
+  // decision stack; the choices run down a justified column on the right.
+  const layout = document.createElement('div');
+  layout.className = 'raidlayout';
+  const art = document.createElement('div');
+  art.className = 'raidportrait';
+  if (bossArt) art.style.backgroundImage = `url('${bossArt}')`;
+  const choices = document.createElement('div');
+  choices.className = 'raidchoices';
+  layout.append(art, choices);
+  body.appendChild(layout);
 
-  // Compact chip-row picker: a labelled strip of small toggles. The headline
+  const lore = document.createElement('p');
+  lore.className = 'bosshead-lore';
+  lore.innerHTML = intro;
+  choices.appendChild(lore);
+
+  // Compact chip-row picker: a labelled strip of toggles that fills the column
+  // width, so every section squares up to the same measure. The headline
   // carries the choice; an optional one-word sub carries the only detail that
   // actually differs (stone counts, resolve order) — no brochure paragraphs.
   const chips = (title, key, opts, state) => {
     const h = document.createElement('div');
-    h.className = 'steptitle'; h.textContent = title; body.appendChild(h);
+    h.className = 'steptitle'; h.textContent = title; choices.appendChild(h);
     const row = document.createElement('div'); row.className = 'chiprow';
     for (const o of opts) {
       const st = state ? state(o) : {};
@@ -4018,7 +4048,7 @@ function renderRaidSetup() {
       else c.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
       row.appendChild(c);
     }
-    body.appendChild(row);
+    choices.appendChild(row);
   };
   const diffState = o => ({
     locked: !raidUnlocked(RAIDSET.boss, o.v),
@@ -4037,15 +4067,15 @@ function renderRaidSetup() {
     const name = RAIDSET.allyBot;
     const face = portraitFor(name);
     const p = PERSONALITIES[name] || {};
-    const card = document.createElement('button');
-    card.className = 'allycard';
-    card.innerHTML =
+    const card2 = document.createElement('button');
+    card2.className = 'allycard';
+    card2.innerHTML =
       (face ? `<span class="allyface" style="background-image:url('${face}')"></span>` : '') +
       `<span class="allymeta"><span class="allyname">${name}</span>` +
       `<span class="allyflavor">${p.flavor || ''}</span></span>` +
       `<span class="allychev">Change ›</span>`;
-    card.onclick = openAllyPicker;
-    body.appendChild(card);
+    card2.onclick = openAllyPicker;
+    choices.appendChild(card2);
   }
 
   if (RAIDSET.ally === 'hotseat') {
@@ -4061,7 +4091,7 @@ function renderRaidSetup() {
       inp.oninput = () => { RAIDSET.names[k] = inp.value; };
       row.appendChild(inp);
     });
-    body.appendChild(row);
+    choices.appendChild(row);
   }
 
   if (!isCru) chips('Difficulty', 'diff', isArch ? [
@@ -4084,7 +4114,7 @@ function renderRaidSetup() {
     const note = document.createElement('div');
     note.className = 'rolesline';
     note.innerHTML = `Targeting: <b>Advanced (forced)</b> · Length: <b>race to ${RAID_TARGET}</b>`;
-    body.appendChild(note);
+    choices.appendChild(note);
   } else {
     chips('Targeting', 'targeting', [
       { v: 'standard', label: 'Simplified', sub: 'stones bind as written' },
@@ -4093,12 +4123,25 @@ function renderRaidSetup() {
     const note = document.createElement('div');
     note.className = 'rolesline';
     note.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid.`;
-    body.appendChild(note);
+    choices.appendChild(note);
   }
+
+  // Entrance: settle the portrait, then fade the choices in just behind it.
+  // Pure transform/opacity (PC + reduced-motion gated in CSS); layout never
+  // shifts, since the choices reserve their space the whole time. Only on a
+  // real arrival — chip toggles add the settled class synchronously, no replay.
+  if (anim === 'options' && raidShouldAnimate()) {
+    requestAnimationFrame(() => requestAnimationFrame(() => layout.classList.add('in')));
+  } else layout.classList.add('in');
 
   const back = document.createElement('button');
   back.className = 'btn'; back.textContent = '‹ Boss';
-  back.onclick = () => { RAIDSET.step = 'boss'; renderRaidSetup(); };
+  back.onclick = () => {
+    const go = () => { RAIDSET.step = 'boss'; RAIDSET.anim = 'boss'; renderRaidSetup(); };
+    // Slide the portrait back to the right, then let the carousel return.
+    if (raidShouldAnimate()) { layout.classList.remove('in'); layout.classList.add('out'); setTimeout(go, 250); }
+    else go();
+  };
   btns.appendChild(back);
   const begin = document.createElement('button');
   begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = `Face ${raidBossName(RAIDSET.boss)}`;
