@@ -760,6 +760,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .queuedrow { margin-top: 2px; opacity: 0.95; }
 .slotqueue { position: absolute; top: 3px; left: 3px; }
 /* An empty slot the player can click (queue a stone, or commit a card into). */
+.stonedot.swaplink { cursor: help; }
+/* Hovering a queued Blue lights up the two slots it will swap. */
+.slot.swaphi { outline: 2px solid var(--blue); outline-offset: -3px; border-radius: 8px; box-shadow: 0 0 14px rgba(63,108,142,0.55); }
 .slot.slottarget { cursor: pointer; outline: 2px dashed var(--gold-bright); outline-offset: -4px; background: rgba(232,196,119,0.10); }
 .slot.slottarget:hover { background: rgba(232,196,119,0.20); }
 .slot.slottarget.selected { outline-style: solid; background: rgba(232,196,119,0.28); }

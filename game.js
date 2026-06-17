@@ -416,8 +416,9 @@ function archPendingOn(gi) {
   const out = [];
   for (const p of G.archQueue) {
     if (p.resolved) continue; // already fired in the playout — its real effect now shows
-    if (p.slot === gi) out.push({ color: p.color, by: p.by });
-    else if (p.color === 'blue' && p.swap === gi) out.push({ color: 'blue', by: p.by });
+    // For a Blue (a swap), carry the partner slot so the UI can light up the pair.
+    if (p.slot === gi) out.push({ color: p.color, by: p.by, other: p.color === 'blue' ? p.swap : null });
+    else if (p.color === 'blue' && p.swap === gi) out.push({ color: 'blue', by: p.by, other: p.slot });
   }
   return out;
 }
@@ -3247,6 +3248,7 @@ function renderBoard(who, container) {
     // clickable for stone-placement / card-commit.
     if (isSlotMode() && (G.archivist || (G.archQueue && G.archQueue.length))) {
       const gi = archGlobal(who, i);
+      slot.dataset.gi = gi; // so a Blue's hover can light up its swap partner
       const pend = archPendingOn(gi);
       if (pend.length) {
         const row = document.createElement('div');
@@ -3255,6 +3257,17 @@ function renderBoard(who, container) {
           const d = document.createElement('span');
           d.className = `stonedot pending ${s.color}`;
           d.title = `Queued ${STONES[s.color].name} (${playerName(s.by)}) — waits in the ledger`;
+          // Hover a queued Blue to highlight the two slots it swaps.
+          if (s.color === 'blue' && s.other != null) {
+            const pair = [gi, s.other];
+            d.classList.add('swaplink');
+            d.title = `Queued Blue Stone (${playerName(s.by)}) — swaps these two slots`;
+            d.addEventListener('mouseenter', () => {
+              document.querySelectorAll('.slot.swaphi').forEach(e => e.classList.remove('swaphi'));
+              pair.forEach(g => { const el = document.querySelector(`.slot[data-gi="${g}"]`); if (el) el.classList.add('swaphi'); });
+            });
+            d.addEventListener('mouseleave', () => document.querySelectorAll('.slot.swaphi').forEach(e => e.classList.remove('swaphi')));
+          }
           row.appendChild(d);
         }
         slot.appendChild(row);
