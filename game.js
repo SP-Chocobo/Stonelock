@@ -2530,7 +2530,7 @@ function showTitle() {
 // persisted behind the title; repaint it and resume the loop (run() re-prompts
 // the human or restarts the AI beat, whichever the current step needs).
 function resumeMatch() {
-  if (typeof document === 'undefined' || !G || G.over) return;
+  if (typeof document === 'undefined' || !G || G.over || G.tutorial) return;
   INGAME = true;
   if (typeof Music !== 'undefined') Music.setTrack(G.mode === 'raid' ? 'boss' : 'menu');
   setVenueBackdrop(G.venueKey || 'tavern');
@@ -2544,7 +2544,7 @@ function resumeMatch() {
 function refreshTitleButtons() {
   if (typeof document === 'undefined') return;
   const btn = $('titleContinue');
-  if (btn) btn.style.display = (G && !G.over) ? '' : 'none';
+  if (btn) btn.style.display = (G && !G.over && !G.tutorial) ? '' : 'none';
 }
 
 // Set (or clear) the per-venue in-game backdrop. The dark overlay is baked in so
@@ -2878,7 +2878,7 @@ function tutIntro() {
     next: () => {
       TUT.introStep++;
       if (TUT.introStep < intro.length) tutIntro();
-      else { TUT.phase = 'live'; coachHide(); newGame(TUT.lesson.cfg); }
+      else { TUT.phase = 'live'; coachHide(); newGame(TUT.lesson.cfg); G.tutorial = true; } // never resumable as a "Continue match"
     },
     nextLabel: TUT.introStep === intro.length - 1 ? 'Deal the hand' : 'Next',
   });
