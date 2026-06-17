@@ -952,6 +952,23 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .botchip .ordnum { color: var(--gold-bright); margin-right: 6px; font-weight: bold; }
 .rolesline { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
 
+/* Raid setup options — narrow the whole card so the title, lore, chips,
+   ally card and footer buttons all share one tidy measure and left edge
+   instead of full-bleed sprawl across the wide carousel width. */
+.modalcard.wide.raidcompact { max-width: 600px; }
+#setupBody.raidopts .steptitle:first-of-type { margin-top: 6px; }
+.bosshead { display: flex; align-items: center; gap: 18px; margin: 4px 0 16px; }
+.bosshead-art {
+  width: 124px; height: 124px; flex-shrink: 0; border-radius: 12px;
+  background: center top / cover no-repeat;
+  border: 1px solid var(--gold-dim); box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+}
+.bosshead-lore { margin: 0; font-style: italic; color: var(--parchment-dim); font-size: 12.5px; line-height: 1.5; }
+@media (max-width: 760px) {
+  .bosshead { flex-direction: column; text-align: center; gap: 10px; }
+  .bosshead-art { width: 104px; height: 104px; }
+}
+
 /* Compact chip-row pickers (party / difficulty / targeting on the raid setup) */
 .chiprow { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px; }
 .pillopt {

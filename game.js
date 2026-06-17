@@ -3894,7 +3894,10 @@ function venueLockHint(v) { return `Locked — beat <b>${raidBossName(VENUE_UNLO
 function renderRaidSetup() {
   const body = $('setupBody');
   const btns = $('setupBtns');
+  const card = $('setupModal').querySelector('.modalcard');
   body.innerHTML = '';
+  body.className = '';
+  if (card) card.classList.remove('raidcompact');
   btns.innerHTML = '';
 
   if (RAIDSET.step === 'boss') {
@@ -3985,13 +3988,18 @@ function renderRaidSetup() {
     : isQM ? ' It locks one stone-colour from the whole table each hand, cycling <b>red → white → blue → black</b>.'
     : '';
   const bossArt = portraitFor(raidBossName(RAIDSET.boss));
-  const banner = bossArt ? `<div class="bossbanner"><div class="bossbanner-art" style="background-image:url('${bossArt}')"></div></div>` : '';
   const intro = isCru
     ? `<b>The Crucible</b> — every trial at once: inverted slots resolved <b>back to front</b>, a colour <b>locked from the table</b> each hand, every stone <b>exhausted</b>, a <b>deep draw</b>, forced advanced targeting, and one buried <b>Green scalpel</b>. One difficulty — brutal.`
     : isArch
     ? `<b>The Archivist</b> inverts the game: both sides commit layouts, then place stones onto the <b>slots</b> — nothing fires until every stone is down, and the ledger resolves in placement order (<b>back to front</b> on Hardcore). Advanced targeting is forced.`
     : `A raid boss fields <b>${RAID_BOSS_CARDS} cards face-up</b>, telegraphs from a deep pouch, answers every move and keeps the last word. You and an ally combine your two scores — drive the marker the full distance to break it.${extra}`;
-  body.innerHTML = banner + `<p class="modalsub small">${intro}</p>`;
+  body.className = 'raidopts';
+  if (card) card.classList.add('raidcompact');
+  body.innerHTML =
+    `<div class="bosshead">` +
+      (bossArt ? `<div class="bosshead-art" style="background-image:url('${bossArt}')"></div>` : '') +
+      `<p class="bosshead-lore">${intro}</p>` +
+    `</div>`;
 
   // Compact chip-row picker: a labelled strip of small toggles. The headline
   // carries the choice; an optional one-word sub carries the only detail that
