@@ -952,6 +952,42 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .botchip .ordnum { color: var(--gold-bright); margin-right: 6px; font-weight: bold; }
 .rolesline { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
 
+/* Compact chip-row pickers (party / difficulty / targeting on the raid setup) */
+.chiprow { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px; }
+.pillopt {
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 7px 13px; border-radius: 9px; border: 1px solid var(--edge);
+  background: rgba(0,0,0,0.25); color: var(--parchment-dim); cursor: pointer;
+  font-family: 'Alegreya', Georgia, serif; min-width: 92px;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+.pillopt:hover { transform: translateY(-2px); border-color: var(--gold-dim); }
+.pillopt.selected { border-color: var(--gold-bright); box-shadow: 0 0 12px rgba(232,196,119,0.2); }
+.pilllabel { font-size: 14.5px; color: var(--gold); }
+.pillopt.selected .pilllabel { color: var(--gold-bright); }
+.pillsub { font-size: 11px; font-style: italic; color: var(--parchment-dim); }
+.pillopt.locked { opacity: 0.5; filter: grayscale(0.5); cursor: not-allowed; }
+.pillopt.locked:hover { transform: none; border-color: var(--edge); }
+
+/* The chosen-ally card on the raid setup — tap to open the cast picker */
+.allycard {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  margin: 4px 0 6px; padding: 9px 14px; cursor: pointer; text-align: left;
+  border: 1px solid var(--edge); border-radius: 11px;
+  background: linear-gradient(170deg, #2e261b, #221b12);
+  color: var(--parchment); font-family: 'Alegreya', Georgia, serif;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+.allycard:hover { transform: translateY(-2px); border-color: var(--gold-dim); }
+.allyface { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; background: center/cover no-repeat;
+  border: 1px solid var(--gold-dim); box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.allymeta { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.allyname { color: var(--gold); font-size: 16px; }
+.allyflavor { font-style: italic; color: var(--gold-dim); font-size: 12px; line-height: 1.3; }
+.allychev { color: var(--gold-bright); font-size: 13px; flex-shrink: 0; }
+.castcard.selected { border-color: var(--gold-bright); box-shadow: 0 0 14px rgba(232,196,119,0.22); }
+.castcard.selected h3 { color: var(--gold-bright); }
+
 .modalcard {
   background:
     radial-gradient(ellipse at 50% 0%, rgba(201,160,80,0.08), transparent 60%),

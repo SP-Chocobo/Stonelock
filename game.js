@@ -2692,6 +2692,32 @@ function openRegulars() {
   b.textContent = '‹ Title'; b.onclick = () => closeModal('regularsModal');
   $('regularsModal').classList.add('open');
 }
+// The ally picker: the same 3×3 cast grid, but each face selects that regular
+// as your raid ally (current pick highlighted) and drops back to the setup
+// screen. Overlays the raid setup modal, which stays open behind it.
+function openAllyPicker() {
+  if (typeof document === 'undefined') return;
+  const body = $('regularsBody');
+  body.className = 'castgrid';
+  body.innerHTML = '';
+  for (const name of BOT_POOL) {
+    const p = PERSONALITIES[name];
+    if (!p) continue;
+    const portrait = portraitFor(name);
+    const card = document.createElement('div');
+    card.className = 'castcard' + (RAIDSET.allyBot === name ? ' selected' : '');
+    card.innerHTML =
+      `${portrait ? `<div class="castportrait" style="background-image:url('${portrait}')"></div>` : ''}` +
+      `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>` +
+      `<div class="castleans">${regularLeans(p)}</div>`;
+    card.onclick = () => { RAIDSET.allyBot = name; closeModal('regularsModal'); renderRaidSetup(); };
+    body.appendChild(card);
+  }
+  $('regularsModal').querySelector('h2').textContent = 'Choose your ally';
+  const b = $('regularsBack');
+  b.textContent = '‹ Back'; b.onclick = () => closeModal('regularsModal');
+  $('regularsModal').classList.add('open');
+}
 function showRegular(name) {
   const p = PERSONALITIES[name];
   if (!p) return openRegulars();
@@ -3954,32 +3980,37 @@ function renderRaidSetup() {
   const isQM = RAIDSET.boss === 'quartermaster';
   const isCru = RAIDSET.boss === 'crucible';
   if (isCru) RAIDSET.diff = 'hard'; // the Crucible has a single trial
-  const extra = isWarden ? ' <b>The Warden</b> spends ruthlessly, and grinds <b>your</b> disruption away — every stone you play is <b>exhausted for a hand</b>, while its own pouch never empties.'
-    : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
-    : isQM ? ' <b>The Quartermaster</b> locks away one stone-colour from the whole table each hand — yours and its own — cycling <b>red → white → blue → black</b>. You can never lean on a favourite.'
+  const extra = isWarden ? ' It grinds <b>your</b> disruption away — every stone you play is <b>exhausted for a hand</b>, while its own pouch never empties.'
+    : isApothecary ? ' It keeps a <b>Green Stone</b> for the last word, poisoning your best unlocked card — a <b>White lock</b> set in time is your only shield.'
+    : isQM ? ' It locks one stone-colour from the whole table each hand, cycling <b>red → white → blue → black</b>.'
     : '';
   const bossArt = portraitFor(raidBossName(RAIDSET.boss));
   const banner = bossArt ? `<div class="bossbanner"><div class="bossbanner-art" style="background-image:url('${bossArt}')"></div></div>` : '';
-  body.innerHTML = banner + (isCru
-    ? `<p class="modalsub small"><b>The Crucible</b> — every trial at once. The inverted slot order, resolved <b>back to front</b>; one stone-colour <b>locked from the whole table</b> each hand; every stone <b>exhausted for a hand</b>; a <b>deep draw</b>, <b>advanced targeting forced</b>; and a single <b>Green scalpel</b> the boss may bury anywhere, unanswerable. <b>One difficulty — brutal.</b> Read everything, commit around it, and survive.</p>`
+  const intro = isCru
+    ? `<b>The Crucible</b> — every trial at once: inverted slots resolved <b>back to front</b>, a colour <b>locked from the table</b> each hand, every stone <b>exhausted</b>, a <b>deep draw</b>, forced advanced targeting, and one buried <b>Green scalpel</b>. One difficulty — brutal.`
     : isArch
-    ? `<p class="modalsub small"><b>The Archivist</b> inverts the game. Both sides commit their layouts (it opens its full board face-up), then place stones onto the <b>slots</b> — nothing fires until every stone is down. The ledger then resolves <b>in placement order</b>, or, on Hardcore, <b>back to front</b>. It scores its <b>two best non-overlapping hands</b>; your two scores combine. <b>Advanced targeting is forced</b> — a war for position across every layout. Read the queue, commit your cards around it, and win the order war.</p>`
-    : `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`);
+    ? `<b>The Archivist</b> inverts the game: both sides commit layouts, then place stones onto the <b>slots</b> — nothing fires until every stone is down, and the ledger resolves in placement order (<b>back to front</b> on Hardcore). Advanced targeting is forced.`
+    : `A raid boss fields <b>${RAID_BOSS_CARDS} cards face-up</b>, telegraphs from a deep pouch, answers every move and keeps the last word. You and an ally combine your two scores — drive the marker the full distance to break it.${extra}`;
+  body.innerHTML = banner + `<p class="modalsub small">${intro}</p>`;
 
-  const section = (title, key, opts, state) => {
+  // Compact chip-row picker: a labelled strip of small toggles. The headline
+  // carries the choice; an optional one-word sub carries the only detail that
+  // actually differs (stone counts, resolve order) — no brochure paragraphs.
+  const chips = (title, key, opts, state) => {
     const h = document.createElement('div');
     h.className = 'steptitle'; h.textContent = title; body.appendChild(h);
-    const grid = document.createElement('div'); grid.className = 'optgrid';
+    const row = document.createElement('div'); row.className = 'chiprow';
     for (const o of opts) {
       const st = state ? state(o) : {};
-      const el = document.createElement('div');
-      el.className = 'bigopt' + (RAIDSET[key] === o.v ? ' selected' : '') + (st.locked ? ' locked' : '');
+      const c = document.createElement('button');
+      c.className = 'pillopt' + (RAIDSET[key] === o.v ? ' selected' : '') + (st.locked ? ' locked' : '');
       const tag = st.locked ? ' 🔒' : st.beaten ? ' <span class="campwin">✓</span>' : '';
-      el.innerHTML = `<h3>${o.label}${tag}</h3><div class="bigoptdesc">${st.locked ? (st.hint || 'Locked.') : o.desc}</div>`;
-      if (!st.locked) el.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
-      grid.appendChild(el);
+      c.innerHTML = `<span class="pilllabel">${o.label}${tag}</span>` + (o.sub ? `<span class="pillsub">${o.sub}</span>` : '');
+      if (st.locked) c.title = st.hint || 'Locked.';
+      else c.onclick = () => { RAIDSET[key] = o.v; renderRaidSetup(); };
+      row.appendChild(c);
     }
-    body.appendChild(grid);
+    body.appendChild(row);
   };
   const diffState = o => ({
     locked: !raidUnlocked(RAIDSET.boss, o.v),
@@ -3987,28 +4018,26 @@ function renderRaidSetup() {
     hint: 'Locked — win a lower difficulty here, or this difficulty against the previous boss, to unlock.',
   });
 
-  section('The party', 'ally', [
-    { v: 'bot', label: 'You + an Ally bot', desc: 'A regular fights at your side, AI-controlled. Pick who below.' },
-    { v: 'hotseat', label: 'Two players — co-op', desc: 'Both party seats are human; the device passes between you.' },
+  chips('The party', 'ally', [
+    { v: 'bot', label: 'You + Ally bot' },
+    { v: 'hotseat', label: 'Two players', sub: 'co-op · pass device' },
   ]);
 
   if (RAIDSET.ally === 'bot') {
-    // Choose which regular allies with you (any is competent; the Old Hand's
-    // protective kit is the classic co-op pick).
-    const row = document.createElement('div');
-    row.className = 'namerow';
-    const lab = document.createElement('span'); lab.className = 'arealabel'; lab.textContent = 'Your ally:';
-    row.appendChild(lab);
-    for (const name of BOT_POOL) {
-      const chip = document.createElement('button');
-      chip.className = 'botchip' + (RAIDSET.allyBot === name ? ' selected' : '');
-      chip.title = PERSONALITIES[name].flavor;
-      const face = portraitFor(name);
-      chip.innerHTML = (face ? `<span class="chipface" style="background-image:url('${face}')"></span>` : '') + name;
-      chip.onclick = () => { RAIDSET.allyBot = name; renderRaidSetup(); };
-      row.appendChild(chip);
-    }
-    body.appendChild(row);
+    // One ally card showing who's chosen; tap it to open the cast as a
+    // selectable 3×3 grid rather than a row of inline chips.
+    const name = RAIDSET.allyBot;
+    const face = portraitFor(name);
+    const p = PERSONALITIES[name] || {};
+    const card = document.createElement('button');
+    card.className = 'allycard';
+    card.innerHTML =
+      (face ? `<span class="allyface" style="background-image:url('${face}')"></span>` : '') +
+      `<span class="allymeta"><span class="allyname">${name}</span>` +
+      `<span class="allyflavor">${p.flavor || ''}</span></span>` +
+      `<span class="allychev">Change ›</span>`;
+    card.onclick = openAllyPicker;
+    body.appendChild(card);
   }
 
   if (RAIDSET.ally === 'hotseat') {
@@ -4027,36 +4056,36 @@ function renderRaidSetup() {
     body.appendChild(row);
   }
 
-  if (!isCru) section('Difficulty', 'diff', isArch ? [
-    { v: 'easy', label: 'Easy — forward', desc: 'Your party comes loaded — five stones each against the boss’s three — resolving in placement order. What you read is what you get; you win most fights.' },
-    { v: 'standard', label: 'Standard — forward', desc: 'Six stones, resolving in placement order, and it plays its records shrewdly. A true coin-flip — read the open queue and commit your cards around it.' },
-    { v: 'hard', label: 'Hardcore — reverse', desc: 'Six stones, and the ledger resolves BACK TO FRONT — last placed fires first. Your forward reads betray you; interactions flip and fizzle. A sequencing brain-bender.' },
+  if (!isCru) chips('Difficulty', 'diff', isArch ? [
+    { v: 'easy', label: 'Easy', sub: '5 stones · forward' },
+    { v: 'standard', label: 'Standard', sub: '6 stones · forward' },
+    { v: 'hard', label: 'Hardcore', sub: '6 stones · reverse' },
   ] : isApothecary ? [
-    { v: 'easy', label: 'Easy', desc: 'A light hand of stones beneath the scalpel — often just one or two. A coordinated, white-aware party wins most fights.' },
-    { v: 'standard', label: 'Standard', desc: 'Two stones and the guaranteed cut. A true coin-flip against good play.' },
-    { v: 'hard', label: 'Hardcore', desc: 'Three stones and the last-word cut — it opens, answers, and closes with the scalpel. Only sharp, coordinated play breaks it.' },
+    { v: 'easy', label: 'Easy', sub: '1–2 stones' },
+    { v: 'standard', label: 'Standard', sub: '2 + the cut' },
+    { v: 'hard', label: 'Hardcore', sub: '3 + last cut' },
   ] : [
-    { v: 'easy', label: 'Easy — 5 stones', desc: 'The boss spends five stones. A coordinated party wins most fights.' },
-    { v: 'standard', label: 'Standard — 6 stones', desc: 'Six stones, answering every move. A true coin-flip against good play.' },
-    { v: 'hard', label: 'Hardcore — 7 stones', desc: 'Seven stones — it opens, answers, and closes. Only sharp, coordinated play breaks it.' },
+    { v: 'easy', label: 'Easy', sub: '5 stones' },
+    { v: 'standard', label: 'Standard', sub: '6 stones' },
+    { v: 'hard', label: 'Hardcore', sub: '7 stones' },
   ], diffState);
 
   RAIDSET.target = RAID_TARGET; // raids are a fixed-length trial — no picking a lucky short race
-  const tnote = document.createElement('div');
-  tnote.className = 'rolesline';
-  tnote.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid, so the climb is the same trial for everyone.`;
-  body.appendChild(tnote);
 
   if (isArch || isCru) {
     const note = document.createElement('div');
     note.className = 'rolesline';
-    note.innerHTML = `Targeting: <b>Advanced (forced)</b> — ${isCru ? 'the Crucible' : 'the Archivist'} is a war for position; every stone reaches every layout.`;
+    note.innerHTML = `Targeting: <b>Advanced (forced)</b> · Length: <b>race to ${RAID_TARGET}</b>`;
     body.appendChild(note);
   } else {
-    section('Targeting', 'targeting', [
-      { v: 'standard', label: 'Simplified', desc: 'Stones bind as written: Red and Blue work your own layout; White may shelter an ally. The balanced co-op fight.' },
-      { v: 'open', label: 'Advanced — open table', desc: 'Any stone reaches any layout: lock or build an ally’s card, trade across party seats. Deeper coordination — and an easier raid.' },
+    chips('Targeting', 'targeting', [
+      { v: 'standard', label: 'Simplified', sub: 'stones bind as written' },
+      { v: 'open', label: 'Advanced', sub: 'any stone, any layout' },
     ]);
+    const note = document.createElement('div');
+    note.className = 'rolesline';
+    note.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid.`;
+    body.appendChild(note);
   }
 
   const back = document.createElement('button');
