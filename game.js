@@ -3886,12 +3886,13 @@ function renderRaidSetup() {
       const pips = RAID_DIFF_ORDER.map(d =>
         `<span class="camppip${beaten.has(`${b.v}-${d}`) ? ' done' : ''}${!raidUnlocked(b.v, d) ? ' lk' : ''}" title="${d}"></span>`).join('');
       const portrait = portraitFor(b.name);
+      // Art-forward gallery: portrait + name + status + pips. The lore and options
+      // live on the detail screen you click into.
       node.innerHTML =
         `<div class="camprail"><div class="campstep">${mastered ? '★' : i + 1}</div></div>` +
-        (portrait ? `<div class="campportrait" style="background-image:url('${portrait}')"></div>` : '') +
+        (portrait ? `<div class="campportrait" style="background-image:url('${portrait}')"><div class="camppips" title="Difficulties cleared">${pips}</div></div>` : '') +
         `<div class="campinfo"><div class="camphead"><h3>${b.name}</h3><span class="campstatus">${status}</span></div>` +
-        `<div class="bigoptdesc">${unlocked ? b.lore : 'Locked — break the boss before it to earn your seat at this table.'}</div>` +
-        `<div class="camppips" title="Difficulties cleared">${pips}</div></div>`;
+        `<div class="campgo">${unlocked ? 'View ›' : ''}</div></div>`;
       if (unlocked) node.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
       trail.appendChild(node);
     });
@@ -3919,11 +3920,13 @@ function renderRaidSetup() {
     : isApothecary ? ' <b>The Apothecary</b> always keeps a <b>Green Stone</b> for its last word — poisoning the best card you left unlocked to nothing. You cannot answer it after it falls, so a <b>White lock</b> set in time is your only shield.'
     : isQM ? ' <b>The Quartermaster</b> locks away one stone-colour from the whole table each hand — yours and its own — cycling <b>red → white → blue → black</b>. You can never lean on a favourite.'
     : '';
-  body.innerHTML = isCru
+  const bossArt = portraitFor(raidBossName(RAIDSET.boss));
+  const banner = bossArt ? `<div class="bossbanner"><div class="bossbanner-art" style="background-image:url('${bossArt}')"></div></div>` : '';
+  body.innerHTML = banner + (isCru
     ? `<p class="modalsub small"><b>The Crucible</b> — every trial at once. The inverted slot order, resolved <b>back to front</b>; one stone-colour <b>locked from the whole table</b> each hand; every stone <b>exhausted for a hand</b>; a <b>deep draw</b>, <b>advanced targeting forced</b>; and a single <b>Green scalpel</b> the boss may bury anywhere, unanswerable. <b>One difficulty — brutal.</b> Read everything, commit around it, and survive.</p>`
     : isArch
     ? `<p class="modalsub small"><b>The Archivist</b> inverts the game. Both sides commit their layouts (it opens its full board face-up), then place stones onto the <b>slots</b> — nothing fires until every stone is down. The ledger then resolves <b>in placement order</b>, or, on Hardcore, <b>back to front</b>. It scores its <b>two best non-overlapping hands</b>; your two scores combine. <b>Advanced targeting is forced</b> — a war for position across every layout. Read the queue, commit your cards around it, and win the order war.</p>`
-    : `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`;
+    : `<p class="modalsub small">A raid boss fields <b>${RAID_BOSS_CARDS} cards, all face-up</b>, telegraphs from a deep <b>3-of-each pouch</b>, answers every move and keeps the last word, and scores its <b>two best non-overlapping hands</b>. You and an ally field five cards and three stones each; your two scores combine. Drive the marker the full distance to break it — the boss holds any tie.${extra}</p>`);
 
   const section = (title, key, opts, state) => {
     const h = document.createElement('div');

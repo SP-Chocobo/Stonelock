@@ -454,9 +454,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
    the next. A numbered rail with a connecting line, portrait, status, and pips. */
 .camptrail { display: flex; flex-direction: column; }
 .campnode {
-  display: flex; gap: 12px; align-items: flex-start; text-align: left;
+  display: flex; gap: 12px; align-items: center; text-align: left;
   padding: 12px 8px; position: relative; cursor: pointer; border-radius: 10px;
 }
+.campgo { font-size: 12px; color: var(--gold-dim); margin-top: 6px; letter-spacing: 0.04em; }
+.campnode:not(.locked):hover .campgo { color: var(--gold-bright); }
 .campnode:not(.locked):hover { background: rgba(232,196,119,0.07); }
 .campnode.locked { opacity: 0.5; filter: grayscale(0.55); cursor: not-allowed; }
 .campnode.frontier { background: rgba(232,196,119,0.06); box-shadow: inset 0 0 0 1px var(--gold-dim); }
@@ -469,13 +471,17 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .campnode.frontier .campstep { border-color: var(--gold-bright); color: var(--gold-bright); box-shadow: 0 0 12px rgba(232,196,119,0.45); }
 .campnode.mastered .campstep { background: var(--gold-dim); color: #1d1710; border-color: var(--gold); }
-/* the chain line linking each station to the next (anchored to the node, at the
-   rail's centre, running from under this circle past the node's foot). */
-.campnode:not(:last-child)::after {
-  content: ''; position: absolute; left: 22px; top: 44px; bottom: -2px; width: 2px;
-  background: var(--gold-dim); opacity: 0.45;
-}
-.campportrait { width: 54px; height: 54px; border-radius: 8px; background-size: cover; background-position: center top; flex: none; border: 1px solid var(--edge); }
+/* the chain line through the (vertically-centred) rail circles: each node draws
+   the half-line below its own circle and the half-line above it, so consecutive
+   nodes join into one continuous climb. */
+.campnode:not(:last-child)::after { content: ''; position: absolute; left: 22px; top: 50%; bottom: 0; width: 2px; background: var(--gold-dim); opacity: 0.45; }
+.campnode:not(:first-child)::before { content: ''; position: absolute; left: 22px; top: 0; height: 50%; width: 2px; background: var(--gold-dim); opacity: 0.45; }
+.campportrait { position: relative; width: 96px; height: 96px; border-radius: 10px; background-size: cover; background-position: center top; flex: none; border: 1px solid var(--edge); box-shadow: 0 2px 10px rgba(0,0,0,0.45); }
+.campnode.frontier .campportrait { border-color: var(--gold-dim); }
+/* difficulty pips tucked into the portrait's bottom-right corner on a small scrim,
+   so they read over any art without stealing focus from it. */
+.campportrait .camppips { position: absolute; right: 5px; bottom: 5px; left: auto; gap: 4px; margin: 0; padding: 3px 5px; background: rgba(8,6,4,0.5); border-radius: 9px; backdrop-filter: blur(1px); }
+.campportrait .camppip { width: 9px; height: 9px; }
 .campinfo { flex: 1; min-width: 0; }
 .camphead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px; margin-bottom: 3px; }
 .camphead h3 { flex: 1 1 auto; min-width: 0; }
@@ -488,6 +494,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .camppip { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--gold-dim); }
 .camppip.done { background: var(--gold); border-color: var(--gold); }
 .camppip.lk { opacity: 0.3; }
+/* Large boss showcase on the "Face [Boss]" screen — let the art breathe. */
+.bossbanner { display: flex; justify-content: center; margin: 4px 0 12px; }
+.bossbanner-art { width: 176px; height: 176px; border-radius: 12px; background-size: cover; background-position: center top;
+  border: 1px solid var(--gold-dim); box-shadow: 0 6px 22px rgba(0,0,0,0.6); }
+@media (max-width: 760px) { .bossbanner-art { width: 132px; height: 132px; } }
 .bossportrait { width: 72px; height: 72px; flex-shrink: 0; border-radius: 9px; border: 1px solid var(--gold-dim);
   background: center/cover no-repeat; box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
 
@@ -915,7 +926,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .castcard:hover { transform: translateY(-3px); border-color: var(--gold-dim); }
 .castcard h3 { margin: 0; color: var(--gold); font-size: 14px; }
-.castportrait { width: 88px; height: 88px; flex-shrink: 0; border-radius: 50%; background: center/cover no-repeat;
+.castportrait { width: 116px; height: 116px; flex-shrink: 0; border-radius: 50%; background: center/cover no-repeat;
   border: 1px solid var(--gold-dim); box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
 .castepithet { font-style: italic; color: var(--gold-dim); font-size: 11.5px; line-height: 1.35; }
 .castbio { font-size: 13px; color: var(--parchment-dim); line-height: 1.5; max-width: 460px; }
@@ -929,8 +940,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 @media (max-width: 760px) {
   #regularsBody.castgrid { grid-template-columns: 1fr; }
   .castcard { flex-direction: row; text-align: left; gap: 11px; }
-  .castcard .castportrait { width: 52px; height: 52px; }
-  .castportrait-lg { width: 150px; height: 150px; }
+  .castcard .castportrait { width: 64px; height: 64px; }
+  .castportrait-lg { width: 160px; height: 160px; }
+  .campportrait { width: 72px; height: 72px; }
 }
 .botchip .ordnum { color: var(--gold-bright); margin-right: 6px; font-weight: bold; }
 .rolesline { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
