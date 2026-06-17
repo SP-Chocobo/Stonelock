@@ -1229,42 +1229,66 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   position: fixed; inset: 0;
   z-index: 90;
   display: flex; align-items: center; justify-content: center;
-  /* A dark vignette over the uploaded texture keeps the title legible;
-     the gem glow + base colour remain as fallback if the file is gone. */
+  background: var(--bg);
+  overflow: hidden;
+}
+/* The composed splash (STONELOCK already positioned at top, ruined-vault art).
+   On its own zooming layer so the scene settles in without moving the menu. */
+.titlescreen::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
   background:
-    radial-gradient(ellipse at 50% 38%, rgba(10,8,5,0.35), rgba(10,8,5,0.78) 80%),
-    url('assets/title-bg.jpg') center/cover no-repeat,
-    radial-gradient(ellipse at 50% 35%, rgba(201,160,80,0.12), transparent 60%),
+    radial-gradient(ellipse at 50% 60%, rgba(10,8,5,0.0), rgba(10,8,5,0.34) 85%),
+    url('assets/title-menu.jpg') center top/cover no-repeat,
     var(--bg);
-  overflow-y: auto;
+  transform-origin: 50% 30%;
+  animation: titleZoom 3.2s cubic-bezier(0.22,0.61,0.36,1) both;
 }
+@keyframes titleZoom { from { transform: scale(1.07); } to { transform: scale(1); } }
 .titlescreen.hidden { display: none; }
-.titleinner { text-align: center; padding: 30px 20px; max-width: 540px; width: 100%; }
-.emblem { width: min(188px, 54vw); aspect-ratio: 1; margin: 0 auto 6px; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.6)); }
-.emblem svg { width: 100%; height: 100%; }
-.titlename {
-  font-family: 'Cinzel', Georgia, serif;
-  font-weight: 700;
-  font-size: clamp(34px, 11vw, 54px);
-  letter-spacing: 0.08em;
-  margin: 0;
+.titleinner { position: relative; z-index: 1; text-align: center; padding: 20px; width: 100%; max-width: 540px; }
+/* The title now lives in the artwork — keep an accessible name for readers. */
+.emblem, .titlesub { display: none; }
+.titlename { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.titlebtns { display: flex; flex-direction: column; gap: 11px; align-items: center; margin-top: 4vh; }
+/* Menu options as real elements over the tome — gold-edged, dark glass. */
+.titlebtns .btn {
+  width: min(326px, 86vw);
+  padding: 13px 20px;
+  border-radius: 9px;
+  border: 1px solid var(--gold-dim);
+  background: linear-gradient(180deg, rgba(28,21,13,0.74), rgba(12,9,5,0.82));
   color: var(--gold);
-  text-shadow: 0 3px 6px rgba(0,0,0,0.7);
-  overflow-wrap: break-word;
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: clamp(13px, 3.4vw, 16px);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  transition: border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease, background 0.16s ease;
+  /* staggered fade/slide-in on entry (delays per item below) */
+  animation: titleItemIn 0.5s ease both;
 }
-.titlesub {
-  font-family: 'Alegreya', Georgia, serif;
-  font-style: italic;
-  font-size: 19px;
-  color: var(--parchment-dim);
-  margin: 2px 0 26px;
-  letter-spacing: 0.03em;
+.titlebtns .btn:hover {
+  border-color: var(--gold-bright); color: var(--gold-bright);
+  background: linear-gradient(180deg, rgba(40,30,17,0.82), rgba(18,13,7,0.88));
+  box-shadow: 0 0 20px rgba(232,196,119,0.32), 0 2px 12px rgba(0,0,0,0.6);
+  transform: translateY(-1px);
 }
-.titlebtns { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-.titlebtns .btn { width: min(240px, 84vw); }
+.titlebtns .btn:active { transform: translateY(0) scale(0.985); }
+.titlebtns .btn.primary { border-color: var(--gold); }
+@keyframes titleItemIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+.titlebtns .btn:nth-child(1) { animation-delay: 0.45s; }
+.titlebtns .btn:nth-child(2) { animation-delay: 0.57s; }
+.titlebtns .btn:nth-child(3) { animation-delay: 0.69s; }
+.titlebtns .btn:nth-child(4) { animation-delay: 0.81s; }
+.titlebtns .btn:nth-child(5) { animation-delay: 0.93s; }
+.titlebtns .btn:nth-child(6) { animation-delay: 1.05s; }
+.titlebtns .btn:nth-child(7) { animation-delay: 1.17s; }
 /* Alpha bypass — a discreet testing toggle under the menu. */
-.titlealpha { margin-top: 16px; font-size: 11.5px; padding: 5px 12px; opacity: 0.7; }
+.titlealpha { margin-top: 16px; font-size: 11.5px; padding: 5px 12px; opacity: 0.7; animation: titleItemIn 0.5s ease 1.25s both; }
 .titlealpha.selected { opacity: 1; border-color: var(--gold); color: var(--gold-bright); }
+@media (prefers-reduced-motion: reduce) {
+  .titlescreen::before, .titlebtns .btn, .titlealpha { animation: none; }
+}
 
 /* Audio settings panel */
 .audiopanel { display: flex; flex-direction: column; gap: 16px; margin: 10px 0 6px; }
@@ -1275,12 +1299,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .audrow input[type="range"] { flex: 1; accent-color: var(--gold); height: 4px; cursor: pointer; }
 .audrow input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .audval { width: 30px; text-align: right; color: var(--parchment); font-size: 13px; font-variant-numeric: tabular-nums; }
-.titlefoot {
-  margin-top: 26px;
-  font-size: 13px;
-  font-style: italic;
-  color: #8d7f63;
-}
+.titlefoot { display: none; } /* the artwork carries the mood; tagline retired from the splash */
 
 /* ---------- Tutorial coach ---------- */
 
