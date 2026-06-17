@@ -3866,37 +3866,62 @@ function renderRaidSetup() {
 
   if (RAIDSET.step === 'boss') {
     $('setupModal').querySelector('h2').textContent = 'The Campaign';
-    body.innerHTML = '<p class="modalsub small">Climb the high seats in turn — break one to earn your place at the next.</p>';
     const beaten = campaignBeaten();
-    // The frontier: the first unlocked boss you haven't yet mastered — your "next".
     const frontier = RAID_BOSSES.findIndex(b => raidBossUnlocked(b.v) && !RAID_DIFF_ORDER.every(d => beaten.has(`${b.v}-${d}`)));
-    const trail = document.createElement('div');
-    trail.className = 'camptrail';
-    RAID_BOSSES.forEach((b, i) => {
-      const unlocked = raidBossUnlocked(b.v);
-      const wins = RAID_DIFF_ORDER.filter(d => beaten.has(`${b.v}-${d}`));
-      const mastered = wins.length === RAID_DIFF_ORDER.length;
-      const isFrontier = i === frontier;
-      const node = document.createElement('div');
-      node.className = 'campnode' + (unlocked ? '' : ' locked') + (isFrontier ? ' frontier' : '') + (mastered ? ' mastered' : '');
-      const status = !unlocked ? '🔒 Locked'
-        : mastered ? '★ Mastered'
-        : wins.length ? `Broken ×${wins.length}`
-        : isFrontier ? 'Up Next' : 'Unlocked';
-      const pips = RAID_DIFF_ORDER.map(d =>
-        `<span class="camppip${beaten.has(`${b.v}-${d}`) ? ' done' : ''}${!raidUnlocked(b.v, d) ? ' lk' : ''}" title="${d}"></span>`).join('');
-      const portrait = portraitFor(b.name);
-      // Art-forward gallery: portrait + name + status + pips. The lore and options
-      // live on the detail screen you click into.
-      node.innerHTML =
-        `<div class="camprail"><div class="campstep">${mastered ? '★' : i + 1}</div></div>` +
-        (portrait ? `<div class="campportrait" style="background-image:url('${portrait}')"><div class="camppips" title="Difficulties cleared">${pips}</div></div>` : '') +
-        `<div class="campinfo"><div class="camphead"><h3>${b.name}</h3><span class="campstatus">${status}</span></div>` +
-        `<div class="campgo">${unlocked ? 'View ›' : ''}</div></div>`;
-      if (unlocked) node.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
-      trail.appendChild(node);
+    const N = RAID_BOSSES.length;
+    if (RAIDSET.focus == null) RAIDSET.focus = frontier >= 0 ? frontier : 0;
+    RAIDSET.focus = Math.max(0, Math.min(N - 1, RAIDSET.focus));
+    const meta = j => {
+      const bb = RAID_BOSSES[j], unlocked = raidBossUnlocked(bb.v);
+      const wins = RAID_DIFF_ORDER.filter(d => beaten.has(`${bb.v}-${d}`));
+      return { unlocked, wins, mastered: wins.length === RAID_DIFF_ORDER.length, frontier: j === frontier };
+    };
+    const fi = RAIDSET.focus, b = RAID_BOSSES[fi], f = meta(fi);
+    const status = !f.unlocked ? '🔒 Locked' : f.mastered ? '★ Mastered' : f.wins.length ? `Broken ×${f.wins.length}` : f.frontier ? 'Up Next' : 'Unlocked';
+    const pips = RAID_DIFF_ORDER.map(d => `<span class="camppip${beaten.has(`${b.v}-${d}`) ? ' done' : ''}${!raidUnlocked(b.v, d) ? ' lk' : ''}" title="${d}"></span>`).join('');
+
+    body.innerHTML = '<p class="modalsub small">Climb the high seats in turn — break one to earn your place at the next.</p>';
+
+    // Focused stage: ‹  [big portrait + name + status]  ›
+    const stage = document.createElement('div');
+    stage.className = 'campstage';
+    const arrow = (dir) => {
+      const off = (dir < 0 && fi === 0) || (dir > 0 && fi === N - 1);
+      const a = document.createElement('button');
+      a.className = 'camparrow' + (off ? ' off' : ''); a.innerHTML = dir < 0 ? '‹' : '›'; a.disabled = off;
+      a.onclick = () => { RAIDSET.focus = fi + dir; renderRaidSetup(); };
+      return a;
+    };
+    const focus = document.createElement('div');
+    focus.className = 'campfocus' + (f.unlocked ? '' : ' locked') + (f.frontier ? ' frontier' : '');
+    focus.innerHTML =
+      `<div class="campfocus-art" style="background-image:url('${portraitFor(b.name)}')">` +
+        `<div class="camppips" title="Difficulties cleared">${pips}</div>` +
+        (f.unlocked ? '' : '<div class="camplockbig">🔒</div>') + `</div>` +
+      `<div class="campfocus-name">${b.name}</div><div class="campstatus">${status}</div>` +
+      `<div class="campenter">${f.unlocked ? 'Enter ›' : 'Locked'}</div>`;
+    if (f.unlocked) focus.onclick = () => { RAIDSET.boss = b.v; RAIDSET.step = 'options'; renderRaidSetup(); };
+    stage.append(arrow(-1), focus, arrow(1));
+
+    // Dock: the six bosses as connected circles down the left; the centred one is
+    // highlighted, locks shown — a vertical climb mirroring the campaign.
+    const dock = document.createElement('div');
+    dock.className = 'campdock';
+    RAID_BOSSES.forEach((bb, j) => {
+      const m = meta(j);
+      const dot = document.createElement('button');
+      dot.className = 'campdot' + (j === fi ? ' current' : '') + (m.unlocked ? '' : ' locked') + (m.mastered ? ' mastered' : '');
+      dot.style.backgroundImage = `url('${portraitFor(bb.name)}')`;
+      dot.title = bb.name + (m.unlocked ? '' : ' — locked');
+      dot.innerHTML = m.unlocked ? (m.mastered ? '<span class="dotbadge">★</span>' : '') : '<span class="dotbadge">🔒</span>';
+      dot.onclick = () => { RAIDSET.focus = j; renderRaidSetup(); };
+      dock.appendChild(dot);
     });
-    body.appendChild(trail);
+    const sel = document.createElement('div');
+    sel.className = 'campselect';
+    sel.append(dock, stage);
+    body.appendChild(sel);
+
     const back = document.createElement('button');
     back.className = 'btn'; back.textContent = '‹ Title';
     back.onclick = () => { closeModal('setupModal'); showTitle(); };
