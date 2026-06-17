@@ -3691,10 +3691,10 @@ function renderSetup() {
     focus.className = 'campfocus venuefocus' + (unlocked ? '' : ' locked');
     focus.innerHTML =
       `<div class="campfocus-art" style="background-image:url('${venueArt(vopt.v)}')">` +
-        (unlocked ? '' : `<div class="camplockbig">🔒</div>`) +
+        (unlocked ? '' : `<div class="camplockbig">🔒</div><div class="camplockinfo">${venueLockHint(vopt.v)}</div>`) +
       `</div>` +
       `<div class="campfocus-name">${vopt.label}</div>` +
-      `<div class="campfocus-desc">${unlocked ? vopt.desc : venueLockHint(vopt.v)}</div>`;
+      (unlocked ? `<div class="campfocus-desc">${vopt.desc}</div>` : '');
     if (unlocked) focus.onclick = () => { SETUP.venue = vopt.v; SETUP.step = 'rest'; SETUP._open = null; renderSetup(); };
     stage.append(arrow(-1), focus, arrow(1));
 
