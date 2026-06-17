@@ -2517,7 +2517,13 @@ function showTitle() {
   $('showdownResume').style.display = 'none';
   setVenueBackdrop(null);
   refreshTitleButtons();
-  $('titleScreen').classList.remove('hidden');
+  const t = $('titleScreen');
+  t.classList.remove('hidden');
+  // Replay the intro (scene zoom + staggered menu) on every return to the
+  // title, with identical timing — not just on the paths that toggled display.
+  t.classList.remove('intro');
+  void t.offsetWidth; // force reflow so the CSS animations restart
+  t.classList.add('intro');
 }
 
 // Drop back into a paused match exactly where it was left. The board DOM
