@@ -203,7 +203,8 @@ const Music = (() => {
   try { const v = localStorage.getItem('stonelock-musicv2'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
   try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) {}
   const elFor = t => (typeof document !== 'undefined') ? document.getElementById(t === 'boss' ? 'bgmBoss' : 'bgm') : null;
-  const target = () => muted ? 0 : vol * MUSIC_MAX;
+  const TRACK_GAIN = { menu: 1, boss: 1.08 }; // boss theme rides ~8% hotter than the menu bed
+  const target = () => muted ? 0 : Math.min(1, vol * MUSIC_MAX * (TRACK_GAIN[active] || 1));
   const clearFade = () => { if (fade) { clearInterval(fade); fade = null; } };
   // Smoothly ramp the active track toward its target volume and any others to 0,
   // over `dur` ms — used for fade-in on start, crossfade on track change, and
