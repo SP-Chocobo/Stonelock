@@ -118,22 +118,26 @@ function slotName(i, footprint) {
    All effects are synthesized with WebAudio — no files, nothing to
    load. Muting persists in localStorage. */
 
+// Slider 0..1 maps to actual gain 0..MAX, with the slider midpoint (0.5) landing
+// on the calibrated "sweet spot" (so MAX = 2× the good level): effects 0.5→0.60,
+// music 0.5→0.25.
+const SFX_MAX = 1.2;
 const SFX = (() => {
   let ctx = null, master = null;
-  let muted = false, vol = 0.8;
+  let muted = false, vol = 0.5; // slider fraction; 0.5 = the 0.60 sweet spot
   try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) { /* headless */ }
-  try { const v = localStorage.getItem('stonelock-sfxvol'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
+  try { const v = localStorage.getItem('stonelock-sfxv2'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
 
   function ensure() {
     if (typeof window === 'undefined') return null;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     if (!ctx) ctx = new AC();
-    if (!master) { master = ctx.createGain(); master.gain.value = muted ? 0 : vol; master.connect(ctx.destination); }
+    if (!master) { master = ctx.createGain(); master.gain.value = muted ? 0 : vol * SFX_MAX; master.connect(ctx.destination); }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
-  function applyGain() { if (master) master.gain.value = muted ? 0 : vol; }
+  function applyGain() { if (master) master.gain.value = muted ? 0 : vol * SFX_MAX; }
 
   function tone(c, t0, freq, dur, type = 'sine', peak = 0.1, slideTo = null) {
     const o = c.createOscillator(), g = c.createGain();
@@ -182,7 +186,7 @@ const SFX = (() => {
       if (!c || !recipes[name]) return;
       try { recipes[name](c, c.currentTime); } catch (e) { /* never break the game for a sound */ }
     },
-    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-sfxvol', String(vol)); } catch (e) {} applyGain(); },
+    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-sfxv2', String(vol)); } catch (e) {} applyGain(); },
     getVolume() { return vol; },
     setMuted(m) { muted = !!m; try { localStorage.setItem('stonelock-muted', muted ? '1' : '0'); } catch (e) {} applyGain(); },
     toggle() { this.setMuted(!muted); return muted; },
@@ -192,14 +196,15 @@ const SFX = (() => {
 
 // Looping menu music (the processed "Lost at Sea" loop). Volume + mute share the
 // audio settings; playback only begins after a user gesture (browser autoplay).
+const MUSIC_MAX = 0.5; // slider 0.5 -> 0.25 gain (the calibrated music sweet spot)
 const Music = (() => {
-  let vol = 0.4, muted = false, wanted = false;
-  try { const v = localStorage.getItem('stonelock-musicvol'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
+  let vol = 0.5, muted = false, wanted = false; // slider fraction
+  try { const v = localStorage.getItem('stonelock-musicv2'); if (v !== null) vol = Math.max(0, Math.min(1, +v)); } catch (e) {}
   try { muted = localStorage.getItem('stonelock-muted') === '1'; } catch (e) {}
   const el = () => (typeof document !== 'undefined') ? document.getElementById('bgm') : null;
   function apply() {
     const a = el(); if (!a) return;
-    a.volume = muted ? 0 : vol;
+    a.volume = muted ? 0 : vol * MUSIC_MAX;
     if (wanted && !muted && vol > 0) { if (a.paused) a.play().catch(() => {}); }
     else a.pause();
   }
@@ -207,7 +212,7 @@ const Music = (() => {
     // Called on the first user gesture / when menus show — marks music wanted and tries to play.
     start() { wanted = true; apply(); },
     stop() { wanted = false; const a = el(); if (a) a.pause(); },
-    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicvol', String(vol)); } catch (e) {} apply(); },
+    setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('stonelock-musicv2', String(vol)); } catch (e) {} apply(); },
     getVolume() { return vol; },
     setMuted(m) { muted = !!m; apply(); },
   };
