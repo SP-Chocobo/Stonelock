@@ -43,29 +43,46 @@ This doc is the design.
   is the most distinctive mechanic in the game.
 - The **Regulars** are the bot cast, each with personality leans.
 
-**The identity to protect:** cards are a *shared value substrate*; stones are the
-*only* interaction. Teachable in 90 seconds. The run is allowed to be complex;
-the base game must stay clean.
+**The base-game identity to protect:** cards drawn from a *shared value
+substrate*, stones as the *only* interaction — teachable in 90 seconds.
+Campaign/Standard keep this. The **run** elevates it (owned deck + stone pouch +
+effect cards, §2); the run is allowed to be complex, the base game must stay
+clean.
 
 ---
 
 ## 2. The thesis (decided)
 
-The distinctive hook, and the thing no other deckbuilder has:
+The distinctive hook, and the thing almost no other deckbuilder has:
 
-> **Your "deck" is your stone Pouch, not your cards.** Cards are the shared,
-> shifting scoring substrate; your *build* is the interaction toolkit you bring
-> to bend it.
+> **You build two interlocking decks — a Card deck *and* a Stone pouch.** The
+> cards are the bodies you field; the stones (and effect cards) are the leverage
+> that bends them. The run lets you add, remove, upgrade, and stamp *both*.
 
-Build axes, in order of how core they are:
-1. **The Pouch** — the stones you carry, their counts, and upgraded variants.
-2. **Effect cards** — a *drafted* pool of special cards (see §6).
-3. **The ally loadout** — outfit your AI partner (Diablo-mercenary style).
-4. **Charms** — run-wide passive modifiers (relics).
+Most card games have a single card deck. Stonelock's signature is the **second,
+parallel build layer** — the stone pouch — sitting alongside the cards. Both are
+owned and built through the run.
 
-**Effect cards and complexity are roguelike-only.** Campaign and Standard stay
-the pure value+stone game (onboarding + identity). The run injects the chaos —
-exactly how Balatro/StS/Monster Train keep a simple base and a wild run.
+**What keeps it Stonelock and not a generic deckbuilder:** venues still reshape
+card values per fight, so your owned deck has **no fixed power level — it is
+strong where its types are valued and weak where they aren't.** A deck tuned for
+the River Docks struggles at the Sovereign Court. That preserves *regional
+leverage* (the game's subtitle) inside an owned deck, and makes deck-building
+act/venue-aware — a layer no other deckbuilder has. This single rule is what
+stops an owned-deck model from flattening the identity.
+
+Build axes (all owned, all built through the run):
+1. **The Card deck** — the types you field; draft, thin, and stamp them (§6.4).
+2. **The Stone pouch** — counts and upgraded variants (§5.1).
+3. **The ally loadout** — outfit your AI partner (§5.4).
+4. **Charms** — run-wide passive modifiers / relics (§5.2).
+
+**The core combat is untouched** — commit cards, place stones, score best-3,
+race the ledger. Only *where your cards come from* changes: the base game
+(campaign/standard) keeps the shared regional pool and stays the simple,
+teachable version; **the run gives you an owned deck.** Complexity and effect
+cards are **roguelike-only** — exactly how Balatro/StS/Monster Train keep a clean
+base and a wild run.
 
 ---
 
@@ -146,9 +163,11 @@ cost**:
   thinning).
 - *Hooked* (need new engine hook points): gate to later.
 
-### 5.3 Effect cards
-See §6. **Roguelike-only.** Model: type-stamps on the shared value pool +
-instance-stamps on owned drafted cards (see §6.4).
+### 5.3 The Card deck
+Your owned, built card deck (§6.4): draft cards in, **thin** dead ones out,
+**stamp** specific cards (type- or instance-scope). Effect cards (§6) live here.
+**Roguelike-only** — the base game keeps the shared regional pool. Venues still
+reshape values per fight, so the deck is venue/act-relative (§2).
 
 ### 5.4 The ally / mercenary
 Recruit a Regular to fight beside you (2v2 nodes / hired for N tables). The
@@ -211,18 +230,29 @@ deliberate, avoids redundancy.
    rewinds topology).
 4. **Position** — reorder/move (see §6.6).
 
-### 6.4 Ownership model (decided: **B**)
-- **Type-stamps** on the shared value pool ("your Coins carry a built-in Lock").
-  Cheap, identity-safe; the "deck" is your type-modifier loadout.
-- **Instance-stamps** (Wildfrost-style) on the *handful of owned drafted cards*.
-  That's where the "which card earns this?" decision lives.
-- **Avoid Model C** (a full owned deck drawn from only your cards) unless you
-  *want* to become "a deckbuilder that uses Stonelock's combat" rather than
-  "Stonelock with a run."
-- **Draw reliability problem:** an owned/stamped card lost in the ~64-card pool is
-  a dead investment. Owned cards need a guaranteed path into hand (deal-first, or
-  reserve a field slot, or keep the owned subset small). Solve this up front — it
-  is make-or-break for whether stamping *feels* good.
+### 6.4 Ownership model (decided: **owned deck**)
+The run gives you an **owned Card deck** (StS/Wildfrost-style), built alongside
+the Pouch — you draft cards in, **thin** dead ones out, and **stamp** specific
+cards. The deck is the multiset of card types you draw your fielded cards from.
+- **Two stamp scopes:** *type-stamps* ("all your Coins carry a built-in Lock")
+  and *instance-stamps* (Wildfrost — this one specific card). Instance-stamps are
+  where the "which card earns this?" decision lives.
+- **Why owned (vs the shared pool):** the base game's shared 64-card pool made
+  stamping pointless — an investment lost in the shuffle. An owned deck is small
+  and yours, so stamped/special cards **show up reliably**; ownership *solves*
+  the draw-reliability problem rather than creating it. It is also the only model
+  consistent with letting the player add/thin/modify cards at all (if you build
+  them, they're your deck).
+- **The cost (eyes open):** this is the bigger build — real deck-management
+  (add/remove/thin/stamp UI + economy) — and it nudges the run toward "a
+  deckbuilder that uses Stonelock's combat." The §2 venue-value rule is what keeps
+  it from flattening into a generic one; commit to that rule alongside this.
+- **Dial (open):** *full* owned deck (draw only from your deck, StS-style) vs a
+  *hybrid* (your deck seeds/biases a draw still partly from the regional pool).
+  Full is cleaner and the assumed default; hybrid is a fallback if a pure owned
+  deck strays too far from the base feel.
+- **Base game unchanged:** campaign/standard keep the shared regional pool. Only
+  the run swaps the draw source to your deck.
 
 ### 6.5 Card idea catalog (raw — tag each by axis + AI-safety before building)
 - **Wild / Joker** — fills any type for a set, or flexes value. *(structure,
@@ -362,8 +392,9 @@ localStorage pattern (→ meta-progression), `animateMoves` (position).
 2. **Gauntlet-first vs commit to the full run** (§9).
 3. **AI:** invest in a pass up front, or test the core as-is first and decide
    after? (§8)
-4. **Ownership model** — confirm **B** (type-stamps + owned-card instance-stamps)
-   over A/C (§6.4).
+4. **Card-deck draw model** — *full* owned deck (draw only from your deck) vs
+   *hybrid* (deck seeds a draw still partly from the regional pool) (§6.4).
+   Owned-deck itself is decided; this is the remaining dial.
 5. **The anti-White dial** — how reliable should White stay (§6.7)?
 6. **Footprint ceiling** — confirm player caps at 6, bosses 7+ (§5.5).
 7. **FFA in a run** — keep it (with a "top-2 passes" mapping) or cut it (§4)?
