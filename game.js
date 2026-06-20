@@ -2426,9 +2426,12 @@ function buildTableDOM() {
     else youSeats.appendChild(seat);
   }
 
-  // Score widget: track for two-sided modes, purse list for FFA.
-  $('ledgerWrap').style.display = G.mode === 'ffa' ? 'none' : '';
+  // Score widget: track for two-sided modes, purse list for FFA. The Circuit
+  // replaces the ledger tug-of-war with its two-Standing HUD, so hide the marker.
+  $('ledgerWrap').style.display = (G.mode === 'ffa' || G.gauntlet) ? 'none' : '';
   $('scoreList').style.display = G.mode === 'ffa' ? '' : 'none';
+  if (G.gauntlet) { const hn = $('handNum'); if (hn) hn.style.display = 'none'; }
+  else { const hn = $('handNum'); if (hn) hn.style.display = ''; }
   if (G.mode === 'raid') {
     $('ledgerHeadAi').textContent = playerName(1).replace('The ', '');
     $('ledgerHeadYou').textContent = 'Party';
@@ -4358,24 +4361,27 @@ function renderRaidSetup() {
 
 /* ============================================================
    THE CIRCUIT — Phase 0 endless gauntlet (validation MVP)
-   Back-to-back duels vs rotating Regulars and venues. Standing is run-HP:
-   it drains by each lost hand's (shaped) margin and heals a little per table
-   cleared. Reach the table's target to advance; lose the marker race or run
-   Standing to zero, and the run ends. Tests the open questions: is the match
-   fun many times over, does margin-as-damage feel fair, do venue shifts sustain
-   variety. All numbers below are first-guess and meant to be tuned by playtest.
+   Back-to-back duels vs rotating Regulars and venues. A table is a duel of
+   attrition between TWO Standing pools: each showdown, the hand's winner deals
+   its (shaped) margin as damage to the loser's Standing. Drop the opponent's
+   Standing to clear the table; lose your own and the run ends. There is no
+   ledger tug-of-war — a lost hand costs YOUR Standing, it never un-does damage
+   already dealt, so progress only moves forward. Your Standing carries across
+   tables (healing a little per clear); each opponent gets fresh, slightly
+   higher Standing as you climb (the difficulty ramp, independent of AI skill).
+   All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 12, maxStanding: 12, dmgCap: 6, heal: 3, baseTarget: 10,
+  startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
 };
-let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 12, maxStanding: 12, score: 0, target: 10, opp: null, venue: null, lastDmg: 0, groundOut: false };
+let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 14, maxStanding: 14, foeHp: 10, foeMax: 10, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false };
 
 function startCircuit() {
   if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
-  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, score: 0, target: CIRCUIT.baseTarget, opp: null, venue: null, lastDmg: 0, groundOut: false };
+  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false };
   circuitRung();
 }
 
@@ -4386,35 +4392,40 @@ function circuitOpponent() {
 
 function circuitRung() {
   const g = GAUNTLET;
-  g.groundOut = false;
+  g.tableCleared = false; g.groundOut = false;
   g.opp = circuitOpponent();
   g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
-  g.target = CIRCUIT.baseTarget + Math.floor((g.rung - 1) / 5) * 2; // grindier deeper in
+  g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
+  g.foeHp = g.foeMax;
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
-  newGame({ mode: 'duel', humans: [0], companyNames: [g.opp], venue: g.venue, deal: 'small', target: g.target, gauntlet: true });
+  // A very high target so the engine never ends the table via the ledger —
+  // Standing depletion decides it instead (see circuitHandResult).
+  newGame({ mode: 'duel', humans: [0], companyNames: [g.opp], venue: g.venue, deal: 'small', target: 999, gauntlet: true });
   updateCircuitHud();
 }
 
+// Each showdown: the hand winner deals its shaped margin to the loser's pool.
 function circuitHandResult(winner, diff) {
   const g = GAUNTLET;
-  if (!g.active) return;
-  const youLost = winner && !winner.members.includes(0) && diff > 0;
-  if (youLost) {
-    const dmg = Math.min(diff, CIRCUIT.dmgCap); // shaped: one hand can't nuke the run
+  if (!g.active || !winner || diff <= 0) return;
+  const dmg = Math.min(diff, CIRCUIT.dmgCap); // shaped: one hand can't decide a table outright
+  if (winner.members.includes(0)) {
+    g.foeHp = Math.max(0, g.foeHp - dmg);
+    log(`The Circuit — you press ${g.opp} for ${dmg} (Standing ${g.foeHp}/${g.foeMax} left).`, 'you');
+    if (g.foeHp <= 0) { g.tableCleared = true; G.over = true; }
+  } else {
     g.standing = Math.max(0, g.standing - dmg);
-    g.lastDmg = dmg;
-    log(`The Circuit — you take ${dmg} Standing damage (${g.standing}/${g.maxStanding} left).`, 'sys');
+    log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
+    if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   }
-  if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   updateCircuitHud();
 }
 
 function circuitEnd() {
   const g = GAUNTLET;
   closeModal('showdownModal');
-  const won = !g.groundOut && G.ledger >= G.target;
-  if (won) {
+  if (g.tableCleared) {
     g.cleared = g.rung;
     g.score += 10 + g.rung; // tables are worth more as you climb
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
@@ -4434,7 +4445,11 @@ function updateCircuitHud() {
   const g = GAUNTLET;
   if (!g.active) { hud.style.display = 'none'; return; }
   hud.style.display = '';
-  hud.innerHTML = `<span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Standing <b>${g.standing}/${g.maxStanding}</b> · Score <b>${g.score}</b>`;
+  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Score <b>${g.score}</b></div>` +
+    `<div class="chud-bars">` +
+      `<div class="chud-bar you"><span class="chud-lab">You</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
+      `<div class="chud-bar foe"><span class="chud-lab">${g.opp || ''}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
+    `</div>`;
 }
 
 function circuitScreen(over) {
@@ -4444,9 +4459,8 @@ function circuitScreen(over) {
   const next = $('circuitNext');
   if (over) {
     SFX.play('lose');
-    const how = g.groundOut ? 'ground down to nothing' : `cleaned out by ${g.opp} at ${VENUES[g.venue].label}`;
     title.textContent = 'The Circuit ends';
-    text.textContent = `You worked ${g.cleared} table${g.cleared === 1 ? '' : 's'} before being ${how}.`;
+    text.textContent = `You worked ${g.cleared} table${g.cleared === 1 ? '' : 's'} before ${g.opp} wore your Standing down at ${VENUES[g.venue].label}.`;
     stats.innerHTML = `<div class="unlockhead">Run Chronicle</div>` +
       `<div class="unlockitem">Tables cleared: <b>${g.cleared}</b></div>` +
       `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
@@ -4456,9 +4470,9 @@ function circuitScreen(over) {
   } else {
     SFX.play('win');
     title.textContent = `Table ${g.cleared} cleared`;
-    text.textContent = 'Press on — the next table is set.';
+    text.textContent = `You broke ${g.opp}'s Standing. Press on — the next table is set.`;
     stats.innerHTML = `<div class="unlockhead">The Circuit</div>` +
-      `<div class="unlockitem">Standing: <b>${g.standing}/${g.maxStanding}</b> (+${CIRCUIT.heal} restored)</div>` +
+      `<div class="unlockitem">Your Standing: <b>${g.standing}/${g.maxStanding}</b> (+${CIRCUIT.heal} restored)</div>` +
       `<div class="unlockitem">Score: <b>${g.score}</b></div>`;
     next.textContent = 'Next table ›';
     next.onclick = circuitRung;

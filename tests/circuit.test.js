@@ -8,6 +8,7 @@
 const M = require('../game.js');
 function assert(c, m) { if (!c) { console.error('FAIL:', m); process.exit(1); } }
 const DMG_CAP = 6; // mirrors CIRCUIT.dmgCap
+const CIRCUIT_FOE_BASE = 10; // mirrors CIRCUIT.foeBase
 
 // --- init ---
 M.startCircuit();
@@ -16,36 +17,45 @@ assert(g.active && g.rung === 1 && g.score === 0, 'starts active at table 1, sco
 assert(g.standing === g.maxStanding && g.standing > 0, 'starts at full Standing');
 let G = M._state();
 assert(G.gauntlet === true && G.nPlayers === 2, 'a rung is a flagged duel');
-assert(G.target === 10 && G.venueKey === 'tavern', 'table 1 is tavern, race to 10');
+assert(G.venueKey === 'tavern', 'table 1 is the tavern');
+assert(g.foeHp === g.foeMax && g.foeHp > 0, 'opponent starts at full Standing');
 
-// --- per-hand margin damage (shaped + capped) ---
-const full = g.standing;
-M.circuitHandResult({ members: [1] }, 3);   // you lose the hand by 3
-assert(g.standing === full - 3, 'a lost hand drains Standing by its margin');
+// --- two-pool damage: hands hit the LOSER's Standing, never the ledger ---
+const youFull = g.standing, foeFull = g.foeHp;
+M.circuitHandResult({ members: [1] }, 3);   // opponent wins the hand by 3 → your Standing -3
+assert(g.standing === youFull - 3, 'a lost hand drains YOUR Standing by its margin');
+assert(g.foeHp === foeFull, 'a lost hand does not touch the opponent (no double penalty / no un-doing)');
+M.circuitHandResult({ members: [0] }, 4);   // you win by 4 → opponent Standing -4
+assert(g.foeHp === foeFull - 4, 'a won hand drains the OPPONENT Standing');
+assert(g.standing === youFull - 3, 'a won hand does not touch your Standing');
 M.circuitHandResult({ members: [1] }, 99);  // blowout — capped
-assert(g.standing === full - 3 - DMG_CAP, 'damage is shaped/capped, one hand cannot nuke the run');
-M.circuitHandResult({ members: [0] }, 5);   // you win the hand
-assert(g.standing === full - 3 - DMG_CAP, 'winning a hand costs no Standing');
+assert(g.standing === youFull - 3 - DMG_CAP, 'damage is shaped/capped both ways');
 
-// --- ground-out ends the rung ---
+// --- ground-out (your Standing to 0) ends the table & run ---
 let safety = 0;
 while (g.standing > 0) { M.circuitHandResult({ members: [1] }, 99); if (safety++ > 50) assert(false, 'standing never drained'); }
-assert(g.standing === 0 && M._state().over === true, 'Standing hitting 0 ends the rung (ground out)');
+assert(g.standing === 0 && g.groundOut && M._state().over === true, 'your Standing at 0 ends the table (ground out)');
 M.circuitEnd();
 g = M._gauntlet();
 assert(!g.active, 'ground-out ends the run');
 
-// --- clearing a table advances, banks score, heals (capped) ---
+// --- clearing a table (opponent Standing to 0) advances, banks score, heals ---
 M.startCircuit();
-g = M._gauntlet(); G = M._state();
-g.standing = 4; // leave room to see the heal
+g = M._gauntlet();
+g.standing = 5; // leave room to see the heal
 const rung0 = g.rung, score0 = g.score;
-G.ledger = G.target; // simulate driving the marker home
+safety = 0;
+while (g.foeHp > 0) { M.circuitHandResult({ members: [0] }, 99); if (safety++ > 50) assert(false, 'foe never dropped'); }
+assert(g.foeHp === 0 && g.tableCleared && M._state().over === true, 'dropping the opponent clears the table');
 M.circuitEnd();
 g = M._gauntlet();
 assert(g.active && g.rung === rung0 + 1, 'a cleared table advances to the next');
 assert(g.score > score0, 'a cleared table banks score');
-assert(g.standing > 4 && g.standing <= g.maxStanding, 'a clear heals Standing, capped at max');
+assert(g.standing > 5 && g.standing <= g.maxStanding, 'a clear heals Standing, capped at max');
+M.circuitRung(); // "Next table" — sets up the next opponent
+g = M._gauntlet();
+assert(g.foeHp === g.foeMax && g.foeMax > 0, 'the next opponent has fresh Standing');
+assert(g.foeMax >= CIRCUIT_FOE_BASE, 'deeper tables field tougher opponents');
 
 // --- venue rotation: every table builds a clean gauntlet duel ---
 const VENUES = ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'];
