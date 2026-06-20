@@ -417,6 +417,32 @@ moves cards nothing reads.
 - **Use modality sparingly** — if every card is "choose one," each hand becomes
   decision fatigue and the board stops reading.
 
+### 6.8 Card-flow effects — draw / discard / exhaust (Phase 3+)
+The classic deckbuilder consistency/cycling lever. Stonelock already has the
+rhythm (draw a hand → commit a footprint → discard the rest) and already uses
+"exhaust" in the *stone* economy (Slumlock, the Warden), so the vocabulary
+extends cleanly to cards.
+- **Draw / dig** — extra cards before committing → deeper selection, steadier
+  hands. A pure self-buff; **AI-safe** (a bot just gets more options).
+- **Discard** — *self*-discard filters a dead card and cycles (adaptation);
+  *opponent*-discard is a **new denial sub-axis** that attacks the hand/options
+  rather than the board (complements value/structure/stones/position). AI-cheap
+  when scoped (their lowest / random).
+- **Exhaust** — remove a card for the rest of the *match* (lets a high-impact
+  one-shot pay its cost by leaving). Keep distinct from run-level **thinning** at
+  the Fence (permanent removal).
+- **⚠ Tension with pillar #0 (regional leverage).** Draw-to-dig directly
+  threatens the core mechanic: if you can reliably draw until your pet cards
+  appear, the venue's values stop mattering and the anti-solved-meta pillar
+  flattens. **Frame draw as "adapt to *this* venue"** (dig for what's valued
+  here), not "draw until I see my favorites": ration it (cost/cap), and bias
+  discard/exhaust toward *filtering for the current economy* over *enabling one
+  dominant line*. Judge every draw effect by *does this help me adapt, or let me
+  ignore the venue?*
+- **Engine:** unlike the simpler effects, these presuppose a real draw-pile /
+  discard-pile / exhaust-pile structure, which only exists once the owned deck
+  lands — so they ride **Phase 3**, not an early add.
+
 ---
 
 ## 7. Puzzles as a first-class pillar
