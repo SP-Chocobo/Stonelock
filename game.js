@@ -637,6 +637,7 @@ function newGame(cfg) {
   G = {
     mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
     venueKey: cfg.venue || 'tavern', // remembered so a paused match can restore its backdrop on resume
+    gauntlet: !!cfg.gauntlet,        // a rung of The Circuit — its own end-handling, never a resumable match
     deal: raid ? (cfg.raidBoss === 'crucible' ? 'house' : 'small') : cfg.deal, // the Crucible forces the deep draw
     target: cfg.target,
     venue,
@@ -2241,6 +2242,7 @@ function showdown() {
     }
   }
 
+  if (G.gauntlet) circuitHandResult(winner, diff); // Standing drains by lost-hand margin; may end the run
   if (matchWinner) G.over = true;
   G.lastShowdown = { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains, hand: G.handNum };
   showShowdownModal(G.lastShowdown, false);
@@ -2272,7 +2274,7 @@ function raidShowdown(sel) {
 
 function nextHand() {
   closeModal('showdownModal');
-  if (G.over) { showVictory(); return; }
+  if (G.over) { if (G.gauntlet) { circuitEnd(); return; } showVictory(); return; }
   G.dealer = (G.dealer + 1) % G.nPlayers; // the Rule of Rotation
   startHand();
 }
@@ -2513,9 +2515,11 @@ function showTitle() {
   INGAME = false;
   Music.setTrack('menu'); // back to the menu loop
   TUT.active = false;
+  if (typeof GAUNTLET !== 'undefined') GAUNTLET.active = false; // returning to the title abandons a Circuit run
   coachHide();
-  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal', 'logModal']) closeModal(id);
+  for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal', 'logModal', 'circuitModal']) closeModal(id);
   $('showdownResume').style.display = 'none';
+  if ($('circuitHud')) $('circuitHud').style.display = 'none';
   setVenueBackdrop(null);
   refreshTitleButtons();
   const t = $('titleScreen');
@@ -2531,7 +2535,7 @@ function showTitle() {
 // persisted behind the title; repaint it and resume the loop (run() re-prompts
 // the human or restarts the AI beat, whichever the current step needs).
 function resumeMatch() {
-  if (typeof document === 'undefined' || !G || G.over || G.tutorial) return;
+  if (typeof document === 'undefined' || !G || G.over || G.tutorial || G.gauntlet) return;
   INGAME = true;
   if (typeof Music !== 'undefined') Music.setTrack(G.mode === 'raid' ? 'boss' : 'menu');
   setVenueBackdrop(G.venueKey || 'tavern');
@@ -2545,7 +2549,7 @@ function resumeMatch() {
 function refreshTitleButtons() {
   if (typeof document === 'undefined') return;
   const btn = $('titleContinue');
-  if (btn) btn.style.display = (G && !G.over && !G.tutorial) ? '' : 'none';
+  if (btn) btn.style.display = (G && !G.over && !G.tutorial && !G.gauntlet) ? '' : 'none';
 }
 
 // Set (or clear) the per-venue in-game backdrop. The dark overlay is baked in so
@@ -4352,6 +4356,116 @@ function renderRaidSetup() {
   btns.appendChild(begin);
 }
 
+/* ============================================================
+   THE CIRCUIT — Phase 0 endless gauntlet (validation MVP)
+   Back-to-back duels vs rotating Regulars and venues. Standing is run-HP:
+   it drains by each lost hand's (shaped) margin and heals a little per table
+   cleared. Reach the table's target to advance; lose the marker race or run
+   Standing to zero, and the run ends. Tests the open questions: is the match
+   fun many times over, does margin-as-damage feel fair, do venue shifts sustain
+   variety. All numbers below are first-guess and meant to be tuned by playtest.
+   ============================================================ */
+const CIRCUIT = {
+  startStanding: 12, maxStanding: 12, dmgCap: 6, heal: 3, baseTarget: 10,
+  // Recognizable venues first; the big rule-shifts (Court = stone-first,
+  // Academy = no telegraph/thin) arrive deeper in as escalation.
+  venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
+};
+let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 12, maxStanding: 12, score: 0, target: 10, opp: null, venue: null, lastDmg: 0, groundOut: false };
+
+function startCircuit() {
+  if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
+  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, score: 0, target: CIRCUIT.baseTarget, opp: null, venue: null, lastDmg: 0, groundOut: false };
+  circuitRung();
+}
+
+function circuitOpponent() {
+  const pool = BOT_POOL.filter(n => n !== GAUNTLET.opp); // no immediate repeat
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function circuitRung() {
+  const g = GAUNTLET;
+  g.groundOut = false;
+  g.opp = circuitOpponent();
+  g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
+  g.target = CIRCUIT.baseTarget + Math.floor((g.rung - 1) / 5) * 2; // grindier deeper in
+  closeModal('circuitModal');
+  if (logEl) logEl.innerHTML = '';
+  newGame({ mode: 'duel', humans: [0], companyNames: [g.opp], venue: g.venue, deal: 'small', target: g.target, gauntlet: true });
+  updateCircuitHud();
+}
+
+function circuitHandResult(winner, diff) {
+  const g = GAUNTLET;
+  if (!g.active) return;
+  const youLost = winner && !winner.members.includes(0) && diff > 0;
+  if (youLost) {
+    const dmg = Math.min(diff, CIRCUIT.dmgCap); // shaped: one hand can't nuke the run
+    g.standing = Math.max(0, g.standing - dmg);
+    g.lastDmg = dmg;
+    log(`The Circuit — you take ${dmg} Standing damage (${g.standing}/${g.maxStanding} left).`, 'sys');
+  }
+  if (g.standing <= 0) { g.groundOut = true; G.over = true; }
+  updateCircuitHud();
+}
+
+function circuitEnd() {
+  const g = GAUNTLET;
+  closeModal('showdownModal');
+  const won = !g.groundOut && G.ledger >= G.target;
+  if (won) {
+    g.cleared = g.rung;
+    g.score += 10 + g.rung; // tables are worth more as you climb
+    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
+    g.rung++;
+    circuitScreen(false);
+  } else {
+    g.active = false;
+    circuitScreen(true);
+  }
+  updateCircuitHud();
+}
+
+function updateCircuitHud() {
+  if (typeof document === 'undefined') return;
+  const hud = $('circuitHud');
+  if (!hud) return;
+  const g = GAUNTLET;
+  if (!g.active) { hud.style.display = 'none'; return; }
+  hud.style.display = '';
+  hud.innerHTML = `<span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Standing <b>${g.standing}/${g.maxStanding}</b> · Score <b>${g.score}</b>`;
+}
+
+function circuitScreen(over) {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  const title = $('circuitTitle'), text = $('circuitText'), stats = $('circuitStats');
+  const next = $('circuitNext');
+  if (over) {
+    SFX.play('lose');
+    const how = g.groundOut ? 'ground down to nothing' : `cleaned out by ${g.opp} at ${VENUES[g.venue].label}`;
+    title.textContent = 'The Circuit ends';
+    text.textContent = `You worked ${g.cleared} table${g.cleared === 1 ? '' : 's'} before being ${how}.`;
+    stats.innerHTML = `<div class="unlockhead">Run Chronicle</div>` +
+      `<div class="unlockitem">Tables cleared: <b>${g.cleared}</b></div>` +
+      `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
+      `<div class="unlockitem">Fell at <b>Table ${g.rung}</b> — ${VENUES[g.venue].label}, vs ${g.opp}</div>`;
+    next.textContent = 'Run it again';
+    next.onclick = startCircuit;
+  } else {
+    SFX.play('win');
+    title.textContent = `Table ${g.cleared} cleared`;
+    text.textContent = 'Press on — the next table is set.';
+    stats.innerHTML = `<div class="unlockhead">The Circuit</div>` +
+      `<div class="unlockitem">Standing: <b>${g.standing}/${g.maxStanding}</b> (+${CIRCUIT.heal} restored)</div>` +
+      `<div class="unlockitem">Score: <b>${g.score}</b></div>`;
+    next.textContent = 'Next table ›';
+    next.onclick = circuitRung;
+  }
+  $('circuitModal').classList.add('open');
+}
+
 function boot() {
   // Start buffering the music at page load so it plays the instant the first
   // gesture lands (otherwise it downloads on-click, a ~3s awkward gap).
@@ -4470,6 +4584,8 @@ function boot() {
   $('quitNo').onclick = () => { pendingNewMatch = null; closeModal('quitModal'); };
   $('titleStandard').onclick = () => startNewFromTitle(openSetup);
   $('titleRaid').onclick = () => startNewFromTitle(openRaidSetup);
+  if ($('titleCircuit')) $('titleCircuit').onclick = () => startNewFromTitle(startCircuit);
+  if ($('circuitQuit')) $('circuitQuit').onclick = () => { closeModal('circuitModal'); showTitle(); };
   $('titleTutorial').onclick = openAcademy;
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
   $('titleRules').onclick = () => $('rulesModal').classList.add('open');
@@ -4504,6 +4620,7 @@ if (typeof window !== 'undefined') {
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
+    startCircuit, circuitRung, circuitEnd, circuitHandResult, _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
