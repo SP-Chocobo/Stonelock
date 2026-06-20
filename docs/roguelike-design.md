@@ -6,6 +6,58 @@ marks forks that are the designer's call before building. Written to be
 self-contained so an outside reader (or future-me) can follow it and give
 feedback.
 
+> **Review round 1 (incorporated below).** Several outside reviews are folded in;
+> this section is the digest. Detail lives in the cited sections.
+
+### Resolved from feedback
+- **Protected pillar #0 — Regional leverage.** Venues reshaping card values per
+  fight is the load-bearing mechanic; it's what stops the run from collapsing to
+  a solved "best deck steamrolls everything." Every future system is judged
+  against *"does this preserve or weaken regional leverage?"* (§2)
+- **Fail-state = Standing-as-HP, with damage-shaping.** Margin is the damage; but
+  cap/diminish margin past a threshold so one ugly hand can't both lose the table
+  *and* gut the run. (§3)
+- **Card deck = full owned deck.** Clean ownership; venues are the balance anchor.
+  (§6.4)
+- **White stays absolute vs the standard card pool;** only the Lockpick stone
+  variant, boss mechanics, and rare effects crack it. No common card invalidates
+  a lock. (§6.7)
+- **Cut FFA from the first run** (keep for hotseat / later event node) — it
+  changes the win-con shape and adds targeting noise. (§4, §11)
+- **Seeded RNG moves to the *top* of Phase 1** (before the map UI); retrofitting
+  determinism later is a nightmare. (§9)
+- **Position effects split into Phase 3b**, after mirror/adjacency/slot density
+  actually exist and are legible. (§9, §6.6)
+
+### New findings & additions
+- **⚠ Venue-value finding (the #1 risk, now measured).** The code has only three
+  value economies (bar/house/dock). Tabulated, **Road (3/2/3) and Ferry (2/2/3)
+  never drop below 2 in any economy** — they are "good everywhere," exactly the
+  decks that bypass regional leverage. The other six types each hit 1 somewhere.
+  *Before Phase 2, differentiate the value tables so every type has a dead (1)
+  region* — otherwise a Road/Ferry deck is the predicted solved meta. (§2)
+- **The AI loophole.** An owned deck lets players build conditional combo engines;
+  an ally/opponent that *evaluates* those will choke a brute-force search. Hard
+  rule: AI-held effects resolve via **scripted conditional primitives**, never a
+  search over player-made combinations. (§8)
+- **Green is the likely break-out optimization target** once it's player-stackable
+  (not just the boss scalpel). Watch duplicate/recursion/Green-focused pouches
+  from day one. (§6.7)
+- **Ally equipping has real opportunity cost** (shared inventory — gearing the
+  merc means *not* gearing yourself), and the merc is a **retention/ownership**
+  feature ("my Old Hand"), tracked in the Run Chronicle. (§5.4)
+- **Run Chronicle** — a tiny end-of-run record (name, distance, boss, ally,
+  signature stone, memorable play) so losses generate *stories*, not just
+  restarts. New §7.5.
+
+### Still open (empirical — answered by building/playtest, not argument)
+- Does Phase 0 prove the match is fun 10–15× in a row? (the gate)
+- Is the AI good enough under repeated play?
+- Exact damage-shaping curve for Standing-as-HP.
+- Owned-deck draw model: *full* vs *hybrid* fallback if full strays from the
+  base feel (§6.4).
+- The venue-value rebalance numbers (§2) once the dead-region rule is applied.
+
 ---
 
 ## 0. Why this exists
@@ -63,13 +115,38 @@ Most card games have a single card deck. Stonelock's signature is the **second,
 parallel build layer** — the stone pouch — sitting alongside the cards. Both are
 owned and built through the run.
 
-**What keeps it Stonelock and not a generic deckbuilder:** venues still reshape
-card values per fight, so your owned deck has **no fixed power level — it is
-strong where its types are valued and weak where they aren't.** A deck tuned for
-the River Docks struggles at the Sovereign Court. That preserves *regional
-leverage* (the game's subtitle) inside an owned deck, and makes deck-building
-act/venue-aware — a layer no other deckbuilder has. This single rule is what
-stops an owned-deck model from flattening the identity.
+**What keeps it Stonelock and not a generic deckbuilder — PROTECTED PILLAR #0:**
+venues still reshape card values per fight, so your owned deck has **no fixed
+power level — it is strong where its types are valued and weak where they
+aren't.** A deck tuned for the River Docks struggles at the Sovereign Court.
+That preserves *regional leverage* (the game's subtitle) inside an owned deck.
+This is the single mechanic doing the most work in the whole design; judge every
+future system against *"does this preserve or weaken regional leverage?"*
+
+> **⚠ Finding — this pillar is not yet safe (measured from the code).** There are
+> only three value economies (`REGIONS`: bar / house / dock). Tabulating every
+> type across them:
+>
+> | Type | bar | house | dock | ever low (1)? |
+> |---|---|---|---|---|
+> | Bread | 3 | 1 | 2 | yes (house) |
+> | Coin | 3 | 1 | 3 | yes (house) |
+> | **Road** | 3 | 2 | 3 | **no — floor 2** |
+> | Sword | 2 | 1 | 2 | yes (house) |
+> | **Ferry** | 2 | 2 | 3 | **no — floor 2** |
+> | Quill | 1 | 3 | 1 | yes |
+> | Crest | 1 | 3 | 1 | yes |
+> | Chain | 1 | 3 | 1 | yes |
+>
+> **Road and Ferry never drop below 2 in any economy** — they are "good
+> everywhere," precisely the deck that bypasses regional leverage. The reviewers'
+> #1 worry is real and located. **Before Phase 2: differentiate the value tables
+> so every type has at least one dead (value-1) region** (or add run-specific
+> economies). With 3 economies × three 1-slots each = 9 low slots for 8 types,
+> it's achievable — currently Chain/Quill/Crest are low in *two* regions while
+> Road/Ferry are low in *none*; redistribute. Until then, a Road/Ferry deck is
+> the predicted solved meta. (Note: changing the base `REGIONS` tables affects
+> campaign/standard balance, so the run may want its *own* widened value set.)
 
 Build axes (all owned, all built through the run):
 1. **The Card deck** — the types you field; draft, thin, and stamp them (§6.4).
@@ -99,12 +176,19 @@ other way → you're cleaned out. The match engine needs **no rework** — only 
 wrapper that injects run context into `newGame` and reads win/loss out the end
 (instead of match-end → victory modal → title).
 
-**Fail-state (open):**
-- **(A) Standing as HP** — a pool that drains by the margin you lose hands by;
-  empty = run over. Reuses the ledger naturally; couples cleanly to "cards that
-  touch HP."
-- **(B) Lives** — simple win/lose per table, 3 lives. More readable, less
-  systemic.
+**Fail-state (decided: Standing-as-HP, with damage-shaping).**
+A **Standing** pool drains by the margin you lose hands by; empty = run over.
+Reuses the ledger (margin = damage), rewards *how well* you win rather than
+binary win/lose, creates clutch-survival arcs, and opens design space for
+charms/cards that spend or interact with Standing.
+- **The coupling risk (must mitigate):** run tension and match tension become the
+  *same number*, so one ugly showdown against a stacked Elite could lose the
+  table *and* gut the run with no buffer. **Damage-shaping is required** — cap or
+  diminish margin past a threshold (e.g. each point of margin past N counts half)
+  so a single blowout can't do both. Exact curve is an open playtest number.
+- *Rejected: flat Lives* — in a margin game, winning by 1 and obliterating by 14
+  would feel identical; it throws away the optimization texture that makes
+  Stonelock Stonelock.
 
 ---
 
@@ -131,10 +215,14 @@ All of these reskin pieces that already exist.
 
 **Encounter shapes** (all three already exist and pass tests): 1v1 duel; **2v1
 gang-up** (you alone vs a coordinated pair — the natural elite); **2v2 alliance**
-(you + a recruited ally); **FFA melee** (a crowded table — note it's a different
-win-con, *bank your margin over the lowest*, so a run needs a mapping like
-"place top-2 to pass"). Raids are *already* 2v1 (you+ally vs boss), so the
+(you + a recruited ally). Raids are *already* 2v1 (you+ally vs boss), so the
 plumbing for partner/gang-up is proven.
+
+> **FFA — cut from the first run (decided).** A four-seat melee has a *different
+> win-con shape* (bank your margin over the lowest, not race a marker), so a run
+> mapping like "top-2 passes" is a different mode wearing the same UI — plus the
+> targeting/visual noise. Keep FFA for casual hotseat now; revisit as a special
+> event node or expansion later.
 
 ---
 
@@ -182,6 +270,17 @@ fewer slots than you (tight optimization), the merc can be *lost* (a soft
 fail-state with investment behind it), keep their behavior **simple and legible**
 ("always lock your best card"). Keep it **optional depth** — default auto-kit so
 non-micromanagers can ignore it.
+
+- **Opportunity cost is mandatory (decided).** The merc draws from your *shared*
+  inventory, so every stone/card on the ally is one *not* on you. Without that
+  cost, optimal play trivially over-gears the merc (its execution risk is lower
+  than yours). The tension — "do I keep the Twin Red or hand it to my anchor?" —
+  *is* the feature.
+- **It's a retention feature, not just combat.** Players bond to *ownership*
+  ("my Old Hand," "my Ferryman"), not power. A companion you outfit and drag
+  through a run stops being an AI and becomes part of the story — so the merc's
+  history feeds the Run Chronicle (§7.5): tables survived together, bosses broken,
+  signature moments.
 
 ### 5.5 Footprint-per-act escalation (decided to bake in early)
 `footprintOf` is already a parameter. Field **4 → 5 → 6** across acts. Notes:
@@ -243,10 +342,18 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
   the draw-reliability problem rather than creating it. It is also the only model
   consistent with letting the player add/thin/modify cards at all (if you build
   them, they're your deck).
+- **Alternatives considered (and why owned still wins):** a *smaller curated
+  shared pool* still can't make a stamp reliably reappear (it's diluted), and
+  *stamping stones/charms instead of cards* doesn't satisfy the actual ask —
+  players want to adjust the **cards** too. Owned deck is the only model that both
+  makes stamps reliable *and* lets you add/thin/modify cards.
 - **The cost (eyes open):** this is the bigger build — real deck-management
   (add/remove/thin/stamp UI + economy) — and it nudges the run toward "a
   deckbuilder that uses Stonelock's combat." The §2 venue-value rule is what keeps
-  it from flattening into a generic one; commit to that rule alongside this.
+  it from flattening into a generic one — **but that rule is not yet safe (see the
+  §2 finding: Road/Ferry are good everywhere). Validate/rebalance the value tables
+  before Phase 2 engineering; the owned-deck decision *depends* on regional
+  leverage actually biting.**
 - **Dial (open):** *full* owned deck (draw only from your deck, StS-style) vs a
   *hybrid* (your deck seeds/biases a draw still partly from the regional pool).
   Full is cleaner and the assumed default; hybrid is a fallback if a pure owned
@@ -295,10 +402,18 @@ moves cards nothing reads.
   legible effect — "who does this hit?" can't be a puzzle on a busy board.
 - **Denial outweighs buffing** — price/rarity enemy-scope and structure-breakers
   higher.
-- **The anti-White dial:** several ideas bend White (revert, ward, lockpick).
-  *Some* counterplay keeps lock-heavy builds honest; *too much* kills White and
-  the Locksmith archetype. Treat "how reliable is White" as one dial you set
-  across the whole set, rarity-gated — not per card. **(open)**
+- **The anti-White dial (decided):** White stays **absolute against the standard
+  card pool** — no common card invalidates a lock, or the Locksmith archetype
+  collapses and the board becomes impossible for a human to project. Cracking a
+  White is restricted to the **Lockpick stone variant** (costs the enemy a stone
+  action), **boss mechanics**, and **rare** effects only. Guard against this
+  becoming an *implicit per-card decision* during implementation — it's a
+  rarity-gating rule for the whole set, revisited once the card catalog exists.
+- **⚠ Green watch (balance landmine).** The moment Green is player-stackable it
+  stops being "the boss scalpel" and becomes an *optimization target* — the
+  effect most likely to be secretly twice as strong as intended. Don't remove it;
+  **monitor from day one**: duplicate-Green builds, Green recursion, Green-focused
+  pouches. Assume players find a stronger use than designed.
 - **Use modality sparingly** — if every card is "choose one," each hand becomes
   decision fatigue and the board stops reading.
 
@@ -319,6 +434,24 @@ counterweight to margin-as-damage variance), and **authored content sidesteps
 the AI problem entirely** — guaranteed quality with zero dependence on bot
 strength. Some of the highest-confidence content per hour on the board.
 
+### 7.5 Run Chronicle — make losing memorable (new, from feedback)
+
+The doc covers how runs *begin* and *progress*; it was missing **why a loss
+should stick.** Not punishment — *narrative*. Stonelock already has named bosses,
+named allies, named venues, and strong flavor — the ingredients for stories most
+roguelikes generate by accident. Generate them on purpose.
+
+At run end (win *or* loss), record a tiny **Chronicle** entry:
+- a generated **run title**, **distance reached** (act/node), **final boss faced**,
+- the **ally** you carried (and tables survived together — ties to §5.4),
+- your **signature stone** and **key charm**, and a **memorable play** (e.g. the
+  biggest single-hand swing, or the Green that won it).
+
+Cheap to build (it's a serialized summary of state you already track) and it
+turns a dead run into "the time my Old Hand and I broke the Warden at the Docks
+on a single Twin-Red triad." That's retention fuel, and it doubles as the
+share-out for a Daily.
+
 ---
 
 ## 8. The AI prerequisite (read this twice)
@@ -327,10 +460,22 @@ strength. Some of the highest-confidence content per hour on the board.
 times; if they're a soft proxy, the run feels hollow no matter how good the card
 system is. This is the single most important non-obvious truth in this doc.
 
+**⚠ The AI loophole (architectural landmine — account for it before any code).**
+Moving to an *owned deck* lets players build highly conditional combo engines.
+If an ally bot — or an opponent on Advanced targeting — has to *evaluate* those
+player-made board states, a brute-force / minimax search **explodes
+exponentially** and chokes. The hard rule: **AI-held effects resolve via scripted
+conditional primitives, never a search over combinations.** e.g.
+`if (target.isTriadPartner) applyBuff()` — transparent, bounded, predictable. The
+AI must *execute* a kit, never *discover lines*. This is the same Diablo-merc
+principle as §5.4, stated as an engine constraint: don't let the AI "think" about
+combos; make it run scripts.
+
 Mitigations baked into the design:
 - **Distinct opponents via KITS, not skill.** A dumb AI holding a strong *static*
   kit still feels smart and threatening, because the effect just *happens* at
-  showdown. Author a signature kit per Regular/boss.
+  showdown. Author a signature kit per Regular/boss. Players remember "the
+  Ferryman always steals," not "the Ferryman searches to depth 4."
 - **AI-safety lens for every effect:** *static (auto-resolve) > modal-finite
   (a tiny evaluable option set, e.g. mirror buff-or-debuff — brute-force both,
   take the bigger swing) > open-target (AI-brutal).* Bias AI-held cards toward
@@ -349,17 +494,23 @@ Mitigations baked into the design:
   Answers the one question everything rides on: **is a Stonelock match fun the
   10th time, and is the AI good enough to carry it?** Cheapest possible test of
   the whole thesis. Reuses ~everything. **Do an AI pass here.**
-- **Phase 1 — Run skeleton.** `RUN` state object (persists above the ephemeral
-  match `G`), **seeded RNG** (the most pervasive plumbing — seed run-gen first,
-  defer match-shuffle), map gen + screen, the run controller (state machine),
-  fight wrapper + fail-state, basic drops (gain a stone / coin). Now it's a *run*.
+- **Phase 1 — Run skeleton.** **Seeded RNG FIRST** — before the map UI or any
+  system depends on randomness; retrofitting determinism out of `shuffle()` + AI
+  later is a nightmare. Then: `RUN` state object (persists above the ephemeral
+  match `G`), map gen + screen, the run controller (state machine), fight wrapper
+  + Standing fail-state, basic drops (gain a stone / coin). Now it's a *run*.
+  *(Pre-req gate: rebalance the value tables per the §2 finding before leaning on
+  regional leverage in Phase 2.)*
 - **Phase 2 — Roguelike.** Pouch feeding matches (generalize the Gauntlet
   loadout), the Fence + card thinning, ~15 lever-only charms, events + puzzle
-  nodes, encounter shapes (2v1/2v2/FFA). Now it's a *roguelike*.
-- **Phase 3 — Depth & legs.** Static effect-card layer + the hook system (shared
-  by charms and triggered cards), stone variants, elites, hooked charms,
-  positional layer (then position cards), Wildfrost attach-stamps, meta-unlocks +
-  ascension tiers, full match-seed for true dailies.
+  nodes, encounter shapes (2v1/2v2 — **not FFA**, §4). Now it's a *roguelike*.
+- **Phase 3 — Depth.** Static effect-card layer + the hook system (shared by
+  charms and triggered cards), stone variants, elites, hooked charms, Wildfrost
+  attach-stamps, meta-unlocks + ascension tiers, full match-seed for true dailies.
+- **Phase 3b — Position (only after 3 lands).** The positional layer (mirror /
+  adjacency / slot density) *then* position cards. Split out because position is
+  the deepest axis and is meaningless until its prerequisites exist and are
+  legible — don't build it in the same breath as everything else in Phase 3.
 
 What reuses existing code: the match engine, team/2v1 logic (raids), per-player
 stone pools (Gauntlet variant), the puzzle framework (`sg-`), the campaign-unlock
@@ -386,18 +537,30 @@ localStorage pattern (→ meta-progression), `animateMoves` (position).
 
 ---
 
-## 11. Open decisions (for feedback)
+## 11. Decisions
 
-1. **Fail-state:** Standing-as-HP vs lives (§3).
-2. **Gauntlet-first vs commit to the full run** (§9).
-3. **AI:** invest in a pass up front, or test the core as-is first and decide
-   after? (§8)
-4. **Card-deck draw model** — *full* owned deck (draw only from your deck) vs
-   *hybrid* (deck seeds a draw still partly from the regional pool) (§6.4).
-   Owned-deck itself is decided; this is the remaining dial.
-5. **The anti-White dial** — how reliable should White stay (§6.7)?
+**Resolved (review round 1 — see the digest at top):**
+- Fail-state = **Standing-as-HP + damage-shaping** (§3).
+- Card-deck = **full owned deck** (§6.4).
+- White = **absolute vs standard cards; Lockpick/boss/rare only** (§6.7).
+- **FFA cut** from the first run (§4).
+- **Seeded RNG → top of Phase 1**; **Position → Phase 3b** (§9).
+- **Regional leverage = protected pillar #0** (§2).
+- Ally = **shared-inventory opportunity cost + retention feature** (§5.4).
+- Added **Run Chronicle** (§7.5), **Green watch** + **AI loophole** rules.
+
+**Still open (empirical — answered by building/playtest):**
+1. **Does Phase 0 prove repeated play is fun?** The gate; nothing else matters if
+   this fails.
+2. **Is the AI good enough under repetition** (pass up front vs test-then-decide)?
+3. **Owned-deck draw model:** *full* (default) vs *hybrid* fallback if full
+   strays from the base feel (§6.4).
+4. **Standing-as-HP damage-shaping curve** — the exact cap/diminish numbers (§3).
+5. **Venue-value rebalance numbers** once the dead-region rule is applied (§2).
 6. **Footprint ceiling** — confirm player caps at 6, bosses 7+ (§5.5).
-7. **FFA in a run** — keep it (with a "top-2 passes" mapping) or cut it (§4)?
+
+**Priority order (consensus): 1 → 2 → 3 → 4 → everything else.** If #1 fails the
+rest is moot.
 
 ---
 
