@@ -263,5 +263,10 @@ assert(g.score === sc + 1, 'Momentum pays for a second consecutive win');
 // records: a charm offered in spoils is marked seen (compendium discovery)
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
+// records: a finished run banks into history and updates best results
+M.recordCircuitRun({ cleared: 7, score: 123, opp: 'The Lady', venue: 'docks', charms: ['loadedcoin'] });
+const rec = M.circuitRecords();
+assert(rec.runs[0].tables === 7 && rec.runs[0].score === 123 && rec.runs[0].foe === 'The Lady', 'a finished run banks into history');
+assert(rec.best.tables >= 7 && rec.best.score >= 123, 'best results update from a run');
 
 console.log('OK circuit: Standing/damage/clear/heal, venues, effect cards, spoils, events, and charms.');

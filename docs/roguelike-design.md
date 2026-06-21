@@ -242,7 +242,25 @@ not twenty.** The engine already supports per-player stone pools (the Gauntlet
 variant gives one-of-each); generalize that to an arbitrary owned loadout for
 seat 0.
 
-### 5.2 Charms (relics)
+### 5.2 Charms (relics) — ✅ framework + tiers 1–2 BUILT
+> **Shipped:** a `CHARMS` registry (mirrors `EFFECTS`) — each charm declares its
+> lever and/or lifecycle hooks (`on.fightStart/handStart/handWon/handLost`),
+> summed/fired by `charmVal`/`charmCardBonus`/`charmFire`. Player-only +
+> Circuit-only ⇒ base game and the AI seat are numerically untouched. **18
+> charms** live across two tiers: passive levers (Loaded Coin, Passage Toll,
+> Whetstone, Forger's Seal, Master Forger, Floor Price, Smuggler's Lining, Iron
+> Pouch, Hardened, Field Surgeon, War Chest, First Blood, Strong Finish) and auto
+> event hooks (Opening Gambit, Spite Engine, Momentum, Counterpunch, Tithe).
+> Drafted in spoils (occasional, `charmChance`), shown in the HUD + deck viewer.
+> **Records/compendium** persists runs, best results, and charms-seen (localStorage
+> w/ in-memory fallback); undiscovered charms stay blacked-out. **Battery finding:**
+> charms snowball — endless + compounding power trends unkillable; curbed (rarer
+> draft + steeper foe ramp) but the real bound is the **run-structure/boss** pass.
+> **Still to build (taxonomy in §6.x notes):** tier 3 reactive charms (ward/counter
+> — new targetability + stone-intercept hooks, with AI awareness) and tier 4
+> active/amplify charms (scry, rearrange, discard-dig, redraw, effect-doubling —
+> need in-match UI). Original notes below.
+
 Persistent passives that warp the card/score/stone economy — **split hard by
 cost**:
 - *Lever-only* (cheap, ship ~15 fast): Loaded Coin (+1 Coins), Forger's Seal

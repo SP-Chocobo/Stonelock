@@ -1193,6 +1193,25 @@ body[data-compact="1"] .board .cfx { display: none; }
 .charmrow { display: flex; flex-direction: column; padding: 6px 9px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 7px; }
 .charmrow-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 12.5px; }
 .charmrow-b { font-size: 11.5px; color: var(--parchment); margin-top: 2px; }
+/* Records & compendium. */
+.recordsbtn { margin-top: 10px; }
+.recbest { display: flex; gap: 22px; justify-content: center; margin-top: 4px; }
+.recbest > div { display: flex; flex-direction: column; align-items: center; }
+.recbig { font-family: 'Cinzel', Georgia, serif; font-size: 26px; font-weight: 700; color: var(--gold-bright); }
+.reclab { font-size: 10.5px; color: var(--parchment-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.rechist { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; }
+.recrow { display: flex; gap: 12px; align-items: baseline; padding: 4px 8px; background: rgba(20,14,8,0.45); border-radius: 6px; font-size: 12px; }
+.recrow-t { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); min-width: 64px; }
+.recrow-s { color: var(--parchment); min-width: 56px; }
+.recrow-f { color: var(--parchment-dim); font-style: italic; }
+.compendium { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.compcard { padding: 8px 10px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 8px; }
+.compcard-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 12.5px; }
+.compcard-b { font-size: 11px; color: var(--parchment); margin-top: 3px; }
+.compcard.locked { opacity: 0.55; filter: grayscale(0.7); border-style: dashed; }
+.compcard.locked .compcard-h { color: var(--parchment-dim); letter-spacing: 0.15em; }
+.compcard.locked .compcard-b { color: var(--parchment-dim); font-style: italic; }
+.recordsbody { max-height: 70vh; overflow-y: auto; }
 /* Interlude event: the four choice tiles. */
 .eventopts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 12px; }
 .eventopt { flex: 1 1 200px; max-width: 240px; text-align: left; padding: 10px 12px; cursor: pointer;

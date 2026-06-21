@@ -4711,10 +4711,42 @@ function circuitIntro() {
   $('circuitStats').className = 'victoryunlocks';
   $('circuitTitle').textContent = 'The Circuit';
   $('circuitText').textContent = 'An endless gauntlet of tables — outfit a stone pouch and a deck, then climb as far as your Standing carries you. Each table brings a new foe and a new venue, and every run deals a fresh hand of options.';
-  $('circuitStats').innerHTML = '';
+  const stats = $('circuitStats'); stats.innerHTML = '';
+  const rec = circuitRecords(), nCharms = Object.keys(CHARMS).length, seen = Object.keys(rec.seen).length;
+  const line = document.createElement('div'); line.className = 'unlockitem';
+  line.innerHTML = `Best: <b>${rec.best.tables}</b> table${rec.best.tables === 1 ? '' : 's'} · <b>${rec.best.score}</b> score · charms found <b>${seen}/${nCharms}</b>`;
+  stats.appendChild(line);
+  const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
+  stats.appendChild(rb);
   const next = $('circuitNext');
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
   $('circuitModal').classList.add('open');
+}
+
+// The records & charm compendium — past runs, best results, and the charms
+// you've discovered (undiscovered ones stay blacked out, no effect text).
+function showCircuitRecords() {
+  if (typeof document === 'undefined') return;
+  const rec = circuitRecords();
+  const all = Object.keys(CHARMS), seen = all.filter(k => rec.seen[k]).length;
+  let html = `<div class="ldsection"><div class="ldhead">Best results</div><div class="recbest">` +
+    `<div><span class="recbig">${rec.best.tables}</span><span class="reclab">tables cleared</span></div>` +
+    `<div><span class="recbig">${rec.best.score}</span><span class="reclab">best score</span></div>` +
+    `<div><span class="recbig">${seen}/${all.length}</span><span class="reclab">charms found</span></div>` +
+    `</div></div>`;
+  html += `<div class="ldsection"><div class="ldhead">Recent runs</div>`;
+  html += rec.runs.length
+    ? `<div class="rechist">` + rec.runs.map(r => `<div class="recrow"><span class="recrow-t">${r.tables} table${r.tables === 1 ? '' : 's'}</span><span class="recrow-s">${r.score} pts</span><span class="recrow-f">fell to ${r.foe || '—'}${r.venue ? ' · ' + (VENUES[r.venue] ? VENUES[r.venue].label : r.venue) : ''}</span></div>`).join('') + `</div>`
+    : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
+  html += `</div>`;
+  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${seen}/${all.length}</div><div class="compendium">` +
+    all.map(k => { const c = CHARMS[k]; return rec.seen[k]
+      ? `<div class="compcard"><div class="compcard-h">${c.label}</div><div class="compcard-b">${c.blurb}</div></div>`
+      : `<div class="compcard locked"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — meet it in a run to reveal it.</div></div>`;
+    }).join('') + `</div></div>`;
+  $('recordsBody').innerHTML = html;
+  $('recordsClose').onclick = () => closeModal('recordsModal');
+  $('recordsModal').classList.add('open');
 }
 
 // Outfit screen: pick a pouch (shown as its stone composition, not named) and
@@ -5306,6 +5338,8 @@ function circuitScreen(over) {
       `<div class="unlockitem">Tables cleared: <b>${g.cleared}</b></div>` +
       `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
       `<div class="unlockitem">Fell at <b>Table ${g.rung}</b> — ${VENUES[g.venue].label}, vs ${g.opp}</div>`;
+    const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
+    stats.appendChild(rb);
     next.textContent = 'Run it again';
     next.onclick = startCircuit;
   } else {
@@ -5517,7 +5551,7 @@ if (typeof window !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     bestSelection, REGIONS, TYPES, STONES, CIRCUIT, CHARMS,
-    circuitRecords, markCharmSeen, charmSeen,
+    circuitRecords, markCharmSeen, charmSeen, recordCircuitRun,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
