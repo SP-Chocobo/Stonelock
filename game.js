@@ -717,6 +717,10 @@ function newGame(cfg) {
   } else if (G.mode === 'raid') {
     const bn = playerName(1);
     log(`${bn} takes the high seat — a ${raidDiff().label} raid. ${playerName(0)} and ${playerName(2)} field five cards and three stones each; ${bn} fields ${RAID_BOSS_CARDS} cards, all face-up, selects from a deep pouch (3 of each), and spends ${raidDiff().stones} stones — answering every move and keeping the last word.${G.exhaustHands ? ` Every stone the party spends is exhausted for ${G.exhaustHands} hand${G.exhaustHands === 1 ? '' : 's'} — the Warden's own pouch stays full.` : ''}${isQuartermaster() ? ' Each hand it locks away one stone-colour from the whole table, cycling red → white → blue → black — so you can never lean on a favourite.' : ''} It scores its two best hands; your party scores both of yours combined. Drive the marker ${G.target} to break it — it holds any tie.`, 'sys');
+  } else if (G.gauntlet) {
+    // The Circuit decides by Standing depletion, not the ledger (target is a
+    // sentinel so the ledger never ends it) — don't leak the 999.
+    log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} Press your foe's Standing to zero before they press yours.`, 'sys');
   } else {
     log(`A table is set at ${G.venue.label} — ${fmt}, ${dl}, under ${G.region.name}.${variantNote} ${G.mode === 'ffa'
       ? `Each showdown, every seat banks its margin over the lowest hand; first to ${G.target} takes the match.`
@@ -3451,7 +3455,8 @@ function renderTableSummary() {
   }
   rows.push(['Targeting', G.open ? 'Advanced' : 'Simplified']);
   if (G.mode !== 'raid') rows.push(['Deal', G.deal === 'house' ? 'House Deep Draft (9 cards)' : 'Small Game (5 cards)']);
-  rows.push(['Race to', String(G.target)]);
+  if (G.gauntlet) rows.push(['Win by', 'Standing depletion']);
+  else rows.push(['Race to', String(G.target)]);
   el.innerHTML = '<div class="tstitle">This table</div>' +
     rows.map(([k, v]) => `<div class="tsrow"><span class="tskey">${k}</span><span class="tsval">${v}</span></div>`).join('');
 }
