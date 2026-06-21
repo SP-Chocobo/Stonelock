@@ -22,7 +22,7 @@ assert(g.foeHp === g.foeMax && g.foeHp > 0, 'opponent starts at full Standing');
 // loadout feeds the match: owned 10-card deck + 4-stone pouch as seat-0's pool
 assert(g.deck && g.deck.length === 10, 'owned deck = one of each (8) + 2 picks = 10');
 assert(g.pouch && ['red', 'white', 'blue', 'black'].reduce((s, c) => s + (g.pouch[c] || 0), 0) === 4, 'pouch holds 4 stones');
-assert(['red', 'white', 'blue', 'black'].reduce((s, c) => s + (G.players[0].pool[c] || 0), 0) === 4, 'seat 0 spends from the 4-stone pouch, not the default 8');
+assert(['red', 'white', 'blue', 'black'].reduce((s, c) => s + (G.players[0].pool[c] || 0), 0) === 3, 'seat 0 draws a 3-stone working set from the 4-stone pouch each hand');
 
 // --- two-pool damage: hands hit the LOSER's Standing, never the ledger ---
 const youFull = g.standing, foeFull = g.foeHp;

@@ -879,6 +879,18 @@ function orderFrom(start) {
 }
 function dealOrder() { return orderFrom((G.dealer + 1) % G.nPlayers); }
 
+// Draw n stones at random from an owned pouch (a count map), returning a fresh
+// count map — the Circuit's per-hand stone draw. Drawing fewer than the pouch
+// holds is what makes the pouch a deck rather than a fixed supply.
+function drawFromPouch(pouch, n) {
+  const bag = [];
+  for (const c of STONE_KEYS) for (let i = 0; i < (pouch[c] || 0); i++) bag.push(c);
+  shuffle(bag);
+  const drawn = { red: 0, white: 0, blue: 0, black: 0 };
+  for (let i = 0; i < Math.min(n, bag.length); i++) drawn[bag[i]]++;
+  return drawn;
+}
+
 function startHand() {
   G.handNum++;
   G.events = [];
@@ -907,9 +919,10 @@ function startHand() {
     let pool = { red: 2, white: 2, blue: 2, black: 2 };
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
-    // The Circuit: the player (seat 0) spends from their chosen Pouch, not the
-    // default supply. (Academy venue keeps its one-of-each rule, handled above.)
-    else if (G.gauntlet && p === 0 && GAUNTLET.pouch) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, GAUNTLET.pouch);
+    // The Circuit: the player (seat 0) draws a working set of stones from their
+    // owned Pouch each hand (not the whole pouch at once) — so the pouch is a
+    // deck you cycle, and a bigger pouch earned later actually forces choices.
+    else if (G.gauntlet && p === 0 && GAUNTLET.pouch) pool = drawFromPouch(GAUNTLET.pouch, CIRCUIT.drawStones);
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands) {
@@ -4450,7 +4463,7 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1,
+  startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1, drawStones: 3,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -4517,7 +4530,7 @@ function circuitLoadoutScreen() {
 
   // Pouch — shown as its four stones, no name.
   const ps = document.createElement('div'); ps.className = 'ldsection';
-  ps.innerHTML = '<div class="ldhead">Your pouch — four stones</div>';
+  ps.innerHTML = `<div class="ldhead">Your pouch — four stones, draw ${CIRCUIT.drawStones} a hand</div>`;
   const prow = document.createElement('div'); prow.className = 'ldpouches';
   for (const a of circuitLoad.pouchOffer) {
     const b = document.createElement('button');
