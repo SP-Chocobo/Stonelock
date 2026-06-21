@@ -4883,21 +4883,50 @@ function nodeFoeCharms(type, act, foe) {
   const pool = (CIRCUIT_BUILDS[foe] && CIRCUIT_BUILDS[foe].charms) || ['loadedcoin', 'forgerseal', 'whetstone'];
   return shuffle(pool.slice()).slice(0, n);
 }
-function mkNode(type, col, act) {
+function mkNode(type, col, idx, act) {
   const foe = (type === 'event' || type === 'shop') ? null : pickFoe();
-  return { type, col, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false };
+  return { type, col, idx, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false, edges: [] };
+}
+// Link column A → B with adjacency-biased edges: every A node gets ≥1 outgoing,
+// every B node ≥1 incoming (no dead ends, nothing unreachable), plus a little
+// branching. So you commit to a lane and can't reach every node.
+function linkColumns(A, B) {
+  const a = A.length, b = B.length;
+  A.forEach(n => n.edges = []);
+  if (a === 1) { A[0].edges = B.map((_, j) => j); return; }   // the entry fans out to the whole next column
+  if (b === 1) { A.forEach(n => n.edges = [0]); return; }     // everything converges on the boss/shop
+  const proj = i => Math.round(i * (b - 1) / (a - 1));
+  for (let i = 0; i < a; i++) A[i].edges.push(proj(i));
+  for (let j = 0; j < b; j++) {
+    if (!A.some(n => n.edges.includes(j))) { // give an orphaned B node an incoming edge
+      let bi = 0, bd = Infinity; for (let i = 0; i < a; i++) { const d = Math.abs(proj(i) - j); if (d < bd) { bd = d; bi = i; } }
+      if (!A[bi].edges.includes(j)) A[bi].edges.push(j);
+    }
+  }
+  for (let i = 0; i < a; i++) { // a little branching: a 2nd nearby edge sometimes
+    if (Math.random() < 0.4) { const alt = A[i].edges[0] + (Math.random() < 0.5 ? -1 : 1); if (alt >= 0 && alt < b && !A[i].edges.includes(alt)) A[i].edges.push(alt); }
+  }
+  A.forEach(n => n.edges.sort((x, y) => x - y));
 }
 function buildAct(act) {
   const N = CIRCUIT.actRows, cols = [];
   for (let c = 0; c < N; c++) {
-    if (c === N - 1) { cols.push([mkNode('boss', c, act)]); break; }       // the act boss
-    if (c === N - 2) { cols.push([mkNode('shop', c, act)]); continue; }    // a shop before the boss
-    if (c === 0) { cols.push([mkNode('duel', c, act)]); continue; }        // a safe opener
+    if (c === N - 1) { cols.push([mkNode('boss', c, 0, act)]); break; }       // the act boss
+    if (c === N - 2) { cols.push([mkNode('shop', c, 0, act)]); continue; }    // a shop before the boss
+    if (c === 0) { cols.push([mkNode('duel', c, 0, act)]); continue; }        // a safe opener
     const count = 2 + (Math.random() < 0.5 ? 1 : 0);
-    const arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, act));
+    const arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, i, act));
     cols.push(arr);
   }
-  return { act, cols, col: 0 };
+  for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
+  return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
+}
+// The nodes you may enter next: the entry column when nowhere yet, else the
+// edges of the node you're on.
+function circuitReachable(m) {
+  if (!m.pos) return m.cols[0].slice();
+  const cur = m.cols[m.pos.col][m.pos.idx];
+  return (cur.edges || []).map(j => m.cols[m.pos.col + 1][j]);
 }
 
 function circuitOpponent() {
@@ -5012,10 +5041,10 @@ function circuitSetupFight(node) {
 // act (after a boss), or the run victory (after the last act's boss).
 function circuitAfterNode() {
   const g = GAUNTLET, m = g.map;
-  const wasBoss = g.curNode && g.curNode.type === 'boss';
-  if (g.curNode) g.curNode.done = true;
+  const node = g.curNode;
+  const wasBoss = node && node.type === 'boss';
+  if (node) { node.done = true; m.pos = { col: node.col, idx: node.idx }; } // you now stand on it
   g.curNode = null;
-  m.col++;
   if (wasBoss) {
     if (g.act >= CIRCUIT.acts) { circuitVictory(); return; }
     g.act++; g.map = buildAct(g.act);
@@ -5047,16 +5076,19 @@ function circuitMapScreen() {
   $('circuitTitle').textContent = `The Circuit — Act ${g.act} of ${CIRCUIT.acts}`;
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
+  const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
   const grid = document.createElement('div'); grid.className = 'mapgrid';
   m.cols.forEach((col, ci) => {
-    const colEl = document.createElement('div'); colEl.className = 'mapcol ' + (ci === m.col ? 'current' : ci < m.col ? 'past' : 'future');
+    const colEl = document.createElement('div'); colEl.className = 'mapcol';
     col.forEach(node => {
-      const reach = ci === m.col;
+      const here = m.pos && m.pos.col === node.col && m.pos.idx === node.idx;
+      const ok = reach.has(node.col + ',' + node.idx);
       const b = document.createElement('button');
-      b.className = 'mapnode mapnode-' + node.type + (node.done ? ' done' : '') + (reach ? ' reach' : '');
-      b.disabled = !reach;
+      b.className = 'mapnode mapnode-' + node.type + (node.done ? ' done' : '') + (here ? ' here' : '') + (ok ? ' reach' : '');
+      b.dataset.col = node.col; b.dataset.idx = node.idx;
+      b.disabled = !ok;
       b.innerHTML = mapNodeHtml(node);
-      if (reach) b.onclick = () => circuitEnterNode(node);
+      if (ok) b.onclick = () => circuitEnterNode(node);
       colEl.appendChild(b);
     });
     grid.appendChild(colEl);
@@ -5064,6 +5096,33 @@ function circuitMapScreen() {
   body.appendChild(grid);
   $('circuitNext').style.display = 'none'; // navigation is by clicking a node
   $('circuitModal').classList.add('open');
+  requestAnimationFrame(() => drawMapEdges(grid, m)); // draw the branch lines once laid out
+}
+// Draw the branch edges as an SVG overlay behind the nodes; the edges leaving
+// your current position (your live choices) are highlighted.
+function drawMapEdges(grid, m) {
+  if (!grid || !grid.isConnected) return;
+  grid.style.position = 'relative';
+  const old = grid.querySelector('svg.mapedges'); if (old) old.remove();
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'mapedges');
+  svg.style.position = 'absolute'; svg.style.left = '0'; svg.style.top = '0';
+  svg.style.width = grid.scrollWidth + 'px'; svg.style.height = grid.scrollHeight + 'px'; svg.style.pointerEvents = 'none';
+  const btn = {}; grid.querySelectorAll('.mapnode').forEach(b => btn[b.dataset.col + ',' + b.dataset.idx] = b);
+  const gr = grid.getBoundingClientRect();
+  for (const col of m.cols) for (const node of col) for (const j of (node.edges || [])) {
+    const from = btn[node.col + ',' + node.idx], to = btn[(node.col + 1) + ',' + j];
+    if (!from || !to) continue;
+    const fr = from.getBoundingClientRect(), tr = to.getBoundingClientRect();
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', fr.right - gr.left); line.setAttribute('y1', fr.top - gr.top + fr.height / 2);
+    line.setAttribute('x2', tr.left - gr.left); line.setAttribute('y2', tr.top - gr.top + tr.height / 2);
+    const live = m.pos ? (m.pos.col === node.col && m.pos.idx === node.idx) : node.col === 0;
+    line.setAttribute('class', 'mapedge' + (live ? ' live' : '') + (node.done ? ' taken' : ''));
+    svg.appendChild(line);
+  }
+  grid.insertBefore(svg, grid.firstChild);
 }
 
 function circuitVictory() {
@@ -5814,7 +5873,7 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
-    buildAct, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
+    buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),

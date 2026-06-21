@@ -1218,8 +1218,14 @@ body[data-compact="1"] .board .cfx { display: none; }
 /* The act map. */
 .circuitmap { margin: 8px 0; }
 .mapgrid { display: flex; gap: 10px; justify-content: center; align-items: stretch; overflow-x: auto; padding: 4px; }
-.mapcol { display: flex; flex-direction: column; gap: 8px; justify-content: center; min-width: 116px; }
-.mapcol.future { opacity: 0.5; }
+.mapcol { display: flex; flex-direction: column; gap: 8px; justify-content: center; min-width: 104px; }
+.mapnode:not(.reach):not(.here):not(.done) { opacity: 0.5; } /* unreachable-this-step nodes recede */
+.mapnode.here { border-color: var(--gold-bright); box-shadow: 0 0 0 2px var(--gold-bright) inset; opacity: 1; }
+.mapedges { z-index: 0; }
+.mapedge { stroke: var(--gold-dim); stroke-width: 2; opacity: 0.5; }
+.mapedge.taken { stroke: var(--gold); opacity: 0.7; }
+.mapedge.live { stroke: var(--gold-bright); stroke-width: 2.5; opacity: 1; }
+.mapnode { z-index: 1; }
 .mapnode { text-align: center; padding: 8px 8px; border-radius: 9px; cursor: default; position: relative;
   background: rgba(20,14,8,0.55); border: 1px solid var(--gold-dim); color: var(--parchment); transition: all 0.12s ease; }
 .mapnode.reach { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim) inset; }

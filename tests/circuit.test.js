@@ -18,9 +18,13 @@ M.startCircuit();
 let g = M._gauntlet();
 assert(g.active && g.act === 1 && g.score === 0 && g.coin === 0, 'a run starts active at act 1, no score/coin');
 assert(g.standing === g.maxStanding && g.standing > 0, 'starts at full Standing');
-assert(g.map && g.map.cols.length === M.CIRCUIT.actRows && g.map.col === 0, 'the act map is built with the configured columns');
+assert(g.map && g.map.cols.length === M.CIRCUIT.actRows && g.map.pos === null, 'the act map is built; you start before the entry');
 assert(g.map.cols[g.map.cols.length - 1][0].type === 'boss', 'the last column is the act boss');
 assert(g.map.cols[0][0].type === 'duel', 'the opening node is a safe duel');
+// branching tree: every node has an outgoing edge, every non-entry node an incoming
+for (let c = 0; c < g.map.cols.length - 1; c++) for (const n of g.map.cols[c]) assert(n.edges && n.edges.length >= 1, 'every non-boss node has an outgoing edge');
+for (let c = 1; c < g.map.cols.length; c++) for (let j = 0; j < g.map.cols[c].length; j++) assert(g.map.cols[c - 1].some(n => n.edges.includes(j)), 'every node has an incoming edge (no orphans)');
+assert(M.circuitReachable(g.map).length === g.map.cols[0].length, 'before entry, the whole first column is reachable');
 
 // --- entering a node builds the fight ---
 let G;
@@ -52,7 +56,6 @@ assert(M.circuitRecords().runs.length >= 1, 'a finished run is banked');
 
 // --- clearing a node: reward, then advance the map ---
 [g, G] = enterFirstFight();
-const col0 = g.map.col;
 safety = 0;
 while (g.foeHp > 0) { M.circuitHandResult({ members: [0] }, 99); if (safety++ > 50) assert(false, 'foe never dropped'); }
 assert(g.tableCleared && M._state().over === true, 'dropping the foe clears the node');
@@ -60,7 +63,8 @@ M.circuitEnd();
 assert(g.cleared === 1 && g.coin > 0, 'a clear banks a node + coin');
 g.reward.cardPick = null; g.reward.stonePick = null; g.reward.charmPick = null;
 M.circuitTakeRewardAndAdvance();
-assert(g.map.col === col0 + 1, 'taking the reward advances to the next map column');
+assert(g.map.pos && g.map.pos.col === 0, 'taking the reward leaves you standing on the cleared entry node');
+assert(M.circuitReachable(g.map).every(n => n.col === 1), 'your next choices are the cleared node\'s edges (column 1)');
 
 // --- acts → victory ---
 g = M._gauntlet();

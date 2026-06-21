@@ -78,7 +78,7 @@ function simulateRun() {
   g.map = M.buildAct(1);
   let guard = 0;
   while (g.active && guard++ < 200) {
-    const m = g.map, node = chooseNode(g, m.cols[m.col]);
+    const node = chooseNode(g, M.circuitReachable(g.map)); // only the edge-reachable nodes
     g.curNode = node;
     if (node.type === 'event') { autoEvent(g); M.circuitTakeEventAndAdvance(); continue; }
     if (node.type === 'shop') { g.shop = M.makeShop(); autoShop(g); g.shop = null; M.circuitAfterNode(); continue; }

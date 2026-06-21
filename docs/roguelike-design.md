@@ -760,8 +760,13 @@ real player clears more. `K=120 node tests/circuit-battery.js` (~2s).
   `circuitShopScreen`/`circuitShopBuy`/`circuitShopThin`; prices in `CIRCUIT`).
   Re-tuned via the rewritten map battery (Standing 20, heal 7, dmgCap 6, foe
   8+1/tier): with the shop economy, floor-bot win **~37%**, all runs terminate.
-  **Still TODO this phase:** **seeded RNG** (deferred — do before the economy
-  deepens), branch *edges* (currently full-connectivity per column), and the
+  **Branch edges BUILT:** the map is now a real edge-constrained tree
+  (`linkColumns`/`circuitReachable`, `node.edges`, `map.pos`) — you stand on a
+  node and may only enter its 1–2 forward edges, so you commit to a lane and
+  can't reach every node; SVG connector lines drawn behind the nodes, your live
+  choices highlighted. Routing now matters (the cautious-path battery jumped to
+  win ~47%, **median depth 2→7**, deaths spread across acts). **Still TODO this
+  phase:** **seeded RNG** (deferred — do before the economy deepens), and the
   act-1 death cluster for the neutral floor (real-player data is the calibration
   input).
   *(Pre-req gate: rebalance the value tables per the §2 finding before leaning on
