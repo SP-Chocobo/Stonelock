@@ -746,11 +746,20 @@ real player clears more. `K=120 node tests/circuit-battery.js` (~2s).
   Answers the one question everything rides on: **is a Stonelock match fun the
   10th time, and is the AI good enough to carry it?** Cheapest possible test of
   the whole thesis. Reuses ~everything. **Do an AI pass here.**
-- **Phase 1 — Run skeleton.** **Seeded RNG FIRST** — before the map UI or any
-  system depends on randomness; retrofitting determinism out of `shuffle()` + AI
-  later is a nightmare. Then: `RUN` state object (persists above the ephemeral
-  match `G`), map gen + screen, the run controller (state machine), fight wrapper
-  + Standing fail-state, basic drops (gain a stone / coin). Now it's a *run*.
+- **Phase 1 — Run skeleton.** ✅ **map skeleton BUILT.** The Circuit is now a
+  finite **3-act run map** (`CIRCUIT.acts × actRows`): each act is columns of
+  nodes you path through to an **act boss** — node types **duel / elite (×1.25 HP
+  + persona charms) / event (the interlude) / boss (×1.5 HP, act-ender)**.
+  `buildAct`/`circuitMapScreen`/`circuitEnterNode`/`circuitSetupFight`/
+  `circuitAfterNode`; **currency** (`coin`) earned per node; charms gated to
+  elite/boss rewards (no longer every spoils). **Foes carry charms** now
+  (seat-aware `charmsOf`); earlier acts none, act 2+ ramp. Finite acts **bound
+  the snowball** — runs end in victory or death, not endlessly. Re-tuned via the
+  rewritten map battery (Standing 20, heal 7, dmgCap 6, foe 8+1/tier): floor-bot
+  win ~24%, runs all terminate. **Still TODO this phase:** **seeded RNG** (deferred
+  — do before the economy deepens), **shop node + currency spend**, branch *edges*
+  (currently full-connectivity per column), and the act-1 death cluster for the
+  neutral floor (real-player data is the calibration input).
   *(Pre-req gate: rebalance the value tables per the §2 finding before leaning on
   regional leverage in Phase 2.)*
 - **Phase 2 — Roguelike.** Pouch feeding matches (generalize the Gauntlet

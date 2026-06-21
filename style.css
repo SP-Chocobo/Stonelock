@@ -1212,6 +1212,24 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compcard.locked .compcard-h { color: var(--parchment-dim); letter-spacing: 0.15em; }
 .compcard.locked .compcard-b { color: var(--parchment-dim); font-style: italic; }
 .recordsbody { max-height: 70vh; overflow-y: auto; }
+/* The act map. */
+.circuitmap { margin: 8px 0; }
+.mapgrid { display: flex; gap: 10px; justify-content: center; align-items: stretch; overflow-x: auto; padding: 4px; }
+.mapcol { display: flex; flex-direction: column; gap: 8px; justify-content: center; min-width: 116px; }
+.mapcol.future { opacity: 0.5; }
+.mapnode { text-align: center; padding: 8px 8px; border-radius: 9px; cursor: default; position: relative;
+  background: rgba(20,14,8,0.55); border: 1px solid var(--gold-dim); color: var(--parchment); transition: all 0.12s ease; }
+.mapnode.reach { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim) inset; }
+.mapnode.reach:hover { border-color: var(--gold-bright); background: rgba(40,30,17,0.85); transform: translateY(-2px); }
+.mapnode.done { opacity: 0.6; border-style: dashed; }
+.mapnode-t { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
+.mapnode-duel .mapnode-t { color: var(--parchment); }
+.mapnode-elite .mapnode-t { color: #e6b15a; }
+.mapnode-event .mapnode-t { color: #8fc7a0; }
+.mapnode-boss .mapnode-t { color: #d9685b; }
+.mapnode-f { font-size: 11px; color: var(--gold); margin-top: 2px; font-family: 'Alegreya', serif; }
+.mapnode-hp { font-size: 10px; color: var(--parchment-dim); margin-top: 2px; }
+.mapnode-c { position: absolute; top: 4px; right: 5px; font-size: 10px; color: #e6b15a; }
 /* Interlude event: the four choice tiles. */
 .eventopts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 12px; }
 .eventopt { flex: 1 1 200px; max-width: 240px; text-align: left; padding: 10px 12px; cursor: pointer;

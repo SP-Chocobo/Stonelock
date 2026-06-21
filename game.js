@@ -344,7 +344,7 @@ function variantOpts() {
 // sweeteners (seat 0 in the Circuit). No-op for everyone else.
 function scoreOptsFor(seat) {
   const o = variantOpts();
-  if (G.gauntlet && seat === 0) { o.bonusAdd = charmVal('bonusAdd'); o.triadAdd = charmVal('triadAdd'); }
+  if (G.gauntlet && charmsOf(seat).length) { o.bonusAdd = charmValSeat('bonusAdd', seat); o.triadAdd = charmValSeat('triadAdd', seat); }
   return o;
 }
 
@@ -1914,10 +1914,16 @@ const CHARMS = {
   counterpunch: { label: 'Counterpunch',      blurb: 'The first hand they take from you each table, heal 2.', on: { handLost: g => { if (!g.cpDone) { g.cpDone = true; g.standing = Math.min(g.maxStanding, g.standing + 2); } } } },
   tithe:        { label: 'Tithe',             blurb: 'Win a hand by 4 or more and press 1 extra Standing.' },
 };
-function playerCharms() { return (typeof GAUNTLET !== 'undefined' && GAUNTLET && GAUNTLET.charms) || []; }
+// Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
+// foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
+// board/score levers only; the economy/event levers are the player's alone.
+function charmsOf(seat) { const g = (typeof GAUNTLET !== 'undefined') && GAUNTLET; if (!g) return []; return (seat === 0 ? g.charms : seat === 1 ? g.foeCharms : null) || []; }
+function playerCharms() { return charmsOf(0); }
 function charmHas(key) { return playerCharms().indexOf(key) >= 0; }
-function charmVal(field) { return playerCharms().reduce((s, k) => { const v = CHARMS[k] && CHARMS[k][field]; return s + (typeof v === 'number' ? v : 0); }, 0); }
-function charmCardBonus(card, i, board) { return playerCharms().reduce((s, k) => { const f = CHARMS[k] && CHARMS[k].cardBonus; return s + (f ? f(card, i, board) : 0); }, 0); }
+function charmValSeat(field, seat) { return charmsOf(seat).reduce((s, k) => { const v = CHARMS[k] && CHARMS[k][field]; return s + (typeof v === 'number' ? v : 0); }, 0); }
+function charmCardBonusSeat(card, i, board, seat) { return charmsOf(seat).reduce((s, k) => { const f = CHARMS[k] && CHARMS[k].cardBonus; return s + (f ? f(card, i, board) : 0); }, 0); }
+function charmVal(field) { return charmValSeat(field, 0); }
+function charmCardBonus(card, i, board) { return charmCardBonusSeat(card, i, board, 0); }
 function charmFire(ev, ctx) { for (const k of playerCharms()) { const h = CHARMS[k] && CHARMS[k].on && CHARMS[k].on[ev]; if (h) h(GAUNTLET, ctx || {}); } }
 
 // ── Circuit records (persisted across runs) ────────────────────────────────
@@ -1935,8 +1941,9 @@ function markCharmSeen(key) { const r = circuitRecords(); if (!r.seen[key]) { r.
 function charmSeen(key) { return !!circuitRecords().seen[key]; }
 function recordCircuitRun(g) {
   const r = circuitRecords();
-  r.runs.unshift({ tables: g.cleared || 0, score: g.score || 0, foe: g.opp || '', venue: g.venue || '', charms: (g.charms || []).slice(), t: Date.now() });
+  r.runs.unshift({ tables: g.cleared || 0, score: g.score || 0, foe: g.opp || '', venue: g.venue || '', act: g.act || 1, won: !!g.won, charms: (g.charms || []).slice(), t: Date.now() });
   r.runs = r.runs.slice(0, 20); // keep the last 20
+  if (g.won) r.best.wins = (r.best.wins || 0) + 1;
   r.best.tables = Math.max(r.best.tables, g.cleared || 0);
   r.best.score = Math.max(r.best.score, g.score || 0);
   saveCircuitRecords(r);
@@ -1979,15 +1986,19 @@ function applyCardEffects() {
     }
   }
   for (const board of boards) for (const c of board) if (c && c.evalue < 0) c.evalue = 0;
-  // Charms (the player's run-long relics) buff seat 0's board. Player-only +
-  // gauntlet-only — a no-op without owned charms, so base game is untouched.
-  if (G.gauntlet && G.players[0]) {
-    const b0 = G.players[0].board, floor = charmVal('valueFloor'), hb = (GAUNTLET.handBuff || 0);
-    for (let i = 0; i < b0.length; i++) {
-      const c = b0[i]; if (!c) continue;
-      c.evalue += charmCardBonus(c, i, b0) + hb;
-      if (floor) c.evalue = Math.max(c.evalue, floor);
-      if (c.evalue < 0) c.evalue = 0;
+  // Charms buff their owner's board — seat 0 (player) and seat 1 (an elite/boss
+  // foe). Gauntlet-only and a no-op without owned charms, so base game is
+  // untouched. Only seat 0 gets the per-hand board buff (a player-economy lever).
+  if (G.gauntlet) {
+    for (const seat of [0, 1]) {
+      const board = G.players[seat] && G.players[seat].board; if (!board || !charmsOf(seat).length) continue;
+      const floor = charmValSeat('valueFloor', seat), hb = (seat === 0 ? (GAUNTLET.handBuff || 0) : 0);
+      for (let i = 0; i < board.length; i++) {
+        const c = board[i]; if (!c) continue;
+        c.evalue += charmCardBonusSeat(c, i, board, seat) + hb;
+        if (floor) c.evalue = Math.max(c.evalue, floor);
+        if (c.evalue < 0) c.evalue = 0;
+      }
     }
   }
 }
@@ -4661,10 +4672,11 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 16, maxStanding: 16, dmgCap: 4, heal: 4, foeBase: 9, foeStep: 3, drawStones: 3,
-  rewardCards: 3, rewardStones: 2, rewardCharms: 2, charmChance: 0.4, // charms are an occasional draft, not every table
-
-  eventEvery: 4, deckFloor: 6,     // every Nth cleared table is an interlude event; don't thin the deck below this
+  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 1, drawStones: 3,
+  rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
+  // The run map: a few acts, each a short branching path of columns to a boss.
+  acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5,
+  coinDuel: 4, coinElite: 8, coinBoss: 12,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -4718,7 +4730,7 @@ function circuitIntro() {
   stats.appendChild(line);
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
   stats.appendChild(rb);
-  const next = $('circuitNext');
+  const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
   $('circuitModal').classList.add('open');
 }
@@ -4814,7 +4826,7 @@ function circuitLoadoutScreen() {
   cs.appendChild(note);
   body.appendChild(cs);
 
-  const next = $('circuitNext');
+  const next = $('circuitNext'); next.style.display = '';
   next.textContent = 'Begin the Circuit ›';
   next.disabled = circuitLoad.picks.length !== 2;
   next.onclick = () => { if (circuitLoad.picks.length === 2) circuitBegin(); };
@@ -4824,8 +4836,38 @@ function circuitLoadoutScreen() {
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
-  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], handBuff: 0 };
-  circuitRung();
+  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null };
+  GAUNTLET.map = buildAct(1);
+  circuitMapScreen();
+}
+
+/* ---- The run map: each act is a few columns of nodes you path through to a
+   boss. Node types: duel / elite (tougher + foe charms) / event (the interlude)
+   / boss (act-ender). Finite acts bound the run (and the snowball). ---- */
+function rollNodeType() { const r = Math.random(); if (r < 0.22) return 'elite'; if (r < 0.45) return 'event'; return 'duel'; }
+function pickFoe() { return BOT_POOL[Math.floor(Math.random() * BOT_POOL.length)]; }
+// Elites/bosses carry persona-appropriate charms; earlier acts carry none.
+function nodeFoeCharms(type, act, foe) {
+  const n = (type === 'elite') ? Math.min(2, Math.max(0, act - 1))
+    : (type === 'boss') ? Math.min(3, Math.max(0, act - 1)) : 0;
+  if (!n) return [];
+  const pool = (CIRCUIT_BUILDS[foe] && CIRCUIT_BUILDS[foe].charms) || ['loadedcoin', 'forgerseal', 'whetstone'];
+  return shuffle(pool.slice()).slice(0, n);
+}
+function mkNode(type, col, act) {
+  const foe = type === 'event' ? null : pickFoe();
+  return { type, col, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false };
+}
+function buildAct(act) {
+  const N = CIRCUIT.actRows, cols = [];
+  for (let c = 0; c < N; c++) {
+    if (c === N - 1) { cols.push([mkNode('boss', c, act)]); break; }     // the act boss
+    if (c === 0) { cols.push([mkNode('duel', c, act)]); continue; }      // a safe opener
+    const count = 2 + (Math.random() < 0.5 ? 1 : 0);
+    const arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, act));
+    cols.push(arr);
+  }
+  return { act, cols, col: 0 };
 }
 
 function circuitOpponent() {
@@ -4837,16 +4879,18 @@ function circuitOpponent() {
 // pouch and two effect cards in an otherwise one-of-each deck. So a foe plays
 // to a recognizable identity (the Ferryman steals and drains, the Clerk locks
 // and anchors), and the same depleting draw applies to both sides of the table.
+// `charms` is the pool an elite/boss of that name draws from — passive levers
+// only (board/score), so they read as a tougher version of the same identity.
 const CIRCUIT_BUILDS = {
-  'The Ferryman': { pouch: { blue: 2, black: 1, white: 1 }, fx: [{ type: 'Ferry', fx: 'drain' }, { type: 'Coin', fx: 'keen' }] },
-  'The Clerk':    { pouch: { white: 2, red: 1, black: 1 },  fx: [{ type: 'Coin', fx: 'anchor' }, { type: 'Crest', fx: 'keen' }] },
-  'The Miner':    { pouch: { red: 2, black: 1, white: 1 },  fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Crest', fx: 'lodestone' }] },
-  'The Lady':     { pouch: { blue: 2, white: 1, black: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Quill', fx: 'drain' }] },
-  'The Wagoner':  { pouch: { blue: 2, black: 1, red: 1 },   fx: [{ type: 'Road', fx: 'drain' }, { type: 'Ferry', fx: 'lodestone' }] },
-  'The Tinker':   { pouch: { red: 2, white: 1, black: 1 },  fx: [{ type: 'Sword', fx: 'keen' }, { type: 'Bread', fx: 'keen' }] },
-  'The Stranger': { pouch: { blue: 1, black: 1, red: 1, white: 1 }, fx: [{ type: 'Quill', fx: 'drain' }, { type: 'Chain', fx: 'anchor' }] },
-  'The Old Hand': { pouch: { white: 2, black: 1, blue: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Chain', fx: 'lodestone' }] },
-  'The Deckhand': { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Sword', fx: 'lodestone' }] },
+  'The Ferryman': { pouch: { blue: 2, black: 1, white: 1 }, fx: [{ type: 'Ferry', fx: 'drain' }, { type: 'Coin', fx: 'keen' }], charms: ['passagetoll', 'whetstone', 'strongfinish'] },
+  'The Clerk':    { pouch: { white: 2, red: 1, black: 1 },  fx: [{ type: 'Coin', fx: 'anchor' }, { type: 'Crest', fx: 'keen' }], charms: ['forgerseal', 'floorprice', 'loadedcoin'] },
+  'The Miner':    { pouch: { red: 2, black: 1, white: 1 },  fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Crest', fx: 'lodestone' }], charms: ['loadedcoin', 'masterforger', 'firstblood'] },
+  'The Lady':     { pouch: { blue: 2, white: 1, black: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Quill', fx: 'drain' }], charms: ['floorprice', 'whetstone', 'forgerseal'] },
+  'The Wagoner':  { pouch: { blue: 2, black: 1, red: 1 },   fx: [{ type: 'Road', fx: 'drain' }, { type: 'Ferry', fx: 'lodestone' }], charms: ['passagetoll', 'strongfinish', 'whetstone'] },
+  'The Tinker':   { pouch: { red: 2, white: 1, black: 1 },  fx: [{ type: 'Sword', fx: 'keen' }, { type: 'Bread', fx: 'keen' }], charms: ['forgerseal', 'masterforger', 'firstblood'] },
+  'The Stranger': { pouch: { blue: 1, black: 1, red: 1, white: 1 }, fx: [{ type: 'Quill', fx: 'drain' }, { type: 'Chain', fx: 'anchor' }], charms: ['whetstone', 'floorprice', 'strongfinish'] },
+  'The Old Hand': { pouch: { white: 2, black: 1, blue: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Chain', fx: 'lodestone' }], charms: ['floorprice', 'forgerseal', 'firstblood'] },
+  'The Deckhand': { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Sword', fx: 'lodestone' }], charms: ['loadedcoin', 'whetstone', 'forgerseal'] },
 };
 const CIRCUIT_DEFAULT_BUILD = { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [] };
 function circuitBuildFor(name) {
@@ -4900,25 +4944,112 @@ function pileDrawStones(ps, n) {
   return drawn;
 }
 
-function circuitRung() {
+// The overall difficulty depth of a node (act + column drive foe Standing/venue).
+function nodeTier(act, col) { return (act - 1) * CIRCUIT.actRows + col; }
+// Enter a chosen node: an event runs the interlude; a fight is set up and played.
+function circuitEnterNode(node) {
+  const g = GAUNTLET;
+  g.curNode = node;
+  if (node.type === 'event') { g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
+  circuitSetupFight(node);
+}
+// Set up a duel/elite/boss for the given node (foe, venue, Standing, foe charms).
+function circuitSetupFight(node) {
   const g = GAUNTLET;
   g.tableCleared = false; g.groundOut = false;
-  // Reset per-table charm state, then fire fight-start hooks.
   g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
   charmFire('fightStart');
-  if (!g.opp) g.opp = circuitOpponent(); // may be pre-chosen so the between-table screen can reveal it
-  g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
-  g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
-  g.foeHp = g.foeMax;
-  const build = circuitBuildFor(g.opp); // the foe fields its own leaning pouch + effect deck
+  g.opp = node.foe;
+  const tier = nodeTier(g.act, node.col);
+  g.venue = CIRCUIT.venues[tier % CIRCUIT.venues.length];
+  let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
+  if (node.type === 'elite') max = Math.round(max * CIRCUIT.eliteHpMult);
+  if (node.type === 'boss') max = Math.round(max * CIRCUIT.bossHpMult);
+  g.foeMax = max; g.foeHp = max;
+  g.foeCharms = node.foeCharms || [];
+  const build = circuitBuildFor(node.foe);
   g.oppDeck = build.deck; g.oppPouch = build.pouch;
-  circuitResetPiles(); // each table starts with a fresh shuffle of both seats' deck + pouch
+  circuitResetPiles();
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
   // A very high target so the engine never ends the table via the ledger —
   // Standing depletion decides it instead (see circuitHandResult).
-  newGame({ mode: 'duel', humans: [0], companyNames: [g.opp], venue: g.venue, deal: 'small', target: 999, gauntlet: true });
+  newGame({ mode: 'duel', humans: [0], companyNames: [node.foe], venue: g.venue, deal: 'small', target: 999, gauntlet: true });
   updateCircuitHud();
+}
+// Mark the current node done and advance the map — to the next column, the next
+// act (after a boss), or the run victory (after the last act's boss).
+function circuitAfterNode() {
+  const g = GAUNTLET, m = g.map;
+  const wasBoss = g.curNode && g.curNode.type === 'boss';
+  if (g.curNode) g.curNode.done = true;
+  g.curNode = null;
+  m.col++;
+  if (wasBoss) {
+    if (g.act >= CIRCUIT.acts) { circuitVictory(); return; }
+    g.act++; g.map = buildAct(g.act);
+    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal); // a breather between acts
+  }
+  circuitMapScreen();
+}
+
+// A node's foe Standing (for the map preview).
+function nodeFoeMax(node) {
+  let m = CIRCUIT.foeBase + nodeTier(GAUNTLET.act, node.col) * CIRCUIT.foeStep;
+  if (node.type === 'elite') m = Math.round(m * CIRCUIT.eliteHpMult);
+  if (node.type === 'boss') m = Math.round(m * CIRCUIT.bossHpMult);
+  return m;
+}
+function mapNodeHtml(node) {
+  const names = { duel: 'Duel', elite: 'Elite', event: 'Event', boss: 'Boss' };
+  const foe = node.foe ? `<div class="mapnode-f">${node.foe}</div>` : '<div class="mapnode-f">an interlude</div>';
+  const ch = (node.foeCharms && node.foeCharms.length) ? `<div class="mapnode-c" title="carries ${node.foeCharms.length} charm(s)">★${node.foeCharms.length}</div>` : '';
+  const hp = node.type === 'event' ? '' : `<div class="mapnode-hp">${nodeFoeMax(node)} Standing</div>`;
+  return `<div class="mapnode-t">${names[node.type]}</div>${foe}${hp}${ch}`;
+}
+// The act map — pick a node in the current column to advance toward the boss.
+function circuitMapScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET, m = g.map;
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  $('circuitTitle').textContent = `The Circuit — Act ${g.act} of ${CIRCUIT.acts}`;
+  $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
+  const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
+  const grid = document.createElement('div'); grid.className = 'mapgrid';
+  m.cols.forEach((col, ci) => {
+    const colEl = document.createElement('div'); colEl.className = 'mapcol ' + (ci === m.col ? 'current' : ci < m.col ? 'past' : 'future');
+    col.forEach(node => {
+      const reach = ci === m.col;
+      const b = document.createElement('button');
+      b.className = 'mapnode mapnode-' + node.type + (node.done ? ' done' : '') + (reach ? ' reach' : '');
+      b.disabled = !reach;
+      b.innerHTML = mapNodeHtml(node);
+      if (reach) b.onclick = () => circuitEnterNode(node);
+      colEl.appendChild(b);
+    });
+    grid.appendChild(colEl);
+  });
+  body.appendChild(grid);
+  $('circuitNext').style.display = 'none'; // navigation is by clicking a node
+  $('circuitModal').classList.add('open');
+}
+
+function circuitVictory() {
+  const g = GAUNTLET; g.active = false; g.won = true;
+  recordCircuitRun(g);
+  if (typeof document === 'undefined') return;
+  SFX.play('win');
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
+  $('circuitStats').className = 'victoryunlocks';
+  $('circuitTitle').textContent = 'The Circuit — Conquered';
+  $('circuitText').textContent = `You ran all ${CIRCUIT.acts} acts and broke the final boss. Masterful.`;
+  $('circuitStats').innerHTML = `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b></div>` +
+    `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
+    `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>`;
+  const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
+  $('circuitStats').appendChild(rb);
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = startCircuit;
+  $('circuitModal').classList.add('open');
 }
 
 // Each showdown: the hand winner deals its shaped margin to the loser's pool.
@@ -4943,18 +5074,18 @@ function circuitHandResult(winner, diff) {
 }
 
 function circuitEnd() {
-  const g = GAUNTLET;
+  const g = GAUNTLET, node = g.curNode || { type: 'duel' };
   closeModal('showdownModal');
   if (g.tableCleared) {
-    g.cleared = g.rung;
-    g.score += 10 + g.rung + charmVal('scoreBonus'); // tables are worth more as you climb (War Chest adds)
+    g.cleared++;
+    const tier = nodeTier(g.act, node.col || 0);
+    g.score += 10 + tier + charmVal('scoreBonus');
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
-    g.rung++;
-    g.opp = circuitOpponent(); // pre-pick the next foe so the between screen can reveal the matchup
-    // Rhythm: most cleared tables offer spoils (gain); every Nth is an interlude
-    // event (refine your build, or recover).
-    if (g.cleared % CIRCUIT.eventEvery === 0) { g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); }
-    else { g.reward = makeReward(); circuitRewardScreen(); }
+    g.coin += (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    // Reward by node: duels grow the deck (card/stone); elites and bosses also
+    // offer a charm. The reward screen's confirm advances the map.
+    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2 });
+    circuitRewardScreen();
   } else {
     g.active = false;
     recordCircuitRun(g); // bank the run into the persisted records
@@ -4963,13 +5094,12 @@ function circuitEnd() {
   updateCircuitHud();
 }
 
-// Between-table spoils: an offer of cards and stones to grow your decks, plus a
-// charm draft (1 of 2 unowned) when any remain.
+// Node spoils: cards + stones always; a charm offer only when asked (elite/boss
+// rewards), so charms are gated to the harder nodes rather than every fight.
 function unownedCharmKeys() { const owned = playerCharms(); return Object.keys(CHARMS).filter(k => owned.indexOf(k) < 0); }
-function makeReward() {
-  // Charms are an occasional draft (not every table), so they don't snowball.
-  const charmOffer = (Math.random() < (CIRCUIT.charmChance != null ? CIRCUIT.charmChance : 0.4))
-    ? shuffle(unownedCharmKeys()).slice(0, CIRCUIT.rewardCharms || 2) : [];
+function makeReward(opts) {
+  opts = opts || {};
+  const charmOffer = opts.charm ? shuffle(unownedCharmKeys()).slice(0, opts.charmCount || CIRCUIT.rewardCharms || 2) : [];
   charmOffer.forEach(markCharmSeen); // discovery: appearing in an offer reveals it in the compendium
   return {
     cards: circuitOfferCards(CIRCUIT.rewardCards),       // N effect cards (type + fx)
@@ -4989,9 +5119,9 @@ function circuitRewardScreen() {
   const r = g.reward;
   SFX.play('win');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
-  const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
-  $('circuitTitle').textContent = `Table ${g.cleared} cleared — take your spoils`;
-  $('circuitText').textContent = `Standing restored (+${CIRCUIT.heal}). Up next: ${g.opp} at ${VENUES[nv] ? VENUES[nv].label : nv}. Add a card and a stone to your decks — or skip either.`;
+  const node = g.curNode || { type: 'duel' };
+  $('circuitTitle').textContent = (node.type === 'boss' ? 'Boss cleared' : node.type === 'elite' ? 'Elite cleared' : 'Node cleared') + ' — take your spoils';
+  $('circuitText').textContent = `Standing restored. Add a card and a stone to your decks${r.charms && r.charms.length ? ', and take a charm' : ''} — or skip. Then back to the map.`;
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -5063,7 +5193,7 @@ function circuitRewardScreen() {
   rev.appendChild(rb);
   body.appendChild(rev);
 
-  const next = $('circuitNext');
+  const next = $('circuitNext'); next.style.display = '';
   next.disabled = false;
   next.textContent = (r.cardPick || r.stonePick || r.charmPick) ? 'Take & set out ›' : 'Skip & set out ›';
   next.onclick = circuitTakeRewardAndAdvance;
@@ -5083,7 +5213,7 @@ function circuitTakeRewardAndAdvance() {
     }
     g.reward = null;
   }
-  circuitRung();
+  circuitAfterNode();
 }
 
 /* ---- The interlude event: choose one of remove a card / remove a stone /
@@ -5123,9 +5253,8 @@ function circuitEventScreen() {
   const avail = eventAvail();
   SFX.play('win');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
-  const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
   $('circuitTitle').textContent = 'An Interlude';
-  $('circuitText').textContent = `A table between tables — refine your hand or recover. Up next: ${g.opp} at ${VENUES[nv] ? VENUES[nv].label : nv}. Choose one.`;
+  $('circuitText').textContent = 'A quiet node — refine your hand or recover. Choose one, then back to the map.';
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -5164,7 +5293,7 @@ function circuitEventScreen() {
   rev.appendChild(rb);
   body.appendChild(rev);
 
-  const next = $('circuitNext');
+  const next = $('circuitNext'); next.style.display = '';
   const anyAvail = avail.heal || avail.removeCard || avail.removeStone || avail.moveMod;
   next.disabled = anyAvail && !eventReady();
   next.textContent = !anyAvail ? 'Move on ›' : eventReady() ? 'Confirm ›' : 'Choose an option';
@@ -5233,7 +5362,7 @@ function circuitTakeEventAndAdvance() {
     }
   }
   g.event = null;
-  circuitRung();
+  circuitAfterNode();
 }
 
 function updateCircuitHud() {
@@ -5245,11 +5374,12 @@ function updateCircuitHud() {
   hud.style.display = '';
   const you = g.piles && g.piles[0];
   const drawN = you ? you.cardDraw.length : 0;
-  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Score <b>${g.score}</b>` +
+  const node = g.curNode, tag = node && node.type === 'boss' ? ' ⚔' : node && node.type === 'elite' ? ' ★' : '';
+  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · <b>${g.coin || 0}</b>c · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
       `<div class="chud-bar you"><span class="chud-lab">You</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
-      `<div class="chud-bar foe"><span class="chud-lab">${g.opp || ''}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
+      `<div class="chud-bar foe"><span class="chud-lab">${(g.opp || '') + tag}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
     `</div>` +
     ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
   const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
@@ -5326,7 +5456,7 @@ function circuitScreen(over) {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET;
   const title = $('circuitTitle'), text = $('circuitText'), stats = $('circuitStats');
-  const next = $('circuitNext');
+  const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; // the loadout screen may have disabled it
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
   stats.className = 'victoryunlocks'; // reset from the loadout layout
@@ -5558,7 +5688,8 @@ if (typeof window !== 'undefined') {
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
-    startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
+    startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
+    buildAct, circuitEnterNode, circuitSetupFight, circuitAfterNode,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
