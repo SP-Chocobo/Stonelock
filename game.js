@@ -963,7 +963,11 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      active: (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [], // raid arms active after telegraphing
+      // Pre-armed stones (no telegraph): the gauntlet variant & precedence use
+      // one-of-each colours; the Circuit arms the actual drawn pouch as a
+      // multiset (so a drawn pair of the same colour is both placeable).
+      active: (G.gauntlet && !isStoneFirst()) ? STONE_KEYS.flatMap(c => Array(pool[c] || 0).fill(c))
+        : (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
     });
   }
@@ -1165,6 +1169,24 @@ function startHand() {
       const order = r % 2 === 0 ? dOrd : rOrd; // serpentine: balances tempo across the four placements
       for (const w of order) G.queue.push({ t: 'place', who: w, gaunt: r + 1 });
     }
+    G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
+  } else if (G.gauntlet) {
+    // The Circuit: you already drew your stone hand from the pouch — no
+    // telegraphing it face-up, no separate thinning. Commit cards, then place
+    // your stones directly (best CIRCUIT.placeStones of what you drew).
+    G.armed = true;
+    const rounds = Math.min(CIRCUIT.placeStones, CIRCUIT.drawStones);
+    G.queue = [
+      dealNote,
+      { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up.' },
+      { t: 'deploy', count: dep[0].c, faceUp: dep[0].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Veil', note: `Commit ${dep[1].c === 2 ? 'two cards' : 'one card'} face-down.` },
+      { t: 'deploy', count: dep[1].c, faceUp: dep[1].up, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Final Commitment', note: 'One final face-down card. Leftover hand cards are discarded dead.' },
+      { t: 'deploy', count: dep[2].c, faceUp: dep[2].up, discardRest: true, pendingHumans: G.humans.slice(), choices: {} },
+      { t: 'phase', label: 'The Stones', note: `Place ${rounds} of your drawn stones — no telegraph, no thinning. Spend the best of your hand.` },
+    ];
+    for (let r = 0; r < rounds; r++) { const order = r % 2 === 0 ? dOrd : rOrd; for (const w of order) G.queue.push({ t: 'place', who: w }); }
     G.queue.push({ t: 'beat', ms: 1700 }, { t: 'showdown' });
   } else if (G.demoStone) {
     // Academy stone lesson: commit cards, then place a single stone to see its
@@ -4745,7 +4767,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 1, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5,
+  acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
