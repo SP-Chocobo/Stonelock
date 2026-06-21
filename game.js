@@ -1976,35 +1976,34 @@ function recordCircuitRun(g) {
   saveCircuitRecords(r);
 }
 
-// Compute each card's effective value (evalue) from its fx rider, the board
-// around it, and the opposing board. A no-op for plain cards (evalue ==
-// regionVal), so base-game scoring is unchanged. Set every hand before scoring
-// and every render so the table shows the live numbers.
-function applyCardEffects() {
-  if (!G.players) return;
-  const boards = G.players.map(p => p.board);
-  // Phase 1 — base value. (Boards may hold null slots mid-deal — e.g. the
-  // Archivist queue — so guard throughout. evalue == regionVal for plain cards,
-  // which is why all of this is a no-op outside the Circuit.)
+// Resolve every card's effective value (evalue) over a set of boards from its fx
+// rider, neighbours, and the opposing board, then the seat-aware charm pass. The
+// CORE used both on the real boards (full info) and on a fog-masked clone for AI
+// estimates. A masked card carries type:null/fx:null — it occupies its slot but
+// contributes no value/effect (base reads the flat unknown value). Boards may
+// hold null slots mid-deal (the Archivist queue), so guard throughout.
+const UNKNOWN_VAL = 2;
+function resolveBoardEffects(boards) {
+  // Phase 1 — base value (anchor pins to 2; a masked/unknown card reads flat).
   for (const board of boards) for (const c of board) if (c) {
     const e = EFFECTS[c.fx];
-    c.evalue = (e && e.base) ? e.base(c) : regionVal(c.type);
+    c.evalue = (e && e.base) ? e.base(c) : (c.type != null ? regionVal(c.type) : UNKNOWN_VAL);
   }
   // Phase 2 — self mods (a card reads the board and adjusts its own value).
   for (const board of boards) for (const c of board) if (c) {
     const e = EFFECTS[c.fx];
     if (e && e.self) c.evalue += e.self(c, board);
   }
-  // Phase 3 — spread mods (a card adjusts OTHER cards: same-board neighbours via
-  // `spread`, other boards via `cross`). All deltas are additive/commutative, so
-  // effects compose cleanly. An ownerLocked cross effect (Drain) only fires from
-  // its original owner's board — stolen across (Blue swap) it goes inert.
+  // Phase 3 — spread/slot/cross mods (a card adjusts itself by position or other
+  // cards: same-board neighbours via `spread`, other boards via `cross`). All
+  // deltas are additive/commutative. An ownerLocked cross effect (Drain) only
+  // fires from its original owner's board — stolen across (Blue swap) it's inert.
   for (let bi = 0; bi < boards.length; bi++) {
     const board = boards[bi];
     for (let i = 0; i < board.length; i++) {
       const c = board[i]; if (!c) continue;
       const e = EFFECTS[c.fx]; if (!e) continue;
-      if (e.slot) c.evalue += e.slot(c, i, board, boards); // self-delta from position
+      if (e.slot) c.evalue += e.slot(c, i, board, boards);
       if (e.spread) e.spread(c, i, board);
       if (e.cross) {
         const owner = (c.origOwner != null) ? c.origOwner : bi;
@@ -2013,12 +2012,12 @@ function applyCardEffects() {
     }
   }
   for (const board of boards) for (const c of board) if (c && c.evalue < 0) c.evalue = 0;
-  // Charms buff their owner's board — seat 0 (player) and seat 1 (an elite/boss
-  // foe). Gauntlet-only and a no-op without owned charms, so base game is
-  // untouched. Only seat 0 gets the per-hand board buff (a player-economy lever).
+  // Charms buff their owner's board — seat 0 (player) and seat 1 (elite/boss).
+  // Gauntlet-only and a no-op without owned charms. A masked card's null type/fx
+  // means a charm like Loaded Coin won't apply to a hidden card (correct fog).
   if (G.gauntlet) {
     for (const seat of [0, 1]) {
-      const board = G.players[seat] && G.players[seat].board; if (!board || !charmsOf(seat).length) continue;
+      const board = boards[seat]; if (!board || !charmsOf(seat).length) continue;
       const floor = charmValSeat('valueFloor', seat), hb = (seat === 0 ? (GAUNTLET.handBuff || 0) : 0);
       for (let i = 0; i < board.length; i++) {
         const c = board[i]; if (!c) continue;
@@ -2028,6 +2027,23 @@ function applyCardEffects() {
       }
     }
   }
+}
+// The real pass: resolve effects on the live boards (full info) for scoring and
+// the value badges. No-op for plain cards, so base-game scoring is unchanged.
+function applyCardEffects() {
+  if (!G.players) return;
+  resolveBoardEffects(G.players.map(p => p.board));
+}
+// Fog-aware effective values for an AI estimate: clone the boards but MASK every
+// card the viewer can't see (type/fx → null), then resolve. So a hidden card's
+// effect (a Lodestone's +1, a Drain's −1) never leaks into what the AI reads.
+function fogEvalues(viewer, ofPlayer) {
+  const seen = c => !!(c && (c.known[viewer] || c.faceUp));
+  const masked = G.players.map(p => p.board.map(c => c == null ? null
+    : (seen(c) ? { type: c.type, fx: c.fx, origOwner: c.origOwner, evalue: 0 }
+               : { type: null, fx: null, origOwner: c.origOwner, evalue: 0 })));
+  resolveBoardEffects(masked);
+  return masked[ofPlayer];
 }
 
 // The card's value badge. Under the Cursed Register, the voided type reads 0
@@ -2068,12 +2084,14 @@ function estimate(ofPlayer, viewer) {
   // Unknown cards are given a flat expected value and unique names
   // so they never combine into imaginary Pairs.
   const values = Object.assign({}, G.region.values);
+  // Fog-aware effective values: effects resolved from the viewer's knowledge
+  // only, so a hidden card's Lodestone/Drain can't leak into a seen card here.
+  const fog = fogEvalues(viewer, ofPlayer);
   const cards = knownBoardFor(viewer, ofPlayer).map((c, i) => {
     const type = c.type || ('_u' + i);
     if (!c.type) values[type] = 2;
-    // Effect cards carry their own effective value; threading it here is what
-    // makes the AI value (and play around) Anchor/Keen/Lodestone/Drain.
-    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.evalue };
+    // Effect-aware value when the card is seen; hidden cards keep the flat 2.
+    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.type ? (fog[i] ? fog[i].evalue : null) : null };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
