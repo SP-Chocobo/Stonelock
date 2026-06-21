@@ -72,6 +72,27 @@ M.applyCardEffects();
 assert(ai.estimate(0, 0) === 6, 'the owner assesses its own veiled Coin at its true value (3+2+1)');
 assert(ai.estimate(0, 1) === 5, 'the foe assesses the veiled card at the flat estimate (2+2+1), no leak');
 
+// Sentinel — +2 only on an end slot of the board.
+G = setup('tavern');
+G.players[1].board = [];
+G.players[0].board = [card('Quill', 'sentinel', 0), card('Sword', null, 0), card('Bread', null, 0)]; // slot 0 = edge
+M.applyCardEffects();
+const sentEdge = ai.estimate(0, 0);
+G.players[0].board = [card('Sword', null, 0), card('Quill', 'sentinel', 0), card('Bread', null, 0)]; // slot 1 = interior
+M.applyCardEffects();
+const sentMid = ai.estimate(0, 0);
+assert(sentEdge === sentMid + 2, `AI assesses Sentinel as +2 on an end slot, +0 in the middle (${sentMid} → ${sentEdge})`);
+
+// Harmony — +1 per other effect card you field. Anchor on a value-2 type reads 2
+// (same as plain), so the only delta is Harmony counting it.
+G.players[0].board = [card('Coin', 'harmony', 0), card('Sword', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+const harmAlone = ai.estimate(0, 0);
+G.players[0].board = [card('Coin', 'harmony', 0), card('Sword', 'anchor', 0), card('Bread', null, 0)];
+M.applyCardEffects();
+const harmPair = ai.estimate(0, 0);
+assert(harmPair === harmAlone + 1, `AI assesses Harmony as +1 per other effect card (${harmAlone} → ${harmPair})`);
+
 /* ---------- DECISIONS: stone targeting engages effect value ---------- */
 
 // Blue — the AI steals the highest effective-value enemy card (here the Anchor).
@@ -145,8 +166,17 @@ placed = ai.positionDeploy(1, [card('Quill', null, 1), card('Crest', null, 1)], 
 board = placed.faceUp.concat(placed.hidden);
 assert(board.indexOf(drainC) === 2, `Drain is placed in the slot facing the foe's strongest card (slot ${board.indexOf(drainC)})`);
 
+// Sentinel seeks an end slot (the opposite of Lodestone's interior want).
+G = setup('tavern', ['The Clerk', 'The Clerk']);
+G.players[1].board = [];
+const sent = card('Quill', 'sentinel', 0);
+placed = ai.positionDeploy(0, [card('Coin', null, 0), sent], [card('Bread', null, 0), card('Sword', null, 0)]);
+board = placed.faceUp.concat(placed.hidden);
+li = board.indexOf(sent);
+assert(li === 0 || li === board.length - 1, `Sentinel is placed on an end slot (idx ${li} of ${board.length})`);
+
 // A board with no positional effect is left to the exposure order (no needless churn).
-assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain'), 'Lodestone and Drain are positional');
-assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor'), 'Keen and Anchor are position-agnostic');
+assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain') && ai.isPositionalFx('sentinel'), 'Lodestone, Drain and Sentinel are positional');
+assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor') && !ai.isPositionalFx('harmony'), 'Keen, Anchor and Harmony are position-agnostic');
 
 console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain correctly (with fog of war), target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');

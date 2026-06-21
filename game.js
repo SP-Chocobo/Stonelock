@@ -1829,6 +1829,7 @@ const CIRCUIT_ANCHOR = 2; // Anchor pins a card to this value regardless of venu
 //   self(card, board)     → delta to its OWN value (reads the board)
 //   spread(card,i,board)  → mutate same-board neighbours' evalue
 //   cross(card,i,boards,ownerBoardIdx) → mutate other boards' evalue (slot = i)
+//   slot(card,i,board,boards) → delta to its OWN value from WHERE it sits
 //   ownerLocked: true     → a cross effect only fires from its owner's board
 //   aiKeep(card, ctx)     → extra deploy keep-priority for the AI {hasTwin,counts}
 const EFFECTS = {
@@ -1854,6 +1855,16 @@ const EFFECTS = {
       for (let j = 0; j < boards.length; j++) { if (j === ownerBoard || !boards[j][i]) continue; boards[j][i].evalue -= 1; }
     },
     aiKeep: () => 1, // shaves the facing card
+  },
+  sentinel: {
+    label: 'Sentinel', blurb: '+2 when placed on an end slot of your board.',
+    slot: (c, i, board) => (i === 0 || i === board.length - 1) ? 2 : 0,
+    aiKeep: () => 1.5, // the AI will seek an end slot, so it reliably pays
+  },
+  harmony: {
+    label: 'Harmony', blurb: '+1 for each other effect card you field (max +2).',
+    self: (c, board) => Math.min(2, board.filter(o => o && o !== c && o.fx).length),
+    aiKeep: () => 0.8, // pays off in an effect-dense deck
   },
 };
 // UI/text consumers read label/blurb from the same registry (single source).
@@ -1887,6 +1898,7 @@ function applyCardEffects() {
     for (let i = 0; i < board.length; i++) {
       const c = board[i]; if (!c) continue;
       const e = EFFECTS[c.fx]; if (!e) continue;
+      if (e.slot) c.evalue += e.slot(c, i, board, boards); // self-delta from position
       if (e.spread) e.spread(c, i, board);
       if (e.cross) {
         const owner = (c.origOwner != null) ? c.origOwner : bi;
@@ -2023,7 +2035,7 @@ function weightedOrder(keys, weights) {
 // An effect is "positional" when where the card sits changes its impact — i.e.
 // it reaches other cards (a spread/cross hook). Registry-driven, so a future
 // positional effect joins the deploy search automatically.
-function isPositionalFx(fx) { const e = EFFECTS[fx]; return !!(e && (e.spread || e.cross)); }
+function isPositionalFx(fx) { const e = EFFECTS[fx]; return !!(e && (e.spread || e.cross || e.slot)); }
 
 // All orderings of a small array (footprints are tiny, ≤ ~5).
 function permutations(arr) {
