@@ -4391,20 +4391,39 @@ const CIRCUIT = {
 };
 let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 14, maxStanding: 14, foeHp: 10, foeMax: 10, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck: null, pouch: null };
 
-// Starter pouches (4 stones each) — your "character." Leans, not extremes.
+// Starter pouches (4 stones each) — leans, not extremes. A run offers 3 at
+// random (shown as their composition, not named).
 const CIRCUIT_POUCHES = [
-  { key: 'locksmith', name: 'The Locksmith', pouch: { white: 2, black: 1, red: 1 } },
-  { key: 'ferryman', name: "The Ferryman's Way", pouch: { blue: 2, black: 1, white: 1 } },
-  { key: 'alchemist', name: 'The Alchemist', pouch: { red: 2, blue: 1, black: 1 } },
+  { key: 'locksmith', pouch: { white: 2, black: 1, red: 1 } },
+  { key: 'ferryman', pouch: { blue: 2, black: 1, white: 1 } },
+  { key: 'alchemist', pouch: { red: 2, blue: 1, black: 1 } },
+  { key: 'duelist', pouch: { red: 1, white: 1, blue: 1, black: 1 } },
+  { key: 'breaker', pouch: { black: 2, blue: 1, red: 1 } },
+  { key: 'reaver', pouch: { blue: 2, red: 1, black: 1 } },
 ];
-let circuitLoad = { pouch: 'locksmith', offer: [], picks: [] };
+let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
 function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
 function startCircuit() {
   if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
-  circuitLoad = { pouch: 'locksmith', offer: shuffle(TYPES.slice()).slice(0, 5), picks: [] };
+  // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
+  const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
+  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: shuffle(TYPES.slice()).slice(0, 5), picks: [] };
   if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
-  circuitLoadoutScreen();
+  circuitIntro();
+}
+
+// A framing/confirm gate before the loadout decisions appear.
+function circuitIntro() {
+  if (typeof document === 'undefined') return;
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
+  $('circuitStats').className = 'victoryunlocks';
+  $('circuitTitle').textContent = 'The Circuit';
+  $('circuitText').textContent = 'An endless gauntlet of tables — outfit a stone pouch and a deck, then climb as far as your Standing carries you. Each table brings a new foe and a new venue, and every run deals a fresh hand of options.';
+  $('circuitStats').innerHTML = '';
+  const next = $('circuitNext');
+  next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
+  $('circuitModal').classList.add('open');
 }
 
 // Outfit screen: pick a pouch (shown as its stone composition, not named) and
@@ -4424,7 +4443,7 @@ function circuitLoadoutScreen() {
   const ps = document.createElement('div'); ps.className = 'ldsection';
   ps.innerHTML = '<div class="ldhead">Your pouch — four stones</div>';
   const prow = document.createElement('div'); prow.className = 'ldpouches';
-  for (const a of CIRCUIT_POUCHES) {
+  for (const a of circuitLoad.pouchOffer) {
     const b = document.createElement('button');
     b.className = 'ldpouch' + (circuitLoad.pouch === a.key ? ' selected' : '');
     b.title = stoneSummary(a.pouch);
@@ -4473,9 +4492,9 @@ function circuitLoadoutScreen() {
 }
 
 function circuitBegin() {
-  const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || CIRCUIT_POUCHES[0];
+  const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
-  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: arch.name };
+  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch) };
   circuitRung();
 }
 
