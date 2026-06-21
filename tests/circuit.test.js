@@ -7,8 +7,8 @@
    duel with the expected venue. */
 const M = require('../game.js');
 function assert(c, m) { if (!c) { console.error('FAIL:', m); process.exit(1); } }
-const DMG_CAP = 6; // mirrors CIRCUIT.dmgCap
-const CIRCUIT_FOE_BASE = 10; // mirrors CIRCUIT.foeBase
+const DMG_CAP = M.CIRCUIT.dmgCap; // read the live config so tuning can't desync the test
+const CIRCUIT_FOE_BASE = M.CIRCUIT.foeBase;
 
 // --- init ---
 M.startCircuit();

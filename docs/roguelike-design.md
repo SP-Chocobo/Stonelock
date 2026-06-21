@@ -698,6 +698,23 @@ Regular win%. **Findings:**
   while per-venue spreads stayed 15–38 (identity preserved). The battery is a
   standing tool (`node tests/ai-battery.js`); re-run after any weight change.
 
+### 8.3 Circuit balance battery (`tests/circuit-battery.js`)
+Drives full **all-AI Circuit runs** through the real loop — depleting builds on
+both seats, Standing attrition, clear→heal→advance, auto-piloted spoils/events —
+and reports the difficulty curve. The "player" is a neutral **Deckhand** on a
+varied build, so it measures the **economy + curve, not skill** — a *floor*; a
+real player clears more. `K=120 node tests/circuit-battery.js` (~2s).
+- **First run (config 14/14, cap6, heal3, foe 10+1):** median **1** table, mean
+  2.2; T1 clear 55%; curve **flat and swingy** (55–79% all the way down) yet a
+  rare run hit table 28 — i.e. high-variance, no real ramp.
+- **Tuned to 16/16, cap4, heal4, foe 9+2:** lowering the per-hand cap lets the
+  Standing edge express early and the foe's `+2/table` HP scaling bite deep →
+  mean 2.8, **T10 reach 6%→10%**, a softer gradual ramp. Locked as the first
+  data-backed config. Test reads the live `CIRCUIT` config so tuning can't desync.
+- **Open:** a clear **dip at the Court table** (stone-first venue) for neutral
+  play — a venue-balance follow-up. And the floor bot still dies early (median
+  1–2); real-player data is the next calibration input, not more bot-tuning.
+
 ---
 
 ## 9. Build plan (phased so each step de-risks the next)

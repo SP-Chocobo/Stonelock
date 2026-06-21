@@ -2121,6 +2121,7 @@ function deployCards(who, cards, faceUp) {
 
 function aiThin(who) {
   const p = G.players[who];
+  if (!p.declared.length) return; // nothing telegraphed (a no-telegraph venue) — nothing to abandon
   const scores = p.declared.map(color => aiStoneValue(who, color));
   let worst = 0;
   for (let i = 1; i < scores.length; i++) if (scores[i] < scores[worst]) worst = i;
@@ -4564,7 +4565,7 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1, drawStones: 3,
+  startStanding: 16, maxStanding: 16, dmgCap: 4, heal: 4, foeBase: 9, foeStep: 2, drawStones: 3,
   rewardCards: 3, rewardStones: 2, // between-table spoils: pick one of each (or skip)
   eventEvery: 4, deckFloor: 6,     // every Nth cleared table is an interlude event; don't thin the deck below this
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5328,7 +5329,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', boot);
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    bestSelection, REGIONS, TYPES, STONES,
+    bestSelection, REGIONS, TYPES, STONES, CIRCUIT,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
