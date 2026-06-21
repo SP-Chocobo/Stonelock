@@ -88,6 +88,12 @@ const PERSONALITIES = {
 };
 const DEFAULT_PERSONA = { red: 1, white: 1, blue: 1, black: 1, bluff: 0.1, risk: 1, skill: 1, flavor: '' };
 function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA; }
+// Personality stone-leans are flavor, but raw multipliers are extreme enough to
+// override good play (e.g. the Clerk never steals, so it loses to neutral play).
+// Compress them toward 1.0 for stone DECISIONS: the lean stays visible, but a
+// regular won't self-destruct on it. (Flavor weights themselves are unchanged.)
+const PERS_COMPRESS = 0.5;
+function persStoneW(who, color) { return 1 + (personaOf(who)[color] - 1) * PERS_COMPRESS; }
 // Sloppiness: below-skill players occasionally make the wrong play.
 function fumbles(who) { return Math.random() > personaOf(who).skill; }
 
@@ -1861,10 +1867,10 @@ function aiStonePreference(who) {
   const pers = personaOf(who);
   if (Math.random() < pers.bluff) return shuffle(STONE_KEYS.slice()); // a telegraph that means nothing
   const weights = {
-    red: (hasPair ? 2.4 : 1.0) * pers.red,
-    white: (threatened ? 2.6 : 1.3) * pers.white,
-    blue: 2.2 * pers.blue,
-    black: (enemiesShowedValue ? 2.0 : 1.2) * pers.black,
+    red: (hasPair ? 2.4 : 1.0) * persStoneW(who, 'red'),
+    white: (threatened ? 2.6 : 1.3) * persStoneW(who, 'white'),
+    blue: 2.2 * persStoneW(who, 'blue'),
+    black: (enemiesShowedValue ? 2.0 : 1.2) * persStoneW(who, 'black'),
   };
   // The Warden values having every tool, but only as a tiebreak: a
   // gentle nudge toward colours it hasn't telegraphed yet.
@@ -1949,7 +1955,7 @@ function aiThin(who) {
 }
 
 function aiStoneValue(who, color) {
-  return personaOf(who)[color] * aiStoneBaseValue(who, color);
+  return persStoneW(who, color) * aiStoneBaseValue(who, color);
 }
 
 function aiStoneBaseValue(who, color) {

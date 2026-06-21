@@ -556,11 +556,16 @@ Regular win%. **Findings:**
   Ferryman dominates the Hall (85%) but is even in the Slums (45%).
 - **The Clerk's "build-and-lock" doctrine underperforms everywhere** (23–45%) — a
   clear authoring target.
-- **Action:** the battery is now a standing tool (`node tests/ai-battery.js`).
-  Before regulars become run opponents/allies, do a **balance pass** (lift
-  Clerk/Tinker, temper Ferryman) and re-run; keep the venue-driven spread (it's
-  the good part), just narrow the *baseline* gap so no opponent is a gimme or a
-  brick.
+- **Action taken — balance pass (done).** Root cause: card play is identical
+  across regulars (region-value based), so the win gap came from the *persona
+  stone-weight multipliers* being extreme enough to override good play (Clerk
+  never steals → loses to neutral; Ferryman always steals → wins, because Blue is
+  objectively the strongest stone). Fix: **compress the multipliers toward 1.0
+  for stone decisions** (`PERS_COMPRESS = 0.5` via `persStoneW`) — every
+  regular's lean stays visible, but won't self-destruct on it. Result: baseline
+  band tightened **36–66% → 48–58%** (Clerk 36→48, Tinker 37→53, Ferryman 66→58)
+  while per-venue spreads stayed 15–38 (identity preserved). The battery is a
+  standing tool (`node tests/ai-battery.js`); re-run after any weight change.
 
 ---
 
