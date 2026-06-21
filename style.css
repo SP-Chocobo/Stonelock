@@ -1212,6 +1212,9 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compcard.locked .compcard-h { color: var(--parchment-dim); letter-spacing: 0.15em; }
 .compcard.locked .compcard-b { color: var(--parchment-dim); font-style: italic; }
 .recordsbody { max-height: 70vh; overflow-y: auto; }
+.deckstatus { text-align: center; font-family: 'Alegreya', serif; font-size: 13px; color: var(--parchment-dim);
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gold-dim); }
+.deckstatus b { color: var(--gold-bright); }
 /* The act map. */
 .circuitmap { margin: 8px 0; }
 .mapgrid { display: flex; gap: 10px; justify-content: center; align-items: stretch; overflow-x: auto; padding: 4px; }

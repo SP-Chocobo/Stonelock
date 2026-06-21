@@ -5153,7 +5153,7 @@ function circuitRewardScreen() {
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
   const node = g.curNode || { type: 'duel' };
   $('circuitTitle').textContent = (node.type === 'boss' ? 'Boss cleared' : node.type === 'elite' ? 'Elite cleared' : 'Node cleared') + ' — take your spoils';
-  $('circuitText').textContent = `Standing restored. Add a card and a stone to your decks${r.charms && r.charms.length ? ', and take a charm' : ''} — or skip. Then back to the map.`;
+  $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding}. Add a card and a stone to your decks${r.charms && r.charms.length ? ', and take a charm' : ''} — or skip. Then back to the map.`;
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -5280,7 +5280,7 @@ function circuitShopScreen() {
   SFX.play('flip');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'The Fence';
-  $('circuitText').textContent = `You have ${g.coin} coin. Spend it, then move on to the boss.`;
+  $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin. Spend it, then move on to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitload'; body.innerHTML = '';
   const can = p => g.coin >= p;
 
@@ -5375,7 +5375,7 @@ function circuitEventScreen() {
   SFX.play('win');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'An Interlude';
-  $('circuitText').textContent = 'A quiet node — refine your hand or recover. Choose one, then back to the map.';
+  $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding}. A quiet node — refine your hand or recover. Choose one, then back to the map.`;
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -5565,7 +5565,11 @@ function showDeckView(mode) {
         charms.map(k => `<div class="charmrow"><span class="charmrow-h">${CHARMS[k].label}</span><span class="charmrow-b">${CHARMS[k].blurb}</span></div>`).join('') +
       `</div></div>`
     : '';
+  const status = `<div class="deckstatus">Standing <b>${g.standing}/${g.maxStanding}</b>` +
+    (g.foeMax && g.curNode ? ` · ${g.opp || 'foe'} <b>${g.foeHp}/${g.foeMax}</b>` : '') +
+    ` · Act <b>${g.act}</b> · <b>${g.coin || 0}</b> coin</div>`;
   body.innerHTML =
+    status +
     `<div class="ldsection"><div class="ldhead">Cards — ${cMeta}</div><div class="ldcards deckcards">${cardHtml}</div></div>` +
     `<div class="ldsection"><div class="ldhead">Pouch — ${pMeta}</div><div class="deckstones">${stoneHtml}</div></div>` +
     charmHtml +
