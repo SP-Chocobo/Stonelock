@@ -71,25 +71,32 @@ G.players[1].board = [card('Crest', null, 1), card('Chain', null, 1), card('Quil
 M.applyCardEffects();
 assert(ai.estimate(0, 0) === 6, 'the owner assesses its own veiled Coin at its true value (3+2+1)');
 assert(ai.estimate(0, 1) === 5, 'the foe assesses the veiled card at the flat estimate (2+2+1), no leak');
-// Fog leak regression: a HIDDEN Lodestone must not boost its seen neighbours in
-// the foe's estimate; revealed, it boosts both (its own type is value-2, so the
-// only delta is the two +1 spreads, not its visible base).
+// Allowed inference: a HIDDEN Lodestone's +1 to its VISIBLE neighbours reads in
+// the foe estimate (you can see the higher values, even without the source).
+G.players[1].board = [];
+G.players[0].board = [card('Coin', null, 0), card('Sword', null, 0), card('Bread', null, 0)];
+M.applyCardEffects(); const noLodeFoe = ai.estimate(0, 1);
 const hidLode = card('Sword', 'lodestone', 0); hidLode.faceUp = false; hidLode.known = [true, false];
-G.players[0].board = [card('Coin', null, 0), hidLode, card('Bread', null, 0)]; // Coin/Bread = 3, seen
-M.applyCardEffects();
-const foeHidden = ai.estimate(0, 1);
-hidLode.faceUp = true; hidLode.known = [true, true];
-M.applyCardEffects();
-const foeSeen = ai.estimate(0, 1);
-assert(foeSeen === foeHidden + 2, `a hidden Lodestone leaks no boost; revealed it lifts both neighbours (${foeHidden} → ${foeSeen})`);
-// See-through-targeting regression: the foe must value a hidden card the SAME
-// whether it's secretly a bomb or a dud — so it can't beeline a hidden bomb.
+G.players[0].board = [card('Coin', null, 0), hidLode, card('Bread', null, 0)];
+M.applyCardEffects(); const lodeFoe = ai.estimate(0, 1);
+assert(lodeFoe === noLodeFoe + 2, `a hidden Lodestone's boost on visible neighbours bleeds into the foe estimate — allowed inference (${noLodeFoe} → ${lodeFoe})`);
+// But a hidden card's OWN identity stays flat — the foe values it the same
+// whether it's secretly a bomb or a dud, so it can't beeline a face-down card.
 function foeViewHidden(type) {
   const h = card(type, null, 0); h.faceUp = false; h.known = [true, false];
   G.players[0].board = [h, card('Sword', null, 0), card('Bread', null, 0)]; G.players[1].board = [];
   M.applyCardEffects(); return ai.estimate(0, 1);
 }
 assert(foeViewHidden('Coin') === foeViewHidden('Quill'), 'the foe values a hidden card identically (bomb vs dud) — no see-through targeting');
+// No-tell case: a hidden rider whose effect lands only on OTHER hidden cards
+// gives the foe no visible cue, so its board reads the same as if those cards
+// were plain — the AI can't "discover" and beeline it without a tell.
+function allHiddenFoeView(slot0fx) {
+  const mk = (t, fx) => { const c = card(t, fx, 0); c.faceUp = false; c.known = [true, false]; return c; };
+  G.players[0].board = [mk('Sword', slot0fx), mk('Coin', null), mk('Bread', null)]; G.players[1].board = [];
+  M.applyCardEffects(); return ai.estimate(0, 1);
+}
+assert(allHiddenFoeView('lodestone') === allHiddenFoeView(null), 'a hidden rider with no visible tell (boosting only hidden cards) does not leak into the foe estimate');
 
 // Sentinel — +2 only on an end slot of the board.
 G = setup('tavern');

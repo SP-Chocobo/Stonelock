@@ -2028,22 +2028,12 @@ function resolveBoardEffects(boards) {
     }
   }
 }
-// The real pass: resolve effects on the live boards (full info) for scoring and
-// the value badges. No-op for plain cards, so base-game scoring is unchanged.
+// Resolve effects on the live boards (full info) for scoring and the value
+// badges. A SEEN card therefore reads its true value even when a hidden source
+// lifts it — fair inference. No-op for plain cards, so base game is unchanged.
 function applyCardEffects() {
   if (!G.players) return;
   resolveBoardEffects(G.players.map(p => p.board));
-}
-// Fog-aware effective values for an AI estimate: clone the boards but MASK every
-// card the viewer can't see (type/fx → null), then resolve. So a hidden card's
-// effect (a Lodestone's +1, a Drain's −1) never leaks into what the AI reads.
-function fogEvalues(viewer, ofPlayer) {
-  const seen = c => !!(c && (c.known[viewer] || c.faceUp));
-  const masked = G.players.map(p => p.board.map(c => c == null ? null
-    : (seen(c) ? { type: c.type, fx: c.fx, origOwner: c.origOwner, evalue: 0 }
-               : { type: null, fx: null, origOwner: c.origOwner, evalue: 0 })));
-  resolveBoardEffects(masked);
-  return masked[ofPlayer];
 }
 
 // The card's value badge. Under the Cursed Register, the voided type reads 0
@@ -2084,14 +2074,15 @@ function estimate(ofPlayer, viewer) {
   // Unknown cards are given a flat expected value and unique names
   // so they never combine into imaginary Pairs.
   const values = Object.assign({}, G.region.values);
-  // Fog-aware effective values: effects resolved from the viewer's knowledge
-  // only, so a hidden card's Lodestone/Drain can't leak into a seen card here.
-  const fog = fogEvalues(viewer, ofPlayer);
   const cards = knownBoardFor(viewer, ofPlayer).map((c, i) => {
     const type = c.type || ('_u' + i);
     if (!c.type) values[type] = 2;
-    // Effect-aware value when the card is seen; hidden cards keep the flat 2.
-    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.type ? (fog[i] ? fog[i].evalue : null) : null };
+    // A SEEN card reads its true effective value — including a boost from a
+    // hidden source (e.g. a face-down Lodestone). That bleed is fair inference:
+    // the value is visibly higher, so something must be lifting it. A HIDDEN
+    // card's own value stays flat (knownBoardFor returns null), so the AI can't
+    // see a face-down card's identity and beeline it.
+    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.evalue };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
@@ -2339,10 +2330,21 @@ function aiBestBlueTarget(who) {
     for (const o of opponentsOf(who)) {
       for (const take of G.players[o].board) {
         if (isLocked(take)) continue;
+        // A hidden card's RIDER is unknown — the AI may not anticipate it. So
+        // when simulating a steal, suppress a hidden take's fx in the after-state
+        // only: it won't fire on the AI's own board (no "try it and watch my side
+        // light up" tell), so the AI can't beeline a face-down effect card with
+        // no visible cue. The base keeps full info, so a visible tell — a foe
+        // card the rider is plainly raising — still rightly makes the steal look
+        // good (fair inference). Stealing it remains a gamble (risk discount).
+        const hidden = !(take.known[who] || take.faceUp);
+        const savedFx = take.fx;
         swapCards(give, take);
+        if (hidden) take.fx = null;
         const swing = sideSwing(who) - baseSwing;
+        if (hidden) take.fx = savedFx;
         swapCards(give, take);
-        const discount = take.known[who] || take.faceUp ? 0 : personaOf(who).risk;
+        const discount = hidden ? personaOf(who).risk : 0;
         const delta = swing - discount;
         if (!best || delta > best.delta) best = { give, take, delta };
       }

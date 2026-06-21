@@ -453,11 +453,14 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 >   effect cards that pay. **Insulated from regular/campaign by construction:**
 >   `evalue == regionVal` without effect cards (which only exist on Circuit decks),
 >   so base-game scoring/AI is numerically unchanged — verified by the full test
->   suite + AI battery holding their band. **Fog-aware:** the AI estimate resolves
->   effects on a *masked clone* (hidden cards → type/fx null) via `fogEvalues`/
->   `resolveBoardEffects`, so a hidden Lodestone/Drain can't leak into what the AI
->   reads and it can't beeline a face-down bomb (it values a hidden card the same
->   bomb-or-dud). The real pass uses full info for scoring/badges.
+>   suite + AI battery holding their band. **Fog of war, the right amount:** a
+>   SEEN card reads its true value even when a hidden source lifts it — that bleed
+>   is fair *inference* (the value is visibly higher, so something's raising it).
+>   But a hidden card's own identity stays flat (it can't be valued bomb-vs-dud),
+>   and `aiBestBlueTarget` suppresses a hidden take's rider in the *after*-state of
+>   its steal sim, so the AI can't "try stealing it and watch my own board light
+>   up" to beeline a face-down effect card with no visible tell. The real board
+>   pass (`resolveBoardEffects`) keeps full info for scoring/badges.
 > - **One registry per effect (`EFFECTS`).** Each effect declares its UI text,
 >   its value resolution (phased hooks: `base`/`self`/`spread`/`cross`,
 >   `ownerLocked`), AND its AI keep-priority (`aiKeep`) in a single entry.
