@@ -1925,7 +1925,7 @@ function cvalHtml(card) {
 function cfxHtml(card) {
   if (!card.fx || !FX_INFO[card.fx]) return '';
   const info = FX_INFO[card.fx];
-  return `<div class="cfx cfx-${card.fx}" title="${info.label} — ${info.blurb}">${info.label}</div>`;
+  return `<div class="cfx cfx-${card.fx}">${info.label}</div>`; // styled hover tip handles the reminder
 }
 
 function knownBoardFor(viewer, ofPlayer) {
@@ -4677,7 +4677,6 @@ function circuitLoadoutScreen() {
     const info = FX_INFO[fx] || { label: fx, blurb: '' };
     const c = document.createElement('div');
     c.className = 'card faceup loadcard' + (sel ? ' selected' : '');
-    c.title = `${info.label} — ${info.blurb}`;
     c.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${fx}">${info.label}</div><div class="cicon icon-${t}"></div><div class="cname">${t}</div>`;
     c.onclick = () => {
       const j = circuitLoad.picks.indexOf(card);
@@ -4875,7 +4874,6 @@ function circuitRewardScreen() {
     const info = FX_INFO[card.fx] || { label: card.fx, blurb: '' };
     const el = document.createElement('div');
     el.className = 'card faceup loadcard' + (sel ? ' selected' : '');
-    el.title = `${info.label} — ${info.blurb}`;
     el.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${card.fx}">${info.label}</div><div class="cicon icon-${card.type}"></div><div class="cname">${card.type}</div>`;
     el.onclick = () => { r.cardPick = (r.cardPick === card) ? null : card; circuitRewardScreen(); };
     crow.appendChild(el);
@@ -5194,10 +5192,56 @@ function circuitScreen(over) {
   $('circuitModal').classList.add('open');
 }
 
+// Styled hover reminder for effect cards: read the fx off whatever card the
+// pointer is over (works for every card render path, since they all carry the
+// .cfx badge) and float a themed tooltip anchored to it.
+function setupFxTooltip() {
+  const tip = $('fxtip'); if (!tip) return;
+  let curCard = null;
+  const fxOf = card => {
+    const badge = card.querySelector && card.querySelector('.cfx');
+    if (!badge) return null;
+    for (const cls of badge.classList) if (cls.indexOf('cfx-') === 0) return cls.slice(4);
+    return null;
+  };
+  const place = card => {
+    const r = card.getBoundingClientRect();
+    tip.style.display = 'block';
+    const t = tip.getBoundingClientRect();
+    let left = r.left + r.width / 2 - t.width / 2;
+    let top = r.top - t.height - 8;
+    if (top < 6) top = r.bottom + 8; // flip below if no room above
+    left = Math.max(6, Math.min(left, window.innerWidth - t.width - 6));
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(top) + 'px';
+  };
+  const hide = () => { if (!curCard) return; curCard = null; tip.classList.remove('show'); tip.style.display = 'none'; };
+  document.addEventListener('mouseover', e => {
+    const card = e.target.closest && e.target.closest('.card');
+    if (!card) { hide(); return; }
+    if (card === curCard) return;
+    const fx = fxOf(card);
+    if (!fx || !FX_INFO[fx]) { hide(); return; }
+    curCard = card;
+    const info = FX_INFO[fx];
+    tip.innerHTML = `<div class="fxtip-h cfx-${fx}">${info.label}</div><div class="fxtip-b">${info.blurb}</div>`;
+    place(card);
+    requestAnimationFrame(() => tip.classList.add('show'));
+  });
+  document.addEventListener('mouseout', e => {
+    if (!curCard) return;
+    // leaving the current card entirely (not just moving across its children)
+    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card') === curCard) return;
+    hide();
+  });
+  window.addEventListener('scroll', hide, true);
+}
+
 function boot() {
   // Start buffering the music at page load so it plays the instant the first
   // gesture lands (otherwise it downloads on-click, a ~3s awkward gap).
   try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
+  setupFxTooltip();
   logEl = $('log');
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');

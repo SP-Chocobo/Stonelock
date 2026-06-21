@@ -1186,6 +1186,23 @@ body[data-compact="1"] .board .cfx { display: none; }
 .eventopt-l { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 14px; }
 .eventopt-n { font-size: 11.5px; color: var(--parchment-dim); margin-top: 3px; }
 
+/* Styled effect-card hover tooltip — a richer reminder than the native title. */
+.fxtip {
+  position: fixed; z-index: 9999; max-width: 230px; padding: 9px 11px; pointer-events: none;
+  background: linear-gradient(180deg, #2b2113, #161008);
+  border: 1px solid var(--gold); border-radius: 9px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+  opacity: 0; transition: opacity 0.1s ease;
+}
+.fxtip.show { opacity: 1; }
+.fxtip .fxtip-h {
+  font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 13.5px;
+  letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.fxtip .fxtip-h::before { content: '◆'; font-size: 10px; opacity: 0.85; }
+.fxtip .fxtip-b { font-family: 'Alegreya', Georgia, serif; font-size: 12.5px; color: var(--parchment); line-height: 1.35; }
+
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;
   background: rgba(0,0,0,0.28); padding: 12px 16px; text-align: left; }
