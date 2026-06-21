@@ -4677,6 +4677,7 @@ const CIRCUIT = {
   // The run map: a few acts, each a short branching path of columns to a boss.
   acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
+  shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -4855,14 +4856,15 @@ function nodeFoeCharms(type, act, foe) {
   return shuffle(pool.slice()).slice(0, n);
 }
 function mkNode(type, col, act) {
-  const foe = type === 'event' ? null : pickFoe();
+  const foe = (type === 'event' || type === 'shop') ? null : pickFoe();
   return { type, col, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false };
 }
 function buildAct(act) {
   const N = CIRCUIT.actRows, cols = [];
   for (let c = 0; c < N; c++) {
-    if (c === N - 1) { cols.push([mkNode('boss', c, act)]); break; }     // the act boss
-    if (c === 0) { cols.push([mkNode('duel', c, act)]); continue; }      // a safe opener
+    if (c === N - 1) { cols.push([mkNode('boss', c, act)]); break; }       // the act boss
+    if (c === N - 2) { cols.push([mkNode('shop', c, act)]); continue; }    // a shop before the boss
+    if (c === 0) { cols.push([mkNode('duel', c, act)]); continue; }        // a safe opener
     const count = 2 + (Math.random() < 0.5 ? 1 : 0);
     const arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, act));
     cols.push(arr);
@@ -4951,6 +4953,7 @@ function circuitEnterNode(node) {
   const g = GAUNTLET;
   g.curNode = node;
   if (node.type === 'event') { g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
+  if (node.type === 'shop') { g.shop = makeShop(); circuitShopScreen(); return; }
   circuitSetupFight(node);
 }
 // Set up a duel/elite/boss for the given node (foe, venue, Standing, foe charms).
@@ -5001,8 +5004,9 @@ function nodeFoeMax(node) {
   return m;
 }
 function mapNodeHtml(node) {
-  const names = { duel: 'Duel', elite: 'Elite', event: 'Event', boss: 'Boss' };
-  const foe = node.foe ? `<div class="mapnode-f">${node.foe}</div>` : '<div class="mapnode-f">an interlude</div>';
+  const names = { duel: 'Duel', elite: 'Elite', event: 'Event', boss: 'Boss', shop: 'Shop' };
+  const sub = { event: 'an interlude', shop: 'spend your coin' };
+  const foe = node.foe ? `<div class="mapnode-f">${node.foe}</div>` : `<div class="mapnode-f">${sub[node.type] || ''}</div>`;
   const ch = (node.foeCharms && node.foeCharms.length) ? `<div class="mapnode-c" title="carries ${node.foeCharms.length} charm(s)">★${node.foeCharms.length}</div>` : '';
   const hp = node.type === 'event' ? '' : `<div class="mapnode-hp">${nodeFoeMax(node)} Standing</div>`;
   return `<div class="mapnode-t">${names[node.type]}</div>${foe}${hp}${ch}`;
@@ -5214,6 +5218,95 @@ function circuitTakeRewardAndAdvance() {
     g.reward = null;
   }
   circuitAfterNode();
+}
+
+/* ---- The shop node: spend coin earned from fights on cards, stones, charms,
+   a one-off thin, or patching up Standing. ---- */
+function makeShop() {
+  const charmKeys = shuffle(unownedCharmKeys()).slice(0, 2);
+  charmKeys.forEach(markCharmSeen); // seen in a shop counts for the compendium
+  return {
+    cards: circuitOfferCards(3).map(c => ({ type: c.type, fx: c.fx, price: CIRCUIT.shopCard })),
+    stones: shuffle(STONE_KEYS.slice()).slice(0, 2).map(c => ({ color: c, price: CIRCUIT.shopStone })),
+    charms: charmKeys.map(k => ({ key: k, price: CIRCUIT.shopCharm })),
+    thinPrice: CIRCUIT.shopThin, healPrice: CIRCUIT.shopHeal,
+    sold: {}, thinning: false,
+  };
+}
+function circuitShopBuy(kind, idx) {
+  const g = GAUNTLET, s = g.shop; if (!s) return;
+  if (kind === 'card') { const it = s.cards[idx]; if (s.sold['c' + idx] || g.coin < it.price) return; g.coin -= it.price; g.deck = g.deck.concat([{ type: it.type, fx: it.fx }]); s.sold['c' + idx] = true; }
+  else if (kind === 'stone') { const it = s.stones[idx]; if (s.sold['s' + idx] || g.coin < it.price) return; g.coin -= it.price; g.pouch = Object.assign({}, g.pouch, { [it.color]: (g.pouch[it.color] || 0) + 1 }); s.sold['s' + idx] = true; }
+  else if (kind === 'charm') { const it = s.charms[idx]; if (s.sold['m' + idx] || g.coin < it.price) return; g.coin -= it.price; g.charms = (g.charms || []).concat([it.key]); const add = CHARMS[it.key] && CHARMS[it.key].maxStandingAdd; if (add) { g.maxStanding += add; g.standing += add; } s.sold['m' + idx] = true; }
+  else if (kind === 'heal') { if (g.coin < s.healPrice || g.standing >= g.maxStanding) return; g.coin -= s.healPrice; g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.shopHealAmt); }
+  circuitShopScreen();
+}
+function circuitShopThin(cardIdx) {
+  const g = GAUNTLET, s = g.shop; if (!s || s.sold.thin || g.coin < s.thinPrice || g.deck.length <= CIRCUIT.deckFloor) return;
+  g.coin -= s.thinPrice; g.deck = g.deck.slice(0, cardIdx).concat(g.deck.slice(cardIdx + 1)); s.sold.thin = true; s.thinning = false;
+  circuitShopScreen();
+}
+function circuitShopScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET, s = g.shop;
+  SFX.play('flip');
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  $('circuitTitle').textContent = 'The Fence';
+  $('circuitText').textContent = `You have ${g.coin} coin. Spend it, then move on to the boss.`;
+  const body = $('circuitStats'); body.className = 'circuitload'; body.innerHTML = '';
+  const can = p => g.coin >= p;
+
+  // Cards
+  const cs = document.createElement('div'); cs.className = 'ldsection';
+  cs.innerHTML = `<div class="ldhead">Cards</div>`;
+  const crow = document.createElement('div'); crow.className = 'ldcards';
+  s.cards.forEach((it, i) => {
+    const sold = s.sold['c' + i], v = (it.fx === 'anchor') ? CIRCUIT_ANCHOR : ((REGIONS.bar.values[it.type] != null) ? REGIONS.bar.values[it.type] : 2);
+    const info = FX_INFO[it.fx] || { label: it.fx };
+    const el = document.createElement('div'); el.className = 'card faceup loadcard shopitem' + (sold ? ' sold' : '');
+    el.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${it.fx}">${info.label}</div><div class="cicon icon-${it.type}"></div><div class="cname">${it.type}</div><div class="shopprice">${sold ? 'sold' : it.price + 'c'}</div>`;
+    if (!sold && can(it.price)) el.onclick = () => circuitShopBuy('card', i); else if (!sold) el.classList.add('cantafford');
+    crow.appendChild(el);
+  });
+  cs.appendChild(crow); body.appendChild(cs);
+
+  // Stones + charms + utilities as a row of priced buttons
+  const us = document.createElement('div'); us.className = 'ldsection'; us.innerHTML = `<div class="ldhead">Stones, charms & services</div>`;
+  const urow = document.createElement('div'); urow.className = 'shoprow';
+  s.stones.forEach((it, i) => {
+    const sold = s.sold['s' + i];
+    const b = document.createElement('button'); b.className = 'shopbtn' + (sold ? ' sold' : (can(it.price) ? '' : ' cantafford'));
+    b.innerHTML = `<span class="stonedot ${it.color}"></span> ${STONES[it.color].name.replace(' Stone', '')} <b>${sold ? 'sold' : it.price + 'c'}</b>`;
+    b.disabled = sold || !can(it.price); b.onclick = () => circuitShopBuy('stone', i); urow.appendChild(b);
+  });
+  s.charms.forEach((it, i) => {
+    const sold = s.sold['m' + i], ch = CHARMS[it.key];
+    const b = document.createElement('button'); b.className = 'shopbtn charm' + (sold ? ' sold' : (can(it.price) ? '' : ' cantafford'));
+    b.title = ch.blurb; b.innerHTML = `★ ${ch.label} <b>${sold ? 'sold' : it.price + 'c'}</b>`;
+    b.disabled = sold || !can(it.price); b.onclick = () => circuitShopBuy('charm', i); urow.appendChild(b);
+  });
+  // heal
+  const hb = document.createElement('button'); const healOff = g.standing >= g.maxStanding;
+  hb.className = 'shopbtn' + (healOff || !can(s.healPrice) ? ' cantafford' : ''); hb.disabled = healOff || !can(s.healPrice);
+  hb.innerHTML = `+${CIRCUIT.shopHealAmt} Standing <b>${s.healPrice}c</b>`; hb.onclick = () => circuitShopBuy('heal'); urow.appendChild(hb);
+  // thin
+  const tb = document.createElement('button'); const thinOff = s.sold.thin || g.deck.length <= CIRCUIT.deckFloor;
+  tb.className = 'shopbtn' + (thinOff || !can(s.thinPrice) ? ' cantafford' : ''); tb.disabled = thinOff || !can(s.thinPrice);
+  tb.innerHTML = `Thin a card <b>${s.sold.thin ? 'done' : s.thinPrice + 'c'}</b>`; tb.onclick = () => { s.thinning = !s.thinning; circuitShopScreen(); }; urow.appendChild(tb);
+  us.appendChild(urow);
+  if (s.thinning) {
+    const pick = eventCardPicker('Thin which card?', () => false, i => circuitShopThin(i));
+    us.appendChild(pick);
+  }
+  body.appendChild(us);
+
+  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
+  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch'; rb.onclick = () => showDeckView('full');
+  rev.appendChild(rb); body.appendChild(rev);
+
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Leave the shop ›';
+  next.onclick = () => { g.shop = null; circuitAfterNode(); };
+  $('circuitModal').classList.add('open');
 }
 
 /* ---- The interlude event: choose one of remove a card / remove a stone /
@@ -5689,7 +5782,7 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
-    buildAct, circuitEnterNode, circuitSetupFight, circuitAfterNode,
+    buildAct, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),

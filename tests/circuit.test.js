@@ -127,6 +127,28 @@ for (let i = 0; i < 12; i++) M.circuitDrawCards(4);
 assert(you.cardDraw.length + you.cardDiscard.length + (you.cardHand ? you.cardHand.length : 0) === deckN, 'cards are conserved across reshuffles');
 assert(g.piles[1], 'the foe also has a depleting pile set');
 
+// --- the shop: spend coin on cards / stones / charms / thin ---
+M.startCircuit(); g = M._gauntlet();
+assert(g.map.cols[M.CIRCUIT.actRows - 2][0].type === 'shop', 'a shop sits before each act boss');
+g.coin = 40; g.shop = M.makeShop();
+const sh = g.shop;
+assert(sh.cards.length === 3 && sh.stones.length === 2, 'the shop stocks cards and stones');
+const dBefore = g.deck.length, coinBefore = g.coin;
+M.circuitShopBuy('card', 0);
+assert(g.deck.length === dBefore + 1 && g.coin === coinBefore - sh.cards[0].price, 'buying a card adds it and spends coin');
+assert(sh.sold['c0'] === true, 'a bought card is marked sold');
+const wBefore = STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0);
+M.circuitShopBuy('stone', 0);
+assert(STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0) === wBefore + 1, 'buying a stone grows the pouch');
+if (sh.charms.length) { const cb = (g.charms || []).length; M.circuitShopBuy('charm', 0); assert((g.charms || []).length === cb + 1, 'buying a charm adds it'); }
+// can't afford → no purchase
+g.coin = 0; const d2 = g.deck.length; M.circuitShopBuy('card', 1);
+assert(g.deck.length === d2, 'a purchase you cannot afford is refused');
+// thin removes a card for coin (floored)
+g.coin = 40; g.shop = M.makeShop(); const d3 = g.deck.length;
+M.circuitShopThin(0);
+assert(g.deck.length === d3 - 1 && g.coin === 40 - M.CIRCUIT.shopThin, 'thinning at the shop removes a card for coin');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');

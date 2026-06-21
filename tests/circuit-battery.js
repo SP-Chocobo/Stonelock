@@ -52,6 +52,12 @@ function autoReward(g) {
   if (r.stones && r.stones.length) r.stonePick = r.stones[0];
   if (r.charms && r.charms.length) r.charmPick = r.charms[0];
 }
+function autoShop(g) {
+  const s = g.shop; if (!s) return;
+  if (s.charms.length && g.coin >= s.charms[0].price) M.circuitShopBuy('charm', 0);
+  if (s.cards.length && g.coin >= s.cards[0].price) M.circuitShopBuy('card', 0);
+  if (g.standing < g.maxStanding * 0.6 && g.coin >= s.healPrice) M.circuitShopBuy('heal');
+}
 function autoEvent(g) {
   if (g.standing < g.maxStanding * 0.6) g.event = { choice: 'heal' };
   else { // thin a low plain card if possible, else heal
@@ -75,6 +81,7 @@ function simulateRun() {
     const m = g.map, node = chooseNode(g, m.cols[m.col]);
     g.curNode = node;
     if (node.type === 'event') { autoEvent(g); M.circuitTakeEventAndAdvance(); continue; }
+    if (node.type === 'shop') { g.shop = M.makeShop(); autoShop(g); g.shop = null; M.circuitAfterNode(); continue; }
     setupFight(g, node);
     if (!playFight()) break;
     if (g.tableCleared) { M.circuitEnd(); autoReward(g); M.circuitTakeRewardAndAdvance(); }

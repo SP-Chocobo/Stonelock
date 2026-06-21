@@ -1230,6 +1230,20 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapnode-f { font-size: 11px; color: var(--gold); margin-top: 2px; font-family: 'Alegreya', serif; }
 .mapnode-hp { font-size: 10px; color: var(--parchment-dim); margin-top: 2px; }
 .mapnode-c { position: absolute; top: 4px; right: 5px; font-size: 10px; color: #e6b15a; }
+.mapnode-shop .mapnode-t { color: #d9c06a; }
+/* The shop (The Fence). */
+.shopitem { position: relative; }
+.shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }
+.shopprice { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: 'Cinzel', Georgia, serif;
+  font-size: 11px; font-weight: 600; color: #f0d99a; background: rgba(20,14,8,0.85); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 0 5px; }
+.shoprow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.shopbtn { padding: 6px 11px; font-family: 'Alegreya', serif; font-size: 12.5px; color: var(--parchment);
+  background: rgba(20,14,8,0.6); border: 1px solid var(--gold-dim); border-radius: 8px; cursor: pointer; transition: all 0.12s ease; display: flex; align-items: center; gap: 5px; }
+.shopbtn b { color: #f0d99a; font-family: 'Cinzel', Georgia, serif; }
+.shopbtn:hover:not(:disabled) { border-color: var(--gold-bright); background: rgba(40,30,17,0.85); }
+.shopbtn.charm { border-color: #b58a3a; }
+.shopbtn:disabled, .shopbtn.cantafford { opacity: 0.45; cursor: default; }
+.shopbtn .stonedot { width: 16px; height: 16px; }
 /* Interlude event: the four choice tiles. */
 .eventopts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 12px; }
 .eventopt { flex: 1 1 200px; max-width: 240px; text-align: left; padding: 10px 12px; cursor: pointer;
