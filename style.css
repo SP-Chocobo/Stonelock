@@ -1098,6 +1098,29 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .circuithud b { color: var(--gold); }
 .chud-top { text-align: center; margin-bottom: 6px; font-size: 11.5px; }
+.chud-deck {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; cursor: pointer;
+  font-family: 'Cinzel', Georgia, serif; font-size: 10.5px; letter-spacing: 0.04em;
+  color: var(--parchment); background: rgba(20,14,8,0.7);
+  border: 1px solid var(--gold-dim); border-radius: 7px; transition: all 0.12s ease;
+}
+.chud-deck:hover { color: var(--gold-bright); border-color: var(--gold-bright); background: rgba(40,30,17,0.8); }
+
+/* Deck / pouch viewer */
+.deckviewtabs { display: flex; gap: 8px; justify-content: center; margin: 4px 0 14px; }
+.deckviewtabs .btn { padding: 4px 16px; font-size: 12px; opacity: 0.65; }
+.deckviewtabs .btn.on { opacity: 1; border-color: var(--gold-bright); color: var(--gold-bright); }
+.deckview .ldsection { margin-bottom: 16px; }
+.deckcards { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.deckcard { position: relative; }
+.deckcount {
+  position: absolute; bottom: 4px; right: 4px; z-index: 3;
+  font-family: 'Cinzel', Georgia, serif; font-size: 11px; font-weight: 600; color: #f7eccf;
+  background: rgba(20,14,8,0.85); border: 1px solid var(--gold-dim); border-radius: 7px; padding: 0 5px;
+}
+.deckstones { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; align-items: center; }
+.deckstone { display: inline-flex; align-items: center; gap: 5px; font-family: 'Cinzel', Georgia, serif; font-size: 14px; color: var(--parchment); }
+.deckstone .stonedot { width: 22px; height: 22px; }
 .chud-k { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
 .chud-bars { display: flex; flex-direction: column; gap: 5px; }
 .chud-bar { display: flex; align-items: center; gap: 7px; }

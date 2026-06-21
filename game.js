@@ -4693,11 +4693,73 @@ function updateCircuitHud() {
   const g = GAUNTLET;
   if (!g.active) { hud.style.display = 'none'; return; }
   hud.style.display = '';
-  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Score <b>${g.score}</b></div>` +
+  const drawN = g.cardDraw ? g.cardDraw.length : 0;
+  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Score <b>${g.score}</b>` +
+      `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
       `<div class="chud-bar you"><span class="chud-lab">You</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
       `<div class="chud-bar foe"><span class="chud-lab">${g.opp || ''}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
     `</div>`;
+  const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
+}
+
+// The deck / pouch viewer: what's left to draw (composition, not order) or the
+// whole owned loadout. Built to extend to ally decks once the bench exists.
+let deckViewMode = 'remaining';
+function deckSpecKey(s) {
+  const type = (s && typeof s === 'object') ? s.type : s;
+  const fx = (s && typeof s === 'object') ? s.fx : null;
+  return { type, fx, key: type + '|' + (fx || '') };
+}
+function showDeckView(mode) {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  if (!g || !g.active) return;
+  if (mode) deckViewMode = mode;
+  const remaining = deckViewMode === 'remaining';
+  $('deckTabRemain').classList.toggle('on', remaining);
+  $('deckTabFull').classList.toggle('on', !remaining);
+  $('deckTabRemain').onclick = () => showDeckView('remaining');
+  $('deckTabFull').onclick = () => showDeckView('full');
+  $('deckClose').onclick = () => closeModal('deckModal');
+
+  const body = $('deckViewBody');
+  const cardSpecs = remaining ? (g.cardDraw || []) : (g.deck || []);
+  const stoneList = remaining ? (g.stoneDraw || []) : (function () {
+    const out = []; for (const c of STONE_KEYS) for (let i = 0; i < ((g.pouch && g.pouch[c]) || 0); i++) out.push(c); return out;
+  })();
+
+  // group cards by type+fx and count
+  const groups = new Map();
+  for (const s of cardSpecs) { const d = deckSpecKey(s); if (!groups.has(d.key)) groups.set(d.key, { type: d.type, fx: d.fx, n: 0 }); groups.get(d.key).n++; }
+  const cardHtml = [...groups.values()].sort((a, b) => a.type.localeCompare(b.type)).map(grp => {
+    const v = (grp.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(grp.type);
+    const info = grp.fx ? (FX_INFO[grp.fx] || { label: grp.fx }) : null;
+    const fxBadge = info ? `<div class="cfx cfx-${grp.fx}">${info.label}</div>` : '';
+    return `<div class="card faceup loadcard deckcard"><div class="cval val-${v}">${v}</div>${fxBadge}` +
+      `<div class="cicon icon-${grp.type}"></div><div class="cname">${grp.type}</div>` +
+      `<span class="deckcount">×${grp.n}</span></div>`;
+  }).join('') || '<div class="ldnote">No cards left to draw — the discard reshuffles next.</div>';
+
+  const sc = { red: 0, white: 0, blue: 0, black: 0 }; for (const s of stoneList) sc[s]++;
+  const stoneHtml = STONE_KEYS.filter(c => sc[c]).map(c =>
+    `<span class="deckstone"><span class="stonedot ${c}" title="${STONES[c].name}"></span>×${sc[c]}</span>`).join('')
+    || '<div class="ldnote">No stones left to draw — the discard reshuffles next.</div>';
+
+  const cTotal = g.deck ? g.deck.length : 0;
+  const pTotal = STONE_KEYS.reduce((s, c) => s + ((g.pouch && g.pouch[c]) || 0), 0);
+  const cMeta = remaining
+    ? `draw <b>${cardSpecs.length}</b> · discard <b>${g.cardDiscard ? g.cardDiscard.length : 0}</b> · in hand <b>${g.cardHand ? g.cardHand.length : 0}</b> · deck ${cTotal}`
+    : `<b>${cTotal}</b> cards`;
+  const pMeta = remaining
+    ? `draw <b>${stoneList.length}</b> · discard <b>${g.stoneDiscard ? g.stoneDiscard.length : 0}</b> · in hand <b>${g.stoneHand ? g.stoneHand.length : 0}</b> · pouch ${pTotal}`
+    : `<b>${pTotal}</b> stones`;
+
+  body.innerHTML =
+    `<div class="ldsection"><div class="ldhead">Cards — ${cMeta}</div><div class="ldcards deckcards">${cardHtml}</div></div>` +
+    `<div class="ldsection"><div class="ldhead">Pouch — ${pMeta}</div><div class="deckstones">${stoneHtml}</div></div>` +
+    (remaining ? `<div class="ldnote">What's left to draw — the order is shuffled, so this is the pool, not the sequence.</div>` : '');
+  $('deckModal').classList.add('open');
 }
 
 function circuitScreen(over) {
