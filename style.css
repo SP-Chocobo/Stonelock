@@ -1108,6 +1108,28 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .chud-bar.foe .chud-fill { background: linear-gradient(90deg, #a8392e, #d2685a); }
 .chud-num { width: 22px; flex-shrink: 0; text-align: right; color: var(--parchment); font-variant-numeric: tabular-nums; }
 
+/* The Circuit — outfit/loadout screen */
+.circuitload { text-align: left; }
+.ldsection { margin: 6px 0 16px; }
+.ldhead { font-family: 'Cinzel', Georgia, serif; text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 12px; color: var(--gold-bright); margin-bottom: 10px; }
+.ldpouches { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.ldpouch { display: flex; align-items: center; justify-content: center; min-width: 124px; padding: 16px 18px;
+  border: 1px solid var(--edge); border-radius: 12px; background: linear-gradient(170deg, #2e261b, #221b12);
+  cursor: pointer; transition: border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease; }
+.ldpouch:hover { transform: translateY(-2px); border-color: var(--gold-dim); }
+.ldpouch.selected { border-color: var(--gold-bright); box-shadow: 0 0 16px rgba(232,196,119,0.28); }
+.ldstones { display: flex; gap: 9px; }
+.ldpouch .stonedot { width: 28px; height: 28px; }
+.ldcards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.ldnote { font-size: 11px; font-style: italic; color: var(--parchment-dim); margin-top: 9px; text-align: center; }
+/* Loadout cards: a gentle lift on hover/select, NOT the in-match zoom. */
+.loadcard { cursor: pointer; }
+.loadcard:hover { transform: translateY(-5px); z-index: auto; box-shadow: 0 9px 20px rgba(0,0,0,0.6);
+  transition: transform 0.12s ease, box-shadow 0.12s ease; transition-delay: 0s; }
+.loadcard.selected { outline: 2px solid var(--gold-bright); outline-offset: 2px; transform: translateY(-7px); border-color: var(--gold-bright); }
+.loadcard.selected:hover { transform: translateY(-7px); transition-delay: 0s; }
+
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;
   background: rgba(0,0,0,0.28); padding: 12px 16px; text-align: left; }

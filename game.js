@@ -4407,41 +4407,64 @@ function startCircuit() {
   circuitLoadoutScreen();
 }
 
-// Outfit screen: pick a pouch (4 stones) and add 2 cards to a base of one-of-each
+// Outfit screen: pick a pouch (shown as its stone composition, not named) and
+// add 2 cards (real card visuals, click-to-select) to a base of one-of-each
 // (→ a 10-card owned deck, intentionally smaller than the standard 64-pool).
 function circuitLoadoutScreen() {
   if (typeof document === 'undefined') return;
+  const mc = $('circuitModal').querySelector('.modalcard');
+  if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'Outfit for the Circuit';
-  $('circuitText').textContent = 'Pick a stone pouch, then add two cards to your deck — you start with one of each, so the pair you add is what you lean on.';
-  const stats = $('circuitStats');
-  stats.innerHTML = '';
-  const head = (t) => { const h = document.createElement('div'); h.className = 'unlockhead'; h.textContent = t; stats.appendChild(h); };
-  head('Your pouch — 4 stones');
-  const prow = document.createElement('div'); prow.className = 'chiprow';
+  $('circuitText').textContent = 'Pick a stone pouch, then add two cards to round out your deck — you start with one of each.';
+  const body = $('circuitStats');
+  body.className = 'circuitload';
+  body.innerHTML = '';
+
+  // Pouch — shown as its four stones, no name.
+  const ps = document.createElement('div'); ps.className = 'ldsection';
+  ps.innerHTML = '<div class="ldhead">Your pouch — four stones</div>';
+  const prow = document.createElement('div'); prow.className = 'ldpouches';
   for (const a of CIRCUIT_POUCHES) {
     const b = document.createElement('button');
-    b.className = 'pillopt' + (circuitLoad.pouch === a.key ? ' selected' : '');
-    b.innerHTML = `<span class="pilllabel">${a.name}</span><span class="pillsub">${stoneSummary(a.pouch)}</span>`;
+    b.className = 'ldpouch' + (circuitLoad.pouch === a.key ? ' selected' : '');
+    b.title = stoneSummary(a.pouch);
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    for (const color of STONE_KEYS) for (let i = 0; i < (a.pouch[color] || 0); i++) {
+      const d = document.createElement('span'); d.className = `stonedot ${color}`;
+      d.title = `${STONES[color].name} — ${STONES[color].power}`;
+      cluster.appendChild(d);
+    }
+    b.appendChild(cluster);
     b.onclick = () => { circuitLoad.pouch = a.key; circuitLoadoutScreen(); };
     prow.appendChild(b);
   }
-  stats.appendChild(prow);
-  head(`Add 2 cards (${circuitLoad.picks.length}/2)`);
-  const crow = document.createElement('div'); crow.className = 'chiprow';
+  ps.appendChild(prow);
+  body.appendChild(ps);
+
+  // Cards — real card visuals; click two to add (highlight), Begin confirms.
+  const cs = document.createElement('div'); cs.className = 'ldsection';
+  cs.innerHTML = `<div class="ldhead">Add two cards — ${circuitLoad.picks.length}/2</div>`;
+  const crow = document.createElement('div'); crow.className = 'ldcards';
   for (const t of circuitLoad.offer) {
     const sel = circuitLoad.picks.includes(t);
-    const b = document.createElement('button');
-    b.className = 'pillopt' + (sel ? ' selected' : '');
-    b.innerHTML = `<span class="pilllabel">${t}</span><span class="pillsub">extra copy</span>`;
-    b.onclick = () => {
+    const v = (REGIONS.bar.values[t] != null) ? REGIONS.bar.values[t] : 2;
+    const c = document.createElement('div');
+    c.className = 'card faceup loadcard' + (sel ? ' selected' : '');
+    c.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cicon icon-${t}"></div><div class="cname">${t}</div>`;
+    c.onclick = () => {
       const j = circuitLoad.picks.indexOf(t);
       if (j >= 0) circuitLoad.picks.splice(j, 1);
       else if (circuitLoad.picks.length < 2) circuitLoad.picks.push(t);
       circuitLoadoutScreen();
     };
-    crow.appendChild(b);
+    crow.appendChild(c);
   }
-  stats.appendChild(crow);
+  cs.appendChild(crow);
+  const note = document.createElement('div'); note.className = 'ldnote';
+  note.textContent = 'Values shown are the common table — every venue reshapes them.';
+  cs.appendChild(note);
+  body.appendChild(cs);
+
   const next = $('circuitNext');
   next.textContent = 'Begin the Circuit ›';
   next.disabled = circuitLoad.picks.length !== 2;
@@ -4530,6 +4553,8 @@ function circuitScreen(over) {
   const title = $('circuitTitle'), text = $('circuitText'), stats = $('circuitStats');
   const next = $('circuitNext');
   next.disabled = false; // the loadout screen may have disabled it
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
+  stats.className = 'victoryunlocks'; // reset from the loadout layout
   if (over) {
     SFX.play('lose');
     title.textContent = 'The Circuit ends';
