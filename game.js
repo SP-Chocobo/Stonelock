@@ -1559,6 +1559,7 @@ function humanChooseStone(color) {
 function humanCancelStone() {
   UI.pendingStone = null;
   UI.blueOwn = null;
+  UI.blueSlot = null; // also reset a half-set slot-mode Blue swap
   UI.mode = 'placeChoose';
   setPrompt('Choose which of your active stones to place.');
   render();
@@ -3768,6 +3769,28 @@ function renderControls() {
     }
     if (noTargets) {
       setPrompt(`${STONES[UI.pendingStone].name} — no valid target remains. Set it down without effect.`);
+    }
+  }
+  // Slot modes (Court of Precedence / Archivist): the same escapes, so a Black
+  // with no Red/Blue to catch (or any stone) is never a softlock — Back to
+  // re-choose, or set it down on the writ without effect.
+  if (['arch-slot', 'arch-slot-blue-a', 'arch-slot-blue-b'].includes(UI.mode)) {
+    const cancel = document.createElement('button');
+    cancel.className = 'btn';
+    cancel.textContent = 'Back';
+    cancel.onclick = humanCancelStone;
+    bar.appendChild(cancel);
+    const blackNoTarget = UI.pendingStone === 'black' && !archReverse()
+      && !G.archQueue.some(p => p.color === 'red' || p.color === 'blue');
+    if (UI.pendingStone === 'black' || UI.pendingStone === 'blue' || blackNoTarget) {
+      const skip = document.createElement('button');
+      skip.className = 'btn ghost';
+      skip.textContent = 'Set it down without effect';
+      skip.onclick = humanDiscardStone;
+      bar.appendChild(skip);
+    }
+    if (blackNoTarget) {
+      setPrompt('Black Stone — no slot carries a Red or Blue to undo. Set it down without effect.');
     }
   }
 }
