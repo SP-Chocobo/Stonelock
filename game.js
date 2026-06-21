@@ -4565,6 +4565,7 @@ function renderRaidSetup() {
    ============================================================ */
 const CIRCUIT = {
   startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1, drawStones: 3,
+  rewardCards: 3, rewardStones: 2, // between-table spoils: pick one of each (or skip)
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -4813,12 +4814,107 @@ function circuitEnd() {
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
     g.rung++;
     g.opp = circuitOpponent(); // pre-pick the next foe so the between screen can reveal the matchup
-    circuitScreen(false);
+    g.reward = makeReward();    // spoils to choose before the next table
+    circuitRewardScreen();
   } else {
     g.active = false;
     circuitScreen(true);
   }
   updateCircuitHud();
+}
+
+// Between-table spoils: an offer of cards and stones to grow your decks.
+function makeReward() {
+  return {
+    cards: circuitOfferCards(CIRCUIT.rewardCards),       // N effect cards (type + fx)
+    stones: shuffle(STONE_KEYS.slice()).slice(0, CIRCUIT.rewardStones),
+    cardPick: null, stonePick: null,
+  };
+}
+
+// The spoils screen — pick one card and/or one stone (both optional), with a
+// deck/pouch review you can open and close without losing your selection. Picks
+// grow the OWNED deck/pouch, so they reshape the depleting draw from here on.
+function circuitRewardScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  if (!g.reward) g.reward = makeReward();
+  const r = g.reward;
+  SFX.play('win');
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
+  $('circuitTitle').textContent = `Table ${g.cleared} cleared — take your spoils`;
+  $('circuitText').textContent = `Standing restored (+${CIRCUIT.heal}). Up next: ${g.opp} at ${VENUES[nv] ? VENUES[nv].label : nv}. Add a card and a stone to your decks — or skip either.`;
+  const body = $('circuitStats');
+  body.className = 'circuitload';
+  body.innerHTML = '';
+
+  // Cards — take one (click to toggle; leaving none selected = skip).
+  const cs = document.createElement('div'); cs.className = 'ldsection';
+  cs.innerHTML = `<div class="ldhead">Take a card — ${r.cardPick ? '1' : '0'}/1 · optional</div>`;
+  const crow = document.createElement('div'); crow.className = 'ldcards';
+  for (const card of r.cards) {
+    const sel = r.cardPick === card;
+    const v = (card.fx === 'anchor') ? CIRCUIT_ANCHOR : ((REGIONS.bar.values[card.type] != null) ? REGIONS.bar.values[card.type] : 2);
+    const info = FX_INFO[card.fx] || { label: card.fx, blurb: '' };
+    const el = document.createElement('div');
+    el.className = 'card faceup loadcard' + (sel ? ' selected' : '');
+    el.title = `${info.label} — ${info.blurb}`;
+    el.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${card.fx}">${info.label}</div><div class="cicon icon-${card.type}"></div><div class="cname">${card.type}</div>`;
+    el.onclick = () => { r.cardPick = (r.cardPick === card) ? null : card; circuitRewardScreen(); };
+    crow.appendChild(el);
+  }
+  cs.appendChild(crow);
+  const key = document.createElement('div'); key.className = 'ldfxkey';
+  key.innerHTML = r.cards.filter((c, i, a) => a.findIndex(o => o.fx === c.fx) === i)
+    .map(c => `<span><b>${FX_INFO[c.fx].label}</b> — ${FX_INFO[c.fx].blurb}</span>`).join('');
+  cs.appendChild(key);
+  body.appendChild(cs);
+
+  // Stones — take one (click to toggle).
+  const ss = document.createElement('div'); ss.className = 'ldsection';
+  ss.innerHTML = `<div class="ldhead">Take a stone — ${r.stonePick ? '1' : '0'}/1 · optional</div>`;
+  const srow = document.createElement('div'); srow.className = 'ldpouches';
+  for (const color of r.stones) {
+    const sel = r.stonePick === color;
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (sel ? ' selected' : '');
+    b.title = `${STONES[color].name} — ${STONES[color].power}`;
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
+    b.appendChild(cluster);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = STONES[color].name.replace(' Stone', '');
+    b.appendChild(lab);
+    b.onclick = () => { r.stonePick = (r.stonePick === color) ? null : color; circuitRewardScreen(); };
+    srow.appendChild(b);
+  }
+  ss.appendChild(srow);
+  body.appendChild(ss);
+
+  // Review your decks before committing (opens over this screen; closing returns
+  // here with your selection intact).
+  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
+  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
+  rb.onclick = () => showDeckView('full');
+  rev.appendChild(rb);
+  body.appendChild(rev);
+
+  const next = $('circuitNext');
+  next.disabled = false;
+  next.textContent = (r.cardPick || r.stonePick) ? 'Take & set out ›' : 'Skip & set out ›';
+  next.onclick = circuitTakeRewardAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// Apply the chosen spoils to the owned deck/pouch, then set the next table.
+function circuitTakeRewardAndAdvance() {
+  const g = GAUNTLET, r = g.reward;
+  if (r) {
+    if (r.cardPick) g.deck = g.deck.concat([r.cardPick]);
+    if (r.stonePick) g.pouch = Object.assign({}, g.pouch, { [r.stonePick]: (g.pouch[r.stonePick] || 0) + 1 });
+    g.reward = null;
+  }
+  circuitRung();
 }
 
 function updateCircuitHud() {
@@ -5087,7 +5183,7 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
-    circuitResetPiles, circuitBuildFor,
+    circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

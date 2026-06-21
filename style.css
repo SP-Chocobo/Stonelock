@@ -1172,6 +1172,10 @@ body[data-compact="1"] .board .cfx { display: none; }
 .ldfxkey { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center;
   margin-top: 10px; font-size: 11px; color: var(--parchment-dim); }
 .ldfxkey b { color: var(--gold); font-family: 'Cinzel', Georgia, serif; font-weight: 600; }
+/* Between-table spoils: stone choices show a name under the dot; review centered. */
+.rewardstone { flex-direction: column; gap: 5px; min-width: 84px; }
+.rewardlab { font-family: 'Cinzel', Georgia, serif; font-size: 11px; color: var(--parchment); }
+.rewardreview { text-align: center; margin-top: 4px; }
 
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;

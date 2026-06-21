@@ -164,4 +164,24 @@ const fb = M.circuitBuildFor('The Ferryman');
 assert(fb.pouch.blue >= 2, "the Ferryman's build leans Blue");
 assert(fb.deck.filter(c => c && typeof c === 'object' && c.fx).length === 2, 'a named build packs two effect cards');
 
+// --- between-table spoils grow the owned deck/pouch (or skip cleanly) ---
+M.startCircuit();
+g = M._gauntlet();
+const deck0 = g.deck.length, pouch0 = STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0);
+// skip path: a reward with no picks leaves the decks untouched
+g.reward = { cards: [], stones: [], cardPick: null, stonePick: null };
+M.circuitTakeRewardAndAdvance();
+g = M._gauntlet();
+assert(g.deck.length === deck0 && STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0) === pouch0, 'skipping spoils leaves the deck and pouch unchanged');
+// take path: a card + a stone grow each by one
+g.reward = { cards: [], stones: [], cardPick: { type: 'Coin', fx: 'keen' }, stonePick: 'white' };
+const deck1 = g.deck.length, white1 = g.pouch.white || 0;
+M.circuitTakeRewardAndAdvance();
+g = M._gauntlet();
+assert(g.deck.length === deck1 + 1, 'taking a card adds it to the owned deck');
+assert((g.pouch.white || 0) === white1 + 1, 'taking a stone adds it to the pouch');
+assert(g.piles[0].cardDraw.length + g.piles[0].cardDiscard.length + (g.piles[0].cardHand ? g.piles[0].cardHand.length : 0) === deck1 + 1, 'the next table draws from the grown deck');
+const fx = M.makeReward();
+assert(fx.cards.length === 3 && fx.stones.length === 2, 'a spoils offer is 3 cards and 2 stones');
+
 console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');
