@@ -156,8 +156,9 @@ const p1 = g.piles[1];
 assert(p1.cardDraw.length + p1.cardDiscard.length + (p1.cardHand ? p1.cardHand.length : 0) === 10, 'the foe deck is conserved through the deal');
 const oppPouchN = STONE_KEYS.reduce((s, c) => s + (g.oppPouch[c] || 0), 0);
 assert(oppPouchN === 4, 'the foe pouch holds 4 stones');
-const G2 = M._state();
-assert(STONE_KEYS.reduce((s, c) => s + (G2.players[1].pool[c] || 0), 0) === 3, 'the foe also draws a 3-stone working set, not the default 8');
+// the foe draws a 3-stone working set too (check the drawn hand, not the live
+// pool — the AI may already have telegraphed/spent from it by now)
+assert(p1.stoneHand && p1.stoneHand.length === 3, 'the foe also draws a 3-stone working set, not the default 8');
 // a named build is themed (the Ferryman leans Blue and runs an effect card)
 const fb = M.circuitBuildFor('The Ferryman');
 assert(fb.pouch.blue >= 2, "the Ferryman's build leans Blue");

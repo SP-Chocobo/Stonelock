@@ -1817,12 +1817,47 @@ function effVal(card) { return (card && card.evalue != null) ? card.evalue : reg
 
 // Effect cards: a card may carry an `fx` rider that shifts effective value.
 const CIRCUIT_ANCHOR = 2; // Anchor pins a card to this value regardless of venue
-const FX_INFO = {
-  anchor:    { label: 'Anchor',    blurb: 'Always worth 2, whatever the venue pays.' },
-  keen:      { label: 'Keen',      blurb: '+1 if you hold another card of its type.' },
-  lodestone: { label: 'Lodestone', blurb: '+1 to the cards on either side of it.' },
-  drain:     { label: 'Drain',     blurb: 'The facing card in the same slot reads −1.' },
+//
+// ── The effect registry ──────────────────────────────────────────────────
+// One entry per effect, holding EVERYTHING about it in one place: its UI text,
+// how it resolves value (in phases), and how the AI should weight holding it.
+// Adding a new effect = add one entry here; the value pass, the card art, the
+// loadout/deck UI, and the AI keep-priority all pick it up with no edits to the
+// core loops. Layer AI tuning per effect as it's added, never an all-at-once
+// overhaul. Value hooks (all optional, run in this order, all additive):
+//   base(card)            → overrides the starting value (default: regionVal)
+//   self(card, board)     → delta to its OWN value (reads the board)
+//   spread(card,i,board)  → mutate same-board neighbours' evalue
+//   cross(card,i,boards,ownerBoardIdx) → mutate other boards' evalue (slot = i)
+//   ownerLocked: true     → a cross effect only fires from its owner's board
+//   aiKeep(card, ctx)     → extra deploy keep-priority for the AI {hasTwin,counts}
+const EFFECTS = {
+  anchor: {
+    label: 'Anchor', blurb: 'Always worth 2, whatever the venue pays.',
+    base: () => CIRCUIT_ANCHOR,
+    aiKeep: () => 0, // value already reflected in base; no extra nudge
+  },
+  keen: {
+    label: 'Keen', blurb: '+1 if you hold another card of its type.',
+    self: (c, board) => board.some(o => o && o !== c && o.type === c.type) ? 1 : 0,
+    aiKeep: (c, ctx) => ctx.hasTwin ? 1 : 0.3, // fires now if a twin's in hand
+  },
+  lodestone: {
+    label: 'Lodestone', blurb: '+1 to the cards on either side of it.',
+    spread: (c, i, board) => { if (board[i - 1]) board[i - 1].evalue += 1; if (board[i + 1]) board[i + 1].evalue += 1; },
+    aiKeep: () => 1.4, // lifts up to two neighbours
+  },
+  drain: {
+    label: 'Drain', blurb: 'The facing card in the same slot reads −1.',
+    ownerLocked: true,
+    cross: (c, i, boards, ownerBoard) => {
+      for (let j = 0; j < boards.length; j++) { if (j === ownerBoard || !boards[j][i]) continue; boards[j][i].evalue -= 1; }
+    },
+    aiKeep: () => 1, // shaves the facing card
+  },
 };
+// UI/text consumers read label/blurb from the same registry (single source).
+const FX_INFO = EFFECTS;
 
 // Compute each card's effective value (evalue) from its fx rider, the board
 // around it, and the opposing board. A no-op for plain cards (evalue ==
@@ -1831,35 +1866,31 @@ const FX_INFO = {
 function applyCardEffects() {
   if (!G.players) return;
   const boards = G.players.map(p => p.board);
-  // Pass 1: base value (Anchor pins to a fixed floor; else the venue value).
-  // (Boards may hold null slots mid-deal — e.g. the Archivist queue — so guard.)
-  for (const board of boards) {
-    for (const c of board) if (c) c.evalue = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
+  // Phase 1 — base value. (Boards may hold null slots mid-deal — e.g. the
+  // Archivist queue — so guard throughout. evalue == regionVal for plain cards,
+  // which is why all of this is a no-op outside the Circuit.)
+  for (const board of boards) for (const c of board) if (c) {
+    const e = EFFECTS[c.fx];
+    c.evalue = (e && e.base) ? e.base(c) : regionVal(c.type);
   }
-  // Pass 2: same-board riders (Keen kinship, Lodestone neighbours).
-  for (const board of boards) {
+  // Phase 2 — self mods (a card reads the board and adjusts its own value).
+  for (const board of boards) for (const c of board) if (c) {
+    const e = EFFECTS[c.fx];
+    if (e && e.self) c.evalue += e.self(c, board);
+  }
+  // Phase 3 — spread mods (a card adjusts OTHER cards: same-board neighbours via
+  // `spread`, other boards via `cross`). All deltas are additive/commutative, so
+  // effects compose cleanly. An ownerLocked cross effect (Drain) only fires from
+  // its original owner's board — stolen across (Blue swap) it goes inert.
+  for (let bi = 0; bi < boards.length; bi++) {
+    const board = boards[bi];
     for (let i = 0; i < board.length; i++) {
-      const c = board[i];
-      if (!c) continue;
-      if (c.fx === 'keen' && board.some(o => o && o !== c && o.type === c.type)) c.evalue += 1;
-      if (c.fx === 'lodestone') {
-        if (board[i - 1]) board[i - 1].evalue += 1;
-        if (board[i + 1]) board[i + 1].evalue += 1;
-      }
-    }
-  }
-  // Pass 3: cross-board Drain (the facing same-slot card reads -1; its
-  // pair/triad eligibility is untouched — only the raw value drops). A Drain
-  // card only fires from its OWNER's board: stolen across (Blue swap) it goes
-  // inert rather than turning on the board it now sits behind.
-  for (let i = 0; i < boards.length; i++) {
-    for (let s = 0; s < boards[i].length; s++) {
-      const dc = boards[i][s];
-      if (!dc || dc.fx !== 'drain') continue;
-      if ((dc.origOwner != null ? dc.origOwner : i) !== i) continue; // stolen → inert
-      for (let j = 0; j < boards.length; j++) {
-        if (j === i || !boards[j][s]) continue;
-        boards[j][s].evalue -= 1;
+      const c = board[i]; if (!c) continue;
+      const e = EFFECTS[c.fx]; if (!e) continue;
+      if (e.spread) e.spread(c, i, board);
+      if (e.cross) {
+        const owner = (c.origOwner != null) ? c.origOwner : bi;
+        if (!e.ownerLocked || owner === bi) e.cross(c, i, boards, bi);
       }
     }
   }
@@ -1996,14 +2027,15 @@ function aiChooseDeploy(who, count, faceUp) {
     const counts = {};
     for (const c of p.hand) counts[c.type] = (counts[c.type] || 0) + 1;
     // Layered card value: base venue value, set potential, then the effect
-    // rider's worth — so the AI keeps Anchor/Keen/Lodestone/Drain when they pay.
+    // rider's own keep-priority (from the EFFECTS registry). Adding an effect
+    // there teaches this heuristic about it automatically.
     const scoreCard = c => {
       if (c.type === G.cursedType) return 0;
-      let v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
-      if (counts[c.type] >= 2) v += 2.5;                          // pair/triad potential
-      if (c.fx === 'keen') v += counts[c.type] >= 2 ? 1 : 0.3;    // fires with a twin in hand
-      else if (c.fx === 'lodestone') v += 1.4;                    // lifts up to two neighbours
-      else if (c.fx === 'drain') v += 1;                          // shaves the facing card
+      const e = EFFECTS[c.fx];
+      let v = (e && e.base) ? e.base(c) : regionVal(c.type);
+      const hasTwin = counts[c.type] >= 2;
+      if (hasTwin) v += 2.5;                                       // pair/triad potential
+      if (e && e.aiKeep) v += e.aiKeep(c, { hasTwin, counts });    // the effect's own weight
       return v;
     };
     const sorted = p.hand.slice().sort((a, b) => scoreCard(b) - scoreCard(a));
@@ -4500,9 +4532,10 @@ const CIRCUIT_POUCHES = [
   { key: 'breaker', pouch: { black: 2, blue: 1, red: 1 } },
   { key: 'reaver', pouch: { blue: 2, red: 1, black: 1 } },
 ];
-// The starter effect-card pool. A run offers a handful of typed cards, each
-// carrying one fx rider, so the two-card add is a real decision (value vs. effect).
-const CIRCUIT_FX = ['anchor', 'keen', 'lodestone', 'drain'];
+// The effect-card pool, derived from the registry — a new EFFECTS entry is
+// offered in runs automatically. A run offers typed cards each carrying one fx
+// rider, so the two-card add is a real decision (value vs. effect).
+const CIRCUIT_FX = Object.keys(EFFECTS);
 function circuitOfferCards(n) {
   const types = shuffle(TYPES.slice());
   const fxBag = shuffle(CIRCUIT_FX.slice());
@@ -5010,5 +5043,7 @@ if (typeof window !== 'undefined') {
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
+    // AI internals, exposed for decision-level effect tests.
+    _ai: { estimate, sideSwing, aiBestBlueTarget, aiBestRedTarget, aiBestBlackTarget, aiChooseDeploy, aiStonePreference, aiStoneValue, effVal, EFFECTS },
   };
 }

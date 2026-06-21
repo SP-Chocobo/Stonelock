@@ -432,6 +432,20 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 >   `evalue == regionVal` without effect cards (which only exist on Circuit decks),
 >   so base-game scoring/AI is numerically unchanged — verified by the full test
 >   suite + AI battery holding their band.
+> - **One registry per effect (`EFFECTS`).** Each effect declares its UI text,
+>   its value resolution (phased hooks: `base`/`self`/`spread`/`cross`,
+>   `ownerLocked`), AND its AI keep-priority (`aiKeep`) in a single entry.
+>   `applyCardEffects`, the card art, the loadout/deck UI, the offer pool
+>   (`CIRCUIT_FX = Object.keys(EFFECTS)`), and the deploy heuristic all read from
+>   it — so **adding an effect is one isolated entry, no core-loop surgery**, and
+>   AI logic is *layered in per effect* rather than overhauled all at once (the
+>   stated process to avoid regressions).
+> - **Competence gate before new effects (`tests/effects-ai.test.js`).** Proves
+>   the bots ASSESS each current effect correctly through their own eyes (incl.
+>   fog of war), make effect-correct DECISIONS (Blue steals the highest effective
+>   value; deploy keeps the rider that pays), and layer per-bot persona priorities
+>   on top (Clerk weights White-over-Blue above the Ferryman on the same board).
+>   New effects don't land until the bots play the existing four right.
 
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live
