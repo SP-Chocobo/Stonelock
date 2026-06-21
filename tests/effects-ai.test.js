@@ -71,6 +71,10 @@ G.players[1].board = [card('Crest', null, 1), card('Chain', null, 1), card('Quil
 M.applyCardEffects();
 assert(ai.estimate(0, 0) === 6, 'the owner assesses its own veiled Coin at its true value (3+2+1)');
 assert(ai.estimate(0, 1) === 5, 'the foe assesses the veiled card at the flat estimate (2+2+1), no leak');
+// Balance: a hidden card is worth the AVERAGE (2) to the foe — a neutral gamble,
+// neither its true 3 (bomb) nor an undervalued 1 (dud). Both read 2.
+function foeFlat(type) { const h = card(type, null, 0); h.faceUp = false; h.known = [true, false]; G.players[0].board = [h, card('Sword', null, 0), card('Quill', null, 0)]; G.players[1].board = []; M.applyCardEffects(); return ai.estimate(0, 1); }
+assert(foeFlat('Road') === 5 && foeFlat('Chain') === 5, 'a hidden card counts as the average 2 — a hidden 3 and a hidden 1 both read as 2 (2+2+1)');
 // Allowed inference: a HIDDEN Lodestone's +1 to its VISIBLE neighbours reads in
 // the foe estimate (you can see the higher values, even without the source).
 G.players[1].board = [];

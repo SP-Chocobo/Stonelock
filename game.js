@@ -2076,7 +2076,7 @@ function estimate(ofPlayer, viewer) {
   const values = Object.assign({}, G.region.values);
   const cards = knownBoardFor(viewer, ofPlayer).map((c, i) => {
     const type = c.type || ('_u' + i);
-    if (!c.type) values[type] = 2;
+    if (!c.type) values[type] = UNKNOWN_VAL; // a hidden card is worth the average — a neutral gamble
     // A SEEN card reads its true effective value — including a boost from a
     // hidden source (e.g. a face-down Lodestone). That bleed is fair inference:
     // the value is visibly higher, so something must be lifting it. A HIDDEN
