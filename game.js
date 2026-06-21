@@ -4464,7 +4464,7 @@ function circuitOpponent() {
 function circuitRung() {
   const g = GAUNTLET;
   g.tableCleared = false; g.groundOut = false;
-  g.opp = circuitOpponent();
+  if (!g.opp) g.opp = circuitOpponent(); // may be pre-chosen so the between-table screen can reveal it
   g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
   g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
   g.foeHp = g.foeMax;
@@ -4501,6 +4501,7 @@ function circuitEnd() {
     g.score += 10 + g.rung; // tables are worth more as you climb
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
     g.rung++;
+    g.opp = circuitOpponent(); // pre-pick the next foe so the between screen can reveal the matchup
     circuitScreen(false);
   } else {
     g.active = false;
@@ -4541,11 +4542,13 @@ function circuitScreen(over) {
     next.onclick = startCircuit;
   } else {
     SFX.play('win');
+    const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
     title.textContent = `Table ${g.cleared} cleared`;
-    text.textContent = `You broke ${g.opp}'s Standing. Press on — the next table is set.`;
-    stats.innerHTML = `<div class="unlockhead">The Circuit</div>` +
-      `<div class="unlockitem">Your Standing: <b>${g.standing}/${g.maxStanding}</b> (+${CIRCUIT.heal} restored)</div>` +
-      `<div class="unlockitem">Score: <b>${g.score}</b></div>`;
+    text.textContent = `Standing restored (+${CIRCUIT.heal}). Look ahead — the next table is set.`;
+    stats.innerHTML = `<div class="unlockhead">The Circuit — up next</div>` +
+      `<div class="unlockitem">Your Standing: <b>${g.standing}/${g.maxStanding}</b></div>` +
+      `<div class="unlockitem">Score: <b>${g.score}</b></div>` +
+      `<div class="unlockitem">Next foe: <b>${g.opp}</b> — ${VENUES[nv] ? VENUES[nv].label : nv}</div>`;
     next.textContent = 'Next table ›';
     next.onclick = circuitRung;
   }

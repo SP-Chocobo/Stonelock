@@ -299,6 +299,24 @@ non-micromanagers can ignore it.
   history feeds the Run Chronicle (§7.5): tables survived together, bosses broken,
   signature moments.
 
+### 5.4b Pre-fight loadout — the "ready-up" screen
+Before each table, a confirm screen shows the matchup (venue + opponent) and your
+loadout — the same outfit UI as the run-start screen, **pre-filled and
+adjustable.** Its real value: it makes the loadout **venue-aware** (adapt your
+deck/pouch/ally to *this* table's values and foe = pillar #0 as an active
+decision), not just a one-time setup.
+- **Default to "keep loadout":** solo tables get a compact confirm — venue, foe,
+  your deck/pouch — with one-tap **Begin** and an **Adjust** expand. Fiddle only
+  when you want; re-kit is free between fights (§5.4), so it's a puzzle, not a tax.
+- **Ally-fights fold in the bench on the same screen:** an ally slot appears —
+  pick from the bench and kit them (shared inventory), then Begin. One screen, no
+  menu-diving.
+- **Reveals** venue + opponent (so you can adapt); the foe's full kit stays hidden
+  unless a scout charm shows it.
+- **Lands with the companion layer** (needs the bench + re-kit). Cheap first step,
+  buildable now: have the between-table screen **reveal the next matchup** so the
+  player can think ahead — the seed of the ready-up screen.
+
 ### 5.5 Footprint-per-act escalation (decided to bake in early)
 `footprintOf` is already a parameter. Field **4 → 5 → 6** across acts. Notes:
 - **Scale the draw too**; the draw-to-field ratio is the agency knob.
