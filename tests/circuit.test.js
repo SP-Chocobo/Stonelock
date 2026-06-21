@@ -108,11 +108,40 @@ assert(G.players[0].board[1].evalue === RV[T[1]], 'lodestone does not lift itsel
 setBoards([{ type: T[0] }, { type: T[1] }, { type: T[2] }], [{ type: T[3], fx: 'drain' }, { type: T[4] }, { type: T[5] }]);
 assert(G.players[0].board[0].evalue === Math.max(0, RV[T[0]] - 1), 'drain knocks the facing same-slot card down by 1');
 assert(G.players[0].board[1].evalue === RV[T[1]], 'drain only touches the facing slot');
+// a drain card stolen onto the other board (origOwner != current board) goes inert
+setBoards([{ type: T[0] }, { type: T[1] }, { type: T[2] }], [{ type: T[3], fx: 'drain', origOwner: 0 }, { type: T[4] }, { type: T[5] }]);
+assert(G.players[0].board[0].evalue === RV[T[0]], 'a stolen drain card does not turn on its owner — it goes inert off its home board');
 
 // loadout now deals effect cards and threads them into the owned deck
 M.startCircuit();
 g = M._gauntlet();
 const fxInDeck = g.deck.filter(c => c && typeof c === 'object' && c.fx).length;
 assert(fxInDeck === 2, 'the owned deck carries the two chosen effect cards');
+
+// --- depleting decks: draw → discard → reshuffle, conserved across cycles ---
+M.startCircuit();
+g = M._gauntlet();
+M.circuitResetPiles();
+const deckN = g.deck.length;
+assert(g.cardDraw.length === deckN && g.cardDiscard.length === 0 && g.cardHand === null, 'reset shuffles the whole deck into the draw pile');
+M.circuitDrawCards(4);
+assert(g.cardDraw.length === deckN - 4 && g.cardDiscard.length === 0, 'drawn cards leave the draw pile; nothing discarded yet');
+assert(g.cardHand.length === 4, 'a hand of 4 was drawn');
+M.circuitDrawCards(4);
+assert(g.cardDiscard.length === 4, "the previous hand discards before the next draw");
+// keep drawing through a reshuffle; the deck is always conserved
+for (let i = 0; i < 12; i++) M.circuitDrawCards(4);
+assert(g.cardDraw.length + g.cardDiscard.length + g.cardHand.length === deckN, 'cards are conserved across reshuffles (no loss, no duplication)');
+assert(g.cardDiscard.length > 0 && g.cardDraw.length >= 0, 'the discard reshuffles back in once the draw pile runs dry');
+
+// stones deplete the same way: a 4-stone pouch, drawing 3, cycles and conserves
+const STONE_KEYS = ['red', 'white', 'blue', 'black'];
+const pouchN = STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0);
+M.circuitResetPiles();
+assert(g.stoneDraw.length === pouchN, 'reset flattens the whole pouch into the stone draw pile');
+const d1 = M.circuitDrawStones(3);
+assert(STONE_KEYS.reduce((s, c) => s + d1[c], 0) === 3, 'draws a 3-stone working set');
+for (let i = 0; i < 8; i++) M.circuitDrawStones(3);
+assert(g.stoneDraw.length + g.stoneDiscard.length + g.stoneHand.length === pouchN, 'stones are conserved across reshuffles');
 
 console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');

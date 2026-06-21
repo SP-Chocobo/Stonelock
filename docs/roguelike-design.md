@@ -404,6 +404,18 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 > live: **Anchor / Keen / Lodestone / Drain** (Wild still deferred). Unit-tested
 > in `tests/circuit.test.js`; base-game scoring confirmed unchanged (no-op
 > without effect cards). Notes below are the original design.
+>
+> **Decided since:**
+> - **Both decks deplete (draw → discard → reshuffle when dry).** The card deck
+>   *and* the stone pouch are draw piles that reset (full shuffle) at the start of
+>   each table, then cycle hand to hand. Thinning is a hard, predictable lever and
+>   the two parallel decks feel real; matches the genre's mental model. Pouch draw
+>   = `CIRCUIT.drawStones` (3) a hand. (`circuitResetPiles`/`circuitDrawCards`/
+>   `circuitDrawStones`, `drawPile`.)
+> - **Drain is owner-locked.** A Mirror Drain card fires only from its original
+>   owner's board (`card.origOwner`, which survives Blue swaps). Stolen across, it
+>   goes inert rather than turning −1 onto the board it now sits behind — no
+>   feel-bad backfire, no reward for stealing it for its effect.
 
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live

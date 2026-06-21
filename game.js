@@ -879,18 +879,6 @@ function orderFrom(start) {
 }
 function dealOrder() { return orderFrom((G.dealer + 1) % G.nPlayers); }
 
-// Draw n stones at random from an owned pouch (a count map), returning a fresh
-// count map — the Circuit's per-hand stone draw. Drawing fewer than the pouch
-// holds is what makes the pouch a deck rather than a fixed supply.
-function drawFromPouch(pouch, n) {
-  const bag = [];
-  for (const c of STONE_KEYS) for (let i = 0; i < (pouch[c] || 0); i++) bag.push(c);
-  shuffle(bag);
-  const drawn = { red: 0, white: 0, blue: 0, black: 0 };
-  for (let i = 0; i < Math.min(n, bag.length); i++) drawn[bag[i]]++;
-  return drawn;
-}
-
 function startHand() {
   G.handNum++;
   G.events = [];
@@ -920,9 +908,9 @@ function startHand() {
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
     // The Circuit: the player (seat 0) draws a working set of stones from their
-    // owned Pouch each hand (not the whole pouch at once) — so the pouch is a
-    // deck you cycle, and a bigger pouch earned later actually forces choices.
-    else if (G.gauntlet && p === 0 && GAUNTLET.pouch) pool = drawFromPouch(GAUNTLET.pouch, CIRCUIT.drawStones);
+    // owned Pouch each hand — a depleting stone deck (draw pile → discard →
+    // reshuffle when dry), so thinning and added stones shift the draw for real.
+    else if (G.gauntlet && p === 0 && GAUNTLET.stoneDraw) pool = circuitDrawStones(CIRCUIT.drawStones);
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands) {
@@ -950,11 +938,12 @@ function startHand() {
   }
   for (let p = 0; p < G.nPlayers; p++) {
     const fixed = G.fixedHands && G.fixedHands[p];
-    // The Circuit: the player (seat 0) draws from their owned deck, reshuffled
-    // each hand, instead of the shared regional pool.
-    const owned = (G.gauntlet && p === 0 && GAUNTLET.deck && GAUNTLET.deck.length) ? shuffle(GAUNTLET.deck.slice()) : null;
+    // The Circuit: the player (seat 0) draws this hand from their owned deck — a
+    // depleting draw pile that reshuffles its discard when dry — instead of the
+    // shared regional pool. Thinning the deck cycles its bombs back faster.
+    const owned = (G.gauntlet && p === 0 && GAUNTLET.cardDraw) ? circuitDrawCards(handSizeFor(p)) : null;
     for (let k = 0; k < handSizeFor(p); k++) {
-      const dealt = owned ? (owned.pop() || active.pop()) : active.pop();
+      const dealt = owned ? (owned[k] != null ? owned[k] : active.pop()) : active.pop();
       // Owned-deck entries may be effect cards: { type, fx }. Plain entries are
       // a bare type string. The fx rider drives the per-card value pass.
       const dealtType = (dealt && typeof dealt === 'object') ? dealt.type : dealt;
@@ -964,6 +953,8 @@ function startHand() {
         type: (fixed && fixed[k]) || dealtType,
         fx: dealtFx,
         owner: p,
+        origOwner: p, // survives Blue swaps — drain only fires from its owner's board
+
         zone: 'hand',
         faceUp: false,
         stones: [],
@@ -1854,10 +1845,14 @@ function applyCardEffects() {
     }
   }
   // Pass 3: cross-board Drain (the facing same-slot card reads -1; its
-  // pair/triad eligibility is untouched — only the raw value drops).
+  // pair/triad eligibility is untouched — only the raw value drops). A Drain
+  // card only fires from its OWNER's board: stolen across (Blue swap) it goes
+  // inert rather than turning on the board it now sits behind.
   for (let i = 0; i < boards.length; i++) {
     for (let s = 0; s < boards[i].length; s++) {
-      if (boards[i][s].fx !== 'drain') continue;
+      const dc = boards[i][s];
+      if (dc.fx !== 'drain') continue;
+      if ((dc.origOwner != null ? dc.origOwner : i) !== i) continue; // stolen → inert
       for (let j = 0; j < boards.length; j++) {
         if (j === i || !boards[j][s]) continue;
         boards[j][s].evalue -= 1;
@@ -4600,6 +4595,47 @@ function circuitOpponent() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* ---- Depleting decks: both the card deck and the stone pouch are draw piles
+   that reshuffle their discard when dry. Reset at the start of each table (a
+   fresh shuffle of the whole owned deck/pouch), then cycle hand to hand. ---- */
+function circuitResetPiles() {
+  const g = GAUNTLET;
+  g.cardDraw = shuffle((g.deck || []).slice());
+  g.cardDiscard = []; g.cardHand = null;
+  g.stoneDraw = [];
+  for (const c of STONE_KEYS) for (let i = 0; i < ((g.pouch && g.pouch[c]) || 0); i++) g.stoneDraw.push(c);
+  shuffle(g.stoneDraw);
+  g.stoneDiscard = []; g.stoneHand = null;
+}
+// Draw n entries from a depleting pile (draw → discard → reshuffle when dry).
+function drawPile(draw, discard, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    if (!draw.length) {
+      if (!discard.length) break;        // both piles spent — deck smaller than n
+      while (discard.length) draw.push(discard.pop());
+      shuffle(draw);
+    }
+    out.push(draw.pop());
+  }
+  return out;
+}
+// Each hand: last hand's draw goes to the discard, then draw a fresh hand.
+function circuitDrawCards(n) {
+  const g = GAUNTLET;
+  if (g.cardHand) for (const c of g.cardHand) g.cardDiscard.push(c);
+  g.cardHand = drawPile(g.cardDraw, g.cardDiscard, n);
+  return g.cardHand;
+}
+function circuitDrawStones(n) {
+  const g = GAUNTLET;
+  if (g.stoneHand) for (const s of g.stoneHand) g.stoneDiscard.push(s);
+  g.stoneHand = drawPile(g.stoneDraw, g.stoneDiscard, n);
+  const drawn = { red: 0, white: 0, blue: 0, black: 0 };
+  for (const s of g.stoneHand) drawn[s]++;
+  return drawn;
+}
+
 function circuitRung() {
   const g = GAUNTLET;
   g.tableCleared = false; g.groundOut = false;
@@ -4607,6 +4643,7 @@ function circuitRung() {
   g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
   g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
   g.foeHp = g.foeMax;
+  circuitResetPiles(); // each table starts with a fresh shuffle of the owned deck + pouch
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
   // A very high target so the engine never ends the table via the ledger —
@@ -4850,7 +4887,8 @@ if (typeof window !== 'undefined') {
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
-    startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO, _gauntlet: () => GAUNTLET,
+    startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
+    circuitResetPiles, circuitDrawCards, circuitDrawStones, _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
