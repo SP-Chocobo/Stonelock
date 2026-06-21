@@ -153,6 +153,15 @@ g.coin = 40; g.shop = M.makeShop(); const d3 = g.deck.length;
 M.circuitShopThin(0);
 assert(g.deck.length === d3 - 1 && g.coin === 40 - M.CIRCUIT.shopThin, 'thinning at the shop removes a card for coin');
 
+// --- seeded RNG: a seed reproduces the run; lanes assigned ---
+M.seedRng(4242); const mapA = M.buildAct(1);
+M.seedRng(4242); const mapB = M.buildAct(1);
+const sig = m => m.cols.map(col => col.map(n => n.type + (n.foe || '') + n.edges.join('')).join('|')).join('/');
+assert(sig(mapA) === sig(mapB), 'the same seed builds the same act');
+M.seedRng(777); assert(sig(M.buildAct(1)) !== sig(mapA), 'a different seed builds a different act');
+M.clearRng();
+for (const col of mapA.cols) for (const n of col) assert(n.lane >= 0 && n.lane < 3, 'every node has a lane for the tree layout');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');

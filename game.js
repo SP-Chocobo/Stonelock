@@ -95,7 +95,7 @@ function personaOf(who) { return PERSONALITIES[G.names[who]] || DEFAULT_PERSONA;
 const PERS_COMPRESS = 0.5;
 function persStoneW(who, color) { return 1 + (personaOf(who)[color] - 1) * PERS_COMPRESS; }
 // Sloppiness: below-skill players occasionally make the wrong play.
-function fumbles(who) { return Math.random() > personaOf(who).skill; }
+function fumbles(who) { return rnd() > personaOf(who).skill; }
 
 // The pool a table can draw from. The Old Hand is the default partner in
 // teams, but is also a selectable regular in its own right (a defensive
@@ -162,7 +162,7 @@ const SFX = (() => {
     const len = Math.max(1, Math.floor(c.sampleRate * dur));
     const buf = c.createBuffer(1, len, c.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    for (let i = 0; i < len; i++) d[i] = (rnd() * 2 - 1) * (1 - i / len);
     const src = c.createBufferSource();
     src.buffer = buf;
     const f = c.createBiquadFilter();
@@ -256,9 +256,30 @@ function isGlobalMute() { return SFX.isMuted(); }
 
 /* ---------------- Utilities ---------------- */
 
+/* ---------------- Seeded RNG ----------------
+   A run routes ALL its randomness (shuffles, map gen, offers, AI) through a
+   seeded PRNG so it's reproducible from a seed — daily/shared runs, and steadier
+   tests. `rnd()` uses the seeded stream when one is active, else Math.random, so
+   non-run modes (Standard/Campaign) are untouched. ---- */
+let _rng = null;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seedRng(seed) { _rng = mulberry32(seed >>> 0); }
+function clearRng() { _rng = null; }
+function rnd() { return _rng ? _rng() : Math.random(); }
+let _seedCounter = 0;
+function freshSeed() { return (((Date.now() >>> 0) ^ (Math.imul(_seedCounter++, 2654435761))) >>> 0); }
+function dailySeed() { const d = new Date(); const s = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rnd() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -527,8 +548,8 @@ function archAiCommit(seat, count, faceUp) {
         else if (!second || v > second.v) second = { v, card, pos };
       }
     }
-    if (subRate && second && Math.random() < subRate) best = second;
-    if (fumbles(seat)) { best.card = p.hand[Math.floor(Math.random() * p.hand.length)]; best.pos = emptyPos[Math.floor(Math.random() * emptyPos.length)]; }
+    if (subRate && second && rnd() < subRate) best = second;
+    if (fumbles(seat)) { best.card = p.hand[Math.floor(rnd() * p.hand.length)]; best.pos = emptyPos[Math.floor(rnd() * emptyPos.length)]; }
     p.board[best.pos] = best.card;
     best.card.zone = 'board'; best.card.faceUp = faceUp;
     if (faceUp) best.card.known = best.card.known.map(() => true);
@@ -647,6 +668,7 @@ const TEAM_MODES = new Set(['teams', 'hs-team', 'hs-rivals']);
 function newGame(cfg) {
   clearTimeout(runTimer);
   INGAME = true;
+  if (!cfg.gauntlet) clearRng(); // non-run matches use true randomness; the Circuit keeps its seeded stream
   hideTitle();
   const raid = cfg.mode === 'raid';
   if (typeof Music !== 'undefined') Music.setTrack(raid ? 'boss' : 'menu'); // boss raids get their own theme; standard play keeps the menu loop unbroken
@@ -685,7 +707,7 @@ function newGame(cfg) {
     raidDiff: raid ? (cfg.raidDiff || 'standard') : null,
     ledger: 0,                      // duel/teams: positive = your side
     scores: new Array(n).fill(0),   // ffa: banked margins
-    dealer: Math.floor(Math.random() * n),
+    dealer: Math.floor(rnd() * n),
     handNum: 0,
     over: false,
     players: null,
@@ -948,7 +970,7 @@ function startHand() {
 
   // The Cursed Register: one card type is drawn and voided this hand.
   if (G.variant === 'cursed') {
-    G.cursedType = TYPES[Math.floor(Math.random() * TYPES.length)];
+    G.cursedType = TYPES[Math.floor(rnd() * TYPES.length)];
     log(`The Cursed Card is drawn: every ${G.cursedType} is voided this hand — no points, no Pairs, no Triads.`, 'sys');
   }
   for (let p = 0; p < G.nPlayers; p++) {
@@ -995,7 +1017,7 @@ function startHand() {
     const bn = playerName(1);
     const bc = bossCardCount();
     const dir = archReverse() ? 'back to front — last placed, first to fire' : 'in the order they were placed';
-    const bossN = archStones() - ((Math.random() < archHoldback()) ? 1 : 0); // may hold one back (eases the tier)
+    const bossN = archStones() - ((rnd() < archHoldback()) ? 1 : 0); // may hold one back (eases the tier)
     let order;
     if (isCrucible()) {
       // The Crucible weaves the order war: the boss opens with 2 stones, spreads the
@@ -1074,7 +1096,7 @@ function startHand() {
     // eased tiers the boss may "hold back" one stone this hand.
     const RAID_ORDER = raidDiff().order.slice();
     const holdback = RAID_HOLDBACK[`${G.raidBoss}-${G.raidDiff}`] || 0;
-    if (holdback && Math.random() < holdback) {
+    if (holdback && rnd() < holdback) {
       const i = RAID_ORDER.lastIndexOf(1); // drop the boss's last (unanswered) stone
       if (i >= 0) RAID_ORDER.splice(i, 1);
     }
@@ -1088,7 +1110,7 @@ function startHand() {
     }
     // The Quartermaster carries a few extra rationed stones (its denial otherwise
     // eases it) — a probabilistic last-word bonus this hand.
-    if (G.raidBoss === 'quartermaster' && Math.random() < (QM_BONUS[G.raidDiff] || 0)) {
+    if (G.raidBoss === 'quartermaster' && rnd() < (QM_BONUS[G.raidDiff] || 0)) {
       RAID_ORDER.push(1);
     }
     const tn = { 0: 0, 1: 0, 2: 0 };
@@ -1946,7 +1968,7 @@ function markCharmSeen(key) { const r = circuitRecords(); if (!r.seen[key]) { r.
 function charmSeen(key) { return !!circuitRecords().seen[key]; }
 function recordCircuitRun(g) {
   const r = circuitRecords();
-  r.runs.unshift({ tables: g.cleared || 0, score: g.score || 0, foe: g.opp || '', venue: g.venue || '', act: g.act || 1, won: !!g.won, charms: (g.charms || []).slice(), t: Date.now() });
+  r.runs.unshift({ tables: g.cleared || 0, score: g.score || 0, foe: g.opp || '', venue: g.venue || '', act: g.act || 1, won: !!g.won, seed: g.seed >>> 0, charms: (g.charms || []).slice(), t: Date.now() });
   r.runs = r.runs.slice(0, 20); // keep the last 20
   if (g.won) r.best.wins = (r.best.wins || 0) + 1;
   r.best.tables = Math.max(r.best.tables, g.cleared || 0);
@@ -2096,7 +2118,7 @@ function aiStonePreference(who) {
   const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
   const enemiesShowedValue = opponentsOf(who).some(o => G.players[o].declared.some(c => c === 'red' || c === 'blue'));
   const pers = personaOf(who);
-  if (Math.random() < pers.bluff) return shuffle(STONE_KEYS.slice()); // a telegraph that means nothing
+  if (rnd() < pers.bluff) return shuffle(STONE_KEYS.slice()); // a telegraph that means nothing
   const weights = {
     red: (hasPair ? 2.4 : 1.0) * persStoneW(who, 'red'),
     white: (threatened ? 2.6 : 1.3) * persStoneW(who, 'white'),
@@ -2121,7 +2143,7 @@ function weightedOrder(keys, weights) {
   const pool = keys.slice();
   const out = [];
   while (pool.length) {
-    let ball = Math.random() * pool.reduce((s, k) => s + weights[k], 0);
+    let ball = rnd() * pool.reduce((s, k) => s + weights[k], 0);
     for (let i = 0; i < pool.length; i++) {
       ball -= weights[pool[i]];
       if (ball <= 0) { out.push(pool.splice(i, 1)[0]); break; }
@@ -2190,8 +2212,8 @@ function aiChooseDeploy(who, count, faceUp) {
     const keep = sorted.slice(0, fp);
     // A less practiced player keeps the wrong card now and then.
     if (sorted.length > fp && fumbles(who)) {
-      keep[Math.floor(Math.random() * keep.length)] =
-        sorted[fp + Math.floor(Math.random() * (sorted.length - fp))];
+      keep[Math.floor(rnd() * keep.length)] =
+        sorted[fp + Math.floor(rnd() * (sorted.length - fp))];
     }
     const threatened = opponentsOf(who).some(o => G.players[o].declared.includes('blue'));
     const exposable = keep.slice().sort((a, b) => {
@@ -2236,7 +2258,7 @@ function aiThin(who) {
   const scores = p.declared.map(color => aiStoneValue(who, color));
   let worst = 0;
   for (let i = 1; i < scores.length; i++) if (scores[i] < scores[worst]) worst = i;
-  if (fumbles(who)) worst = Math.floor(Math.random() * p.declared.length);
+  if (fumbles(who)) worst = Math.floor(rnd() * p.declared.length);
   const color = p.declared[worst];
   p.removed = color;
   p.declared.splice(worst, 1);
@@ -2405,7 +2427,7 @@ function aiPlace(who) {
   }
   for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice
   options.sort((a, b) => b.value - a.value);
-  const chosen = fumbles(who) ? options[Math.floor(Math.random() * options.length)] : options[0];
+  const chosen = fumbles(who) ? options[Math.floor(rnd() * options.length)] : options[0];
   consumeActive(who, chosen.color);
   if (chosen.fizzle) {
     log(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect. It passes.`, 'ai');
@@ -4736,8 +4758,13 @@ function circuitOfferCards(n) {
 let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
 function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
-function startCircuit() {
+let circuitSeed = 0;
+function startCircuit(seed) {
   if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
+  // Seed the run BEFORE dealing options, so the seed reproduces the whole run
+  // (loadout offers, map, fights, AI). An explicit seed = a shared/daily run.
+  circuitSeed = (seed != null) ? (seed >>> 0) : freshSeed();
+  seedRng(circuitSeed);
   // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
   const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
   circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5), picks: [] };
@@ -4751,14 +4778,20 @@ function circuitIntro() {
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
   $('circuitStats').className = 'victoryunlocks';
   $('circuitTitle').textContent = 'The Circuit';
-  $('circuitText').textContent = 'An endless gauntlet of tables — outfit a stone pouch and a deck, then climb as far as your Standing carries you. Each table brings a new foe and a new venue, and every run deals a fresh hand of options.';
+  $('circuitText').textContent = 'A run of three acts — outfit a stone pouch and a deck, choose your path through each act to its boss, and build as you climb. This run is seeded: the same seed plays the same run.';
   const stats = $('circuitStats'); stats.innerHTML = '';
   const rec = circuitRecords(), nCharms = Object.keys(CHARMS).length, seen = Object.keys(rec.seen).length;
   const line = document.createElement('div'); line.className = 'unlockitem';
-  line.innerHTML = `Best: <b>${rec.best.tables}</b> table${rec.best.tables === 1 ? '' : 's'} · <b>${rec.best.score}</b> score · charms found <b>${seen}/${nCharms}</b>`;
+  line.innerHTML = `Best: <b>${rec.best.tables}</b> node${rec.best.tables === 1 ? '' : 's'} · <b>${rec.best.score}</b> score · charms found <b>${seen}/${nCharms}</b>`;
   stats.appendChild(line);
+  const seedline = document.createElement('div'); seedline.className = 'unlockitem';
+  seedline.innerHTML = `Seed: <b>${circuitSeed >>> 0}</b>`;
+  stats.appendChild(seedline);
+  const btns = document.createElement('div'); btns.className = 'introbtns';
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
-  stats.appendChild(rb);
+  const daily = document.createElement('button'); daily.className = 'btn recordsbtn'; daily.textContent = "Today's daily run"; daily.onclick = () => startCircuit(dailySeed());
+  btns.appendChild(rb); btns.appendChild(daily);
+  stats.appendChild(btns);
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
   $('circuitModal').classList.add('open');
@@ -4777,7 +4810,7 @@ function showCircuitRecords() {
     `</div></div>`;
   html += `<div class="ldsection"><div class="ldhead">Recent runs</div>`;
   html += rec.runs.length
-    ? `<div class="rechist">` + rec.runs.map(r => `<div class="recrow"><span class="recrow-t">${r.tables} table${r.tables === 1 ? '' : 's'}</span><span class="recrow-s">${r.score} pts</span><span class="recrow-f">fell to ${r.foe || '—'}${r.venue ? ' · ' + (VENUES[r.venue] ? VENUES[r.venue].label : r.venue) : ''}</span></div>`).join('') + `</div>`
+    ? `<div class="rechist">` + rec.runs.map(r => `<div class="recrow"><span class="recrow-t">${r.won ? '★ ' : ''}${r.tables} node${r.tables === 1 ? '' : 's'}</span><span class="recrow-s">${r.score} pts</span><span class="recrow-f">${r.won ? 'conquered the Circuit' : 'fell to ' + (r.foe || '—')}${r.seed != null ? ' · seed ' + (r.seed >>> 0) : ''}</span></div>`).join('') + `</div>`
     : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
   html += `</div>`;
   html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${seen}/${all.length}</div><div class="compendium">` +
@@ -4865,7 +4898,7 @@ function circuitLoadoutScreen() {
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
-  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null };
+  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed };
   GAUNTLET.map = buildAct(1);
   circuitMapScreen();
 }
@@ -4873,8 +4906,8 @@ function circuitBegin() {
 /* ---- The run map: each act is a few columns of nodes you path through to a
    boss. Node types: duel / elite (tougher + foe charms) / event (the interlude)
    / boss (act-ender). Finite acts bound the run (and the snowball). ---- */
-function rollNodeType() { const r = Math.random(); if (r < 0.22) return 'elite'; if (r < 0.45) return 'event'; return 'duel'; }
-function pickFoe() { return BOT_POOL[Math.floor(Math.random() * BOT_POOL.length)]; }
+function rollNodeType() { const r = rnd(); if (r < 0.22) return 'elite'; if (r < 0.45) return 'event'; return 'duel'; }
+function pickFoe() { return BOT_POOL[Math.floor(rnd() * BOT_POOL.length)]; }
 // Elites/bosses carry persona-appropriate charms; earlier acts carry none.
 function nodeFoeCharms(type, act, foe) {
   const n = (type === 'elite') ? Math.min(2, Math.max(0, act - 1))
@@ -4904,19 +4937,27 @@ function linkColumns(A, B) {
     }
   }
   for (let i = 0; i < a; i++) { // a little branching: a 2nd nearby edge sometimes
-    if (Math.random() < 0.4) { const alt = A[i].edges[0] + (Math.random() < 0.5 ? -1 : 1); if (alt >= 0 && alt < b && !A[i].edges.includes(alt)) A[i].edges.push(alt); }
+    if (rnd() < 0.4) { const alt = A[i].edges[0] + (rnd() < 0.5 ? -1 : 1); if (alt >= 0 && alt < b && !A[i].edges.includes(alt)) A[i].edges.push(alt); }
   }
   A.forEach(n => n.edges.sort((x, y) => x - y));
+}
+const MAP_LANES = 3; // vertical slots — nodes sit in lanes so paths visibly branch
+function laneFor(count, i) {
+  if (count >= MAP_LANES) return i;
+  if (count === 1) return 1;          // a lone node rides the middle lane
+  return i === 0 ? 0 : MAP_LANES - 1; // two nodes hug the top and bottom lanes
 }
 function buildAct(act) {
   const N = CIRCUIT.actRows, cols = [];
   for (let c = 0; c < N; c++) {
-    if (c === N - 1) { cols.push([mkNode('boss', c, 0, act)]); break; }       // the act boss
-    if (c === N - 2) { cols.push([mkNode('shop', c, 0, act)]); continue; }    // a shop before the boss
-    if (c === 0) { cols.push([mkNode('duel', c, 0, act)]); continue; }        // a safe opener
-    const count = 2 + (Math.random() < 0.5 ? 1 : 0);
-    const arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, i, act));
+    let arr;
+    if (c === N - 1) arr = [mkNode('boss', c, 0, act)];        // the act boss
+    else if (c === N - 2) arr = [mkNode('shop', c, 0, act)];   // a shop before the boss
+    else if (c === 0) arr = [mkNode('duel', c, 0, act)];       // a safe opener
+    else { const count = 2 + (rnd() < 0.5 ? 1 : 0); arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, i, act)); }
+    arr.forEach((n, i) => { n.lane = laneFor(arr.length, i); });
     cols.push(arr);
+    if (c === N - 1) break;
   }
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
@@ -4931,7 +4972,7 @@ function circuitReachable(m) {
 
 function circuitOpponent() {
   const pool = BOT_POOL.filter(n => n !== GAUNTLET.opp); // no immediate repeat
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(rnd() * pool.length)];
 }
 
 // Each regular fields a build that matches their habits — a leaning 4-stone
@@ -5078,9 +5119,11 @@ function circuitMapScreen() {
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
   const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
   const grid = document.createElement('div'); grid.className = 'mapgrid';
-  m.cols.forEach((col, ci) => {
+  m.cols.forEach((col) => {
     const colEl = document.createElement('div'); colEl.className = 'mapcol';
-    col.forEach(node => {
+    for (let lane = 0; lane < MAP_LANES; lane++) {            // fixed lanes → diagonal branches
+      const node = col.find(n => n.lane === lane);
+      if (!node) { const sp = document.createElement('div'); sp.className = 'mapslot'; colEl.appendChild(sp); continue; }
       const here = m.pos && m.pos.col === node.col && m.pos.idx === node.idx;
       const ok = reach.has(node.col + ',' + node.idx);
       const b = document.createElement('button');
@@ -5090,7 +5133,7 @@ function circuitMapScreen() {
       b.innerHTML = mapNodeHtml(node);
       if (ok) b.onclick = () => circuitEnterNode(node);
       colEl.appendChild(b);
-    });
+    }
     grid.appendChild(colEl);
   });
   body.appendChild(grid);
@@ -5647,11 +5690,11 @@ function circuitScreen(over) {
   if (over) {
     SFX.play('lose');
     title.textContent = 'The Circuit ends';
-    text.textContent = `You worked ${g.cleared} table${g.cleared === 1 ? '' : 's'} before ${g.opp} wore your Standing down at ${VENUES[g.venue].label}.`;
+    text.textContent = `You cleared ${g.cleared} node${g.cleared === 1 ? '' : 's'} before ${g.opp} wore your Standing down at ${VENUES[g.venue].label}.`;
     stats.innerHTML = `<div class="unlockhead">Run Chronicle</div>` +
-      `<div class="unlockitem">Tables cleared: <b>${g.cleared}</b></div>` +
+      `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b> (act ${g.act})</div>` +
       `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
-      `<div class="unlockitem">Fell at <b>Table ${g.rung}</b> — ${VENUES[g.venue].label}, vs ${g.opp}</div>`;
+      `<div class="unlockitem">Seed: <b>${g.seed >>> 0}</b></div>`;
     const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
     stats.appendChild(rb);
     next.textContent = 'Run it again';
@@ -5874,6 +5917,7 @@ if (typeof window !== 'undefined') {
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
+    seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
