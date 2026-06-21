@@ -457,6 +457,19 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 >   untouched. **Still open:** placement is bounded to *within* the face-up/hidden
 >   groups, so a Drain can't always reach a slot outside its group — full-board
 >   slot freedom + reacting to the foe's hidden/late commits is the next depth.
+> - **The run builds (between-table economy).** Most cleared tables open a spoils
+>   screen (`makeReward` → pick 1 of 3 effect cards and 1 of 2 stones, or skip),
+>   appending to the owned deck/pouch so the depleting draw reshapes as you climb.
+>   Every `CIRCUIT.eventEvery` (4) cleared tables an **interlude event** replaces
+>   the spoils: choose one of **remove a card** (floored at `deckFloor`), **remove
+>   a stone** (floored at `drawStones`, so you can't drop below a full draw),
+>   **heal** `ceil(60% of maxStanding)` (offered only below full), or **move a
+>   modifier** (lift an fx off one card onto a plain one — the Wildfrost attach).
+>   Rhythm: gain, gain, gain, refine. Both screens carry a "Review deck & pouch"
+>   button (opens the viewer over the screen, returns with the selection intact)
+>   for informed choices. Thinning + move-mod are the deckbuilding verbs the
+>   depleting decks were built to reward. **Next:** shops/charms, and an event
+>   that adds a stone *variant*, are the natural economy expansions.
 
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live

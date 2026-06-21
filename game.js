@@ -4566,6 +4566,7 @@ function renderRaidSetup() {
 const CIRCUIT = {
   startStanding: 14, maxStanding: 14, dmgCap: 6, heal: 3, foeBase: 10, foeStep: 1, drawStones: 3,
   rewardCards: 3, rewardStones: 2, // between-table spoils: pick one of each (or skip)
+  eventEvery: 4, deckFloor: 6,     // every Nth cleared table is an interlude event; don't thin the deck below this
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -4814,8 +4815,10 @@ function circuitEnd() {
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
     g.rung++;
     g.opp = circuitOpponent(); // pre-pick the next foe so the between screen can reveal the matchup
-    g.reward = makeReward();    // spoils to choose before the next table
-    circuitRewardScreen();
+    // Rhythm: most cleared tables offer spoils (gain); every Nth is an interlude
+    // event (refine your build, or recover).
+    if (g.cleared % CIRCUIT.eventEvery === 0) { g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); }
+    else { g.reward = makeReward(); circuitRewardScreen(); }
   } else {
     g.active = false;
     circuitScreen(true);
@@ -4914,6 +4917,156 @@ function circuitTakeRewardAndAdvance() {
     if (r.stonePick) g.pouch = Object.assign({}, g.pouch, { [r.stonePick]: (g.pouch[r.stonePick] || 0) + 1 });
     g.reward = null;
   }
+  circuitRung();
+}
+
+/* ---- The interlude event: choose one of remove a card / remove a stone /
+   heal / move a modifier. Refine the build, or recover. ---- */
+function specType(s) { return (s && typeof s === 'object') ? s.type : s; }
+function specFx(s) { return (s && typeof s === 'object') ? s.fx : null; }
+function specVal(s) { return specFx(s) === 'anchor' ? CIRCUIT_ANCHOR : ((REGIONS.bar.values[specType(s)] != null) ? REGIONS.bar.values[specType(s)] : 2); }
+function circuitHealAmount() { return Math.ceil(GAUNTLET.maxStanding * 0.6); }
+function pouchTotal(p) { return STONE_KEYS.reduce((s, c) => s + ((p && p[c]) || 0), 0); }
+// What the event can currently offer (each guarded so it can't footgun).
+function eventAvail() {
+  const g = GAUNTLET;
+  return {
+    heal: g.standing < g.maxStanding,
+    removeCard: g.deck.length > CIRCUIT.deckFloor,
+    removeStone: pouchTotal(g.pouch) > CIRCUIT.drawStones,
+    moveMod: g.deck.some(specFx) && g.deck.some(s => !specFx(s)),
+  };
+}
+// Is the currently-selected event action fully specified (confirm-ready)?
+function eventReady() {
+  const ev = GAUNTLET.event; if (!ev || !ev.choice) return false;
+  switch (ev.choice) {
+    case 'heal': return true;
+    case 'removeCard': return ev.cardIdx != null;
+    case 'removeStone': return ev.stoneColor != null;
+    case 'moveMod': return ev.srcIdx != null && ev.dstIdx != null;
+  }
+  return false;
+}
+
+function circuitEventScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  if (!g.event) g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null };
+  const ev = g.event;
+  const avail = eventAvail();
+  SFX.play('win');
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
+  $('circuitTitle').textContent = 'An Interlude';
+  $('circuitText').textContent = `A table between tables — refine your hand or recover. Up next: ${g.opp} at ${VENUES[nv] ? VENUES[nv].label : nv}. Choose one.`;
+  const body = $('circuitStats');
+  body.className = 'circuitload';
+  body.innerHTML = '';
+
+  // The four options as selectable tiles.
+  const opts = [
+    { key: 'removeCard', label: 'Remove a card', note: 'Thin the deck — cycle to your best faster.', ok: avail.removeCard },
+    { key: 'removeStone', label: 'Remove a stone', note: 'Thin the pouch — draw what matters more often.', ok: avail.removeStone },
+    { key: 'heal', label: `Heal +${circuitHealAmount()}`, note: `Restore ${circuitHealAmount()} Standing (60% of max).`, ok: avail.heal },
+    { key: 'moveMod', label: 'Move a modifier', note: 'Lift an effect off one card onto a plain one.', ok: avail.moveMod },
+  ];
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  for (const o of opts) {
+    const b = document.createElement('button');
+    b.className = 'eventopt' + (ev.choice === o.key ? ' selected' : '') + (o.ok ? '' : ' disabled');
+    b.disabled = !o.ok;
+    b.innerHTML = `<div class="eventopt-l">${o.label}</div><div class="eventopt-n">${o.note}</div>`;
+    b.onclick = () => { ev.choice = o.key; ev.cardIdx = ev.stoneColor = ev.srcIdx = ev.dstIdx = null; circuitEventScreen(); };
+    orow.appendChild(b);
+  }
+  body.appendChild(orow);
+
+  // The picker for the chosen option.
+  if (ev.choice === 'removeCard') body.appendChild(eventCardPicker('Remove which card?', i => ev.cardIdx === i, i => { ev.cardIdx = ev.cardIdx === i ? null : i; circuitEventScreen(); }));
+  else if (ev.choice === 'removeStone') body.appendChild(eventStonePicker());
+  else if (ev.choice === 'heal') { const d = document.createElement('div'); d.className = 'ldnote'; d.textContent = `You will restore ${circuitHealAmount()} Standing (to ${Math.min(g.maxStanding, g.standing + circuitHealAmount())}/${g.maxStanding}).`; body.appendChild(d); }
+  else if (ev.choice === 'moveMod') {
+    body.appendChild(eventCardPicker('Take the modifier from…', i => ev.srcIdx === i, i => { ev.srcIdx = ev.srcIdx === i ? null : i; if (ev.dstIdx === i) ev.dstIdx = null; circuitEventScreen(); }, s => !!specFx(s)));
+    if (ev.srcIdx != null) body.appendChild(eventCardPicker(`…onto which plain card? (gains ${FX_INFO[specFx(g.deck[ev.srcIdx])].label})`, i => ev.dstIdx === i, i => { ev.dstIdx = ev.dstIdx === i ? null : i; circuitEventScreen(); }, s => !specFx(s)));
+  }
+
+  // Review your decks before committing.
+  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
+  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
+  rb.onclick = () => showDeckView('full');
+  rev.appendChild(rb);
+  body.appendChild(rev);
+
+  const next = $('circuitNext');
+  const anyAvail = avail.heal || avail.removeCard || avail.removeStone || avail.moveMod;
+  next.disabled = anyAvail && !eventReady();
+  next.textContent = !anyAvail ? 'Move on ›' : eventReady() ? 'Confirm ›' : 'Choose an option';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// A grid of the owned deck's individual cards (optionally filtered), for the
+// remove / move pickers.
+function eventCardPicker(head, isSel, onPick, filter) {
+  const g = GAUNTLET;
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">${head}</div>`;
+  const row = document.createElement('div'); row.className = 'ldcards';
+  g.deck.forEach((s, i) => {
+    if (filter && !filter(s)) return;
+    const type = specType(s), fx = specFx(s), v = specVal(s);
+    const info = fx ? (FX_INFO[fx] || { label: fx }) : null;
+    const el = document.createElement('div');
+    el.className = 'card faceup loadcard' + (isSel(i) ? ' selected' : '');
+    el.innerHTML = `<div class="cval val-${v}">${v}</div>${info ? `<div class="cfx cfx-${fx}">${info.label}</div>` : ''}<div class="cicon icon-${type}"></div><div class="cname">${type}</div>`;
+    el.onclick = () => onPick(i);
+    row.appendChild(el);
+  });
+  sec.appendChild(row);
+  return sec;
+}
+
+function eventStonePicker() {
+  const g = GAUNTLET, ev = g.event;
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">Remove which stone?</div>`;
+  const row = document.createElement('div'); row.className = 'ldpouches';
+  for (const color of STONE_KEYS) {
+    const n = g.pouch[color] || 0; if (!n) continue;
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
+    b.title = `${STONES[color].name} — ${STONES[color].power}`;
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
+    b.appendChild(cluster);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')} ×${n}`;
+    b.appendChild(lab);
+    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
+    row.appendChild(b);
+  }
+  sec.appendChild(row);
+  return sec;
+}
+
+// Apply the chosen interlude action, then set the next table.
+function circuitTakeEventAndAdvance() {
+  const g = GAUNTLET, ev = g.event;
+  if (ev && ev.choice && eventReady()) {
+    if (ev.choice === 'heal') g.standing = Math.min(g.maxStanding, g.standing + circuitHealAmount());
+    else if (ev.choice === 'removeCard' && g.deck.length > CIRCUIT.deckFloor) g.deck = g.deck.slice(0, ev.cardIdx).concat(g.deck.slice(ev.cardIdx + 1));
+    else if (ev.choice === 'removeStone' && pouchTotal(g.pouch) > CIRCUIT.drawStones && g.pouch[ev.stoneColor] > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1 });
+    else if (ev.choice === 'moveMod') {
+      const fx = specFx(g.deck[ev.srcIdx]);
+      if (fx && !specFx(g.deck[ev.dstIdx])) {
+        const deck = g.deck.slice();
+        deck[ev.srcIdx] = specType(deck[ev.srcIdx]);                       // source becomes plain
+        deck[ev.dstIdx] = { type: specType(deck[ev.dstIdx]), fx };          // destination gains the rider
+        g.deck = deck;
+      }
+    }
+  }
+  g.event = null;
   circuitRung();
 }
 
@@ -5184,6 +5337,7 @@ if (typeof window !== 'undefined') {
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
+    circuitTakeEventAndAdvance, circuitHealAmount,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

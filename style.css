@@ -1176,6 +1176,15 @@ body[data-compact="1"] .board .cfx { display: none; }
 .rewardstone { flex-direction: column; gap: 5px; min-width: 84px; }
 .rewardlab { font-family: 'Cinzel', Georgia, serif; font-size: 11px; color: var(--parchment); }
 .rewardreview { text-align: center; margin-top: 4px; }
+/* Interlude event: the four choice tiles. */
+.eventopts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 12px; }
+.eventopt { flex: 1 1 200px; max-width: 240px; text-align: left; padding: 10px 12px; cursor: pointer;
+  background: rgba(20,14,8,0.6); border: 1px solid var(--gold-dim); border-radius: 9px; transition: all 0.12s ease; }
+.eventopt:hover:not(.disabled) { border-color: var(--gold-bright); background: rgba(40,30,17,0.8); }
+.eventopt.selected { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
+.eventopt.disabled { opacity: 0.4; cursor: default; }
+.eventopt-l { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 14px; }
+.eventopt-n { font-size: 11.5px; color: var(--parchment-dim); margin-top: 3px; }
 
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;

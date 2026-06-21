@@ -114,7 +114,9 @@ function whiteOverBlue(name) {
   G = setup('docks', [name, 'The Deckhand']);
   G.players[0].board = [card('Coin', null, 0), card('Coin', 'keen', 0), card('Quill', null, 0)];
   G.players[1].board = [card('Bread', null, 1), card('Bread', null, 1), card('Quill', null, 1)];
-  G.players[0].hand = [];
+  // Clear any random telegraphs newGame's partial play left, so `threatened`
+  // (which flips White's base value) is deterministic across runs.
+  for (const pl of G.players) { pl.hand = []; pl.declared = []; pl.active = []; }
   M.applyCardEffects();
   return ai.aiStoneValue(0, 'white') / ai.aiStoneValue(0, 'blue');
 }

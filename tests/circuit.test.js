@@ -184,4 +184,41 @@ assert(g.piles[0].cardDraw.length + g.piles[0].cardDiscard.length + (g.piles[0].
 const fx = M.makeReward();
 assert(fx.cards.length === 3 && fx.stones.length === 2, 'a spoils offer is 3 cards and 2 stones');
 
+// --- interlude event: thin a card, thin a stone, heal, move a modifier ---
+M.startCircuit();
+g = M._gauntlet();
+// heal restores 60% of max, rounded up, capped at max
+g.standing = 2;
+assert(M.circuitHealAmount() === Math.ceil(g.maxStanding * 0.6), 'heal is ceil(60% of max Standing)');
+g.event = { choice: 'heal' };
+M.circuitTakeEventAndAdvance();
+g = M._gauntlet();
+assert(g.standing === 2 + Math.ceil(g.maxStanding * 0.6), 'healing restores the rounded-up 60%');
+// remove a card thins the owned deck
+const dN = g.deck.length;
+g.event = { choice: 'removeCard', cardIdx: 0 };
+M.circuitTakeEventAndAdvance();
+g = M._gauntlet();
+assert(g.deck.length === dN - 1, 'remove-a-card thins the owned deck by one');
+// move a modifier: lift the fx off an effect card onto a plain one
+const srcI = g.deck.findIndex(s => s && typeof s === 'object' && s.fx);
+const dstI = g.deck.findIndex(s => !(s && typeof s === 'object' && s.fx));
+const movedFx = g.deck[srcI].fx;
+g.event = { choice: 'moveMod', srcIdx: srcI, dstIdx: dstI };
+M.circuitTakeEventAndAdvance();
+g = M._gauntlet();
+assert(!(g.deck[srcI] && typeof g.deck[srcI] === 'object' && g.deck[srcI].fx), 'the source card is left plain after a move');
+assert(g.deck[dstI] && g.deck[dstI].fx === movedFx, 'the destination card gains the moved modifier');
+// remove a stone is floored at the draw size (no footgun below drawStones)
+g.pouch = { red: 1, white: 1, blue: 1 }; // exactly at the floor (3)
+g.event = { choice: 'removeStone', stoneColor: 'red' };
+M.circuitTakeEventAndAdvance();
+g = M._gauntlet();
+assert((g.pouch.red || 0) === 1, 'removing a stone is refused at the draw-size floor');
+g.pouch = { red: 2, white: 1, blue: 1 }; // 4 — above the floor
+g.event = { choice: 'removeStone', stoneColor: 'red' };
+M.circuitTakeEventAndAdvance();
+g = M._gauntlet();
+assert((g.pouch.red || 0) === 1, 'removing a stone above the floor thins the pouch');
+
 console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');
