@@ -416,6 +416,22 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 >   owner's board (`card.origOwner`, which survives Blue swaps). Stolen across, it
 >   goes inert rather than turning −1 onto the board it now sits behind — no
 >   feel-bad backfire, no reward for stealing it for its effect.
+> - **Opponents field builds too (`CIRCUIT_BUILDS`).** Each regular brings a
+>   leaning 4-stone pouch + two themed effect cards in an otherwise one-of-each
+>   deck, and draws from the **same depleting piles** as the player (per-seat
+>   `g.piles[seat]`, drawing 3 stones / a hand of cards). This also right-sized
+>   the foe's stone economy from the old 2-of-each (8/hand) down to a fair 3.
+>   Effect *decks* on foes were gated behind the AI pass below; that pass is now
+>   done, so they ship together.
+> - **AI is effect-value aware, allied and opposing.** `applyCardEffects` feeds a
+>   per-card `evalue` that flows through `knownBoardFor`→`estimate`→`sideSwing`,
+>   so every stone decision (Red/White/Blue/Black targeting) values and plays
+>   around Anchor/Keen/Lodestone/Drain; `aiChooseDeploy` scores cards with layered
+>   priorities (base value → set potential → effect rider) so the AI *keeps* the
+>   effect cards that pay. **Insulated from regular/campaign by construction:**
+>   `evalue == regionVal` without effect cards (which only exist on Circuit decks),
+>   so base-game scoring/AI is numerically unchanged — verified by the full test
+>   suite + AI battery holding their band.
 
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live

@@ -122,26 +122,45 @@ assert(fxInDeck === 2, 'the owned deck carries the two chosen effect cards');
 M.startCircuit();
 g = M._gauntlet();
 M.circuitResetPiles();
+let you = g.piles[0];
 const deckN = g.deck.length;
-assert(g.cardDraw.length === deckN && g.cardDiscard.length === 0 && g.cardHand === null, 'reset shuffles the whole deck into the draw pile');
+assert(you.cardDraw.length === deckN && you.cardDiscard.length === 0 && you.cardHand === null, 'reset shuffles the whole deck into the draw pile');
 M.circuitDrawCards(4);
-assert(g.cardDraw.length === deckN - 4 && g.cardDiscard.length === 0, 'drawn cards leave the draw pile; nothing discarded yet');
-assert(g.cardHand.length === 4, 'a hand of 4 was drawn');
+assert(you.cardDraw.length === deckN - 4 && you.cardDiscard.length === 0, 'drawn cards leave the draw pile; nothing discarded yet');
+assert(you.cardHand.length === 4, 'a hand of 4 was drawn');
 M.circuitDrawCards(4);
-assert(g.cardDiscard.length === 4, "the previous hand discards before the next draw");
+assert(you.cardDiscard.length === 4, "the previous hand discards before the next draw");
 // keep drawing through a reshuffle; the deck is always conserved
 for (let i = 0; i < 12; i++) M.circuitDrawCards(4);
-assert(g.cardDraw.length + g.cardDiscard.length + g.cardHand.length === deckN, 'cards are conserved across reshuffles (no loss, no duplication)');
-assert(g.cardDiscard.length > 0 && g.cardDraw.length >= 0, 'the discard reshuffles back in once the draw pile runs dry');
+assert(you.cardDraw.length + you.cardDiscard.length + you.cardHand.length === deckN, 'cards are conserved across reshuffles (no loss, no duplication)');
+assert(you.cardDiscard.length > 0 && you.cardDraw.length >= 0, 'the discard reshuffles back in once the draw pile runs dry');
 
 // stones deplete the same way: a 4-stone pouch, drawing 3, cycles and conserves
 const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 const pouchN = STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0);
 M.circuitResetPiles();
-assert(g.stoneDraw.length === pouchN, 'reset flattens the whole pouch into the stone draw pile');
+you = g.piles[0];
+assert(you.stoneDraw.length === pouchN, 'reset flattens the whole pouch into the stone draw pile');
 const d1 = M.circuitDrawStones(3);
 assert(STONE_KEYS.reduce((s, c) => s + d1[c], 0) === 3, 'draws a 3-stone working set');
 for (let i = 0; i < 8; i++) M.circuitDrawStones(3);
-assert(g.stoneDraw.length + g.stoneDiscard.length + g.stoneHand.length === pouchN, 'stones are conserved across reshuffles');
+assert(you.stoneDraw.length + you.stoneDiscard.length + you.stoneHand.length === pouchN, 'stones are conserved across reshuffles');
+
+// --- the opponent fields its own build (depleting deck + leaning pouch) ---
+M.startCircuit();
+M.circuitRung(); // sets up an opponent build for the current table
+g = M._gauntlet();
+assert(g.piles[1], 'the foe has its own pile set');
+assert(g.oppDeck.length === 10, 'the foe owns a 10-card deck (one of each + 2 effect cards)');
+const p1 = g.piles[1];
+assert(p1.cardDraw.length + p1.cardDiscard.length + (p1.cardHand ? p1.cardHand.length : 0) === 10, 'the foe deck is conserved through the deal');
+const oppPouchN = STONE_KEYS.reduce((s, c) => s + (g.oppPouch[c] || 0), 0);
+assert(oppPouchN === 4, 'the foe pouch holds 4 stones');
+const G2 = M._state();
+assert(STONE_KEYS.reduce((s, c) => s + (G2.players[1].pool[c] || 0), 0) === 3, 'the foe also draws a 3-stone working set, not the default 8');
+// a named build is themed (the Ferryman leans Blue and runs an effect card)
+const fb = M.circuitBuildFor('The Ferryman');
+assert(fb.pouch.blue >= 2, "the Ferryman's build leans Blue");
+assert(fb.deck.filter(c => c && typeof c === 'object' && c.fx).length === 2, 'a named build packs two effect cards');
 
 console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');

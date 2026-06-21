@@ -907,10 +907,10 @@ function startHand() {
     let pool = { red: 2, white: 2, blue: 2, black: 2 };
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
-    // The Circuit: the player (seat 0) draws a working set of stones from their
-    // owned Pouch each hand — a depleting stone deck (draw pile → discard →
-    // reshuffle when dry), so thinning and added stones shift the draw for real.
-    else if (G.gauntlet && p === 0 && GAUNTLET.stoneDraw) pool = circuitDrawStones(CIRCUIT.drawStones);
+    // The Circuit: each seat with a build (you AND the foe) draws a working set
+    // of stones from its own Pouch each hand — a depleting stone deck (draw →
+    // discard → reshuffle when dry), so thinning and added stones shift the draw.
+    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones);
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands) {
@@ -938,10 +938,10 @@ function startHand() {
   }
   for (let p = 0; p < G.nPlayers; p++) {
     const fixed = G.fixedHands && G.fixedHands[p];
-    // The Circuit: the player (seat 0) draws this hand from their owned deck — a
-    // depleting draw pile that reshuffles its discard when dry — instead of the
-    // shared regional pool. Thinning the deck cycles its bombs back faster.
-    const owned = (G.gauntlet && p === 0 && GAUNTLET.cardDraw) ? circuitDrawCards(handSizeFor(p)) : null;
+    // The Circuit: each seat with a build draws this hand from its own owned
+    // deck — a depleting draw pile that reshuffles its discard when dry —
+    // instead of the shared regional pool. Thinning cycles its bombs back faster.
+    const owned = (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) ? pileDrawCards(GAUNTLET.piles[p], handSizeFor(p)) : null;
     for (let k = 0; k < handSizeFor(p); k++) {
       const dealt = owned ? (owned[k] != null ? owned[k] : active.pop()) : active.pop();
       // Owned-deck entries may be effect cards: { type, fx }. Plain entries are
@@ -1812,6 +1812,8 @@ function stoneHasValidTarget(color) {
 /* ---------------- AI ---------------- */
 
 function regionVal(type) { return G.region.values[type]; }
+// A card's effective value: its computed evalue (effect cards) or the venue value.
+function effVal(card) { return (card && card.evalue != null) ? card.evalue : regionVal(card.type); }
 
 // Effect cards: a card may carry an `fx` rider that shifts effective value.
 const CIRCUIT_ANCHOR = 2; // Anchor pins a card to this value regardless of venue
@@ -1830,14 +1832,16 @@ function applyCardEffects() {
   if (!G.players) return;
   const boards = G.players.map(p => p.board);
   // Pass 1: base value (Anchor pins to a fixed floor; else the venue value).
+  // (Boards may hold null slots mid-deal — e.g. the Archivist queue — so guard.)
   for (const board of boards) {
-    for (const c of board) c.evalue = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
+    for (const c of board) if (c) c.evalue = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
   }
   // Pass 2: same-board riders (Keen kinship, Lodestone neighbours).
   for (const board of boards) {
     for (let i = 0; i < board.length; i++) {
       const c = board[i];
-      if (c.fx === 'keen' && board.some(o => o !== c && o.type === c.type)) c.evalue += 1;
+      if (!c) continue;
+      if (c.fx === 'keen' && board.some(o => o && o !== c && o.type === c.type)) c.evalue += 1;
       if (c.fx === 'lodestone') {
         if (board[i - 1]) board[i - 1].evalue += 1;
         if (board[i + 1]) board[i + 1].evalue += 1;
@@ -1851,7 +1855,7 @@ function applyCardEffects() {
   for (let i = 0; i < boards.length; i++) {
     for (let s = 0; s < boards[i].length; s++) {
       const dc = boards[i][s];
-      if (dc.fx !== 'drain') continue;
+      if (!dc || dc.fx !== 'drain') continue;
       if ((dc.origOwner != null ? dc.origOwner : i) !== i) continue; // stolen → inert
       for (let j = 0; j < boards.length; j++) {
         if (j === i || !boards[j][s]) continue;
@@ -1859,7 +1863,7 @@ function applyCardEffects() {
       }
     }
   }
-  for (const board of boards) for (const c of board) if (c.evalue < 0) c.evalue = 0;
+  for (const board of boards) for (const c of board) if (c && c.evalue < 0) c.evalue = 0;
 }
 
 // The card's value badge. Under the Cursed Register, the voided type reads 0
@@ -1882,11 +1886,17 @@ function cfxHtml(card) {
 }
 
 function knownBoardFor(viewer, ofPlayer) {
-  return G.players[ofPlayer].board.map(c => ({
-    type: (c.known[viewer] || c.faceUp) ? c.type : null,
-    hasRed: hasRed(c),
-    poisoned: isPoisoned(c),
-  }));
+  return G.players[ofPlayer].board.map(c => {
+    const seen = c.known[viewer] || c.faceUp;
+    return {
+      type: seen ? c.type : null,
+      hasRed: hasRed(c),
+      poisoned: isPoisoned(c),
+      // The card's effective value (set by applyCardEffects) is only used when
+      // the viewer can see the card; hidden cards stay at the flat estimate.
+      evalue: seen && c.evalue != null ? c.evalue : null,
+    };
+  });
 }
 
 function estimate(ofPlayer, viewer) {
@@ -1897,7 +1907,9 @@ function estimate(ofPlayer, viewer) {
   const cards = knownBoardFor(viewer, ofPlayer).map((c, i) => {
     const type = c.type || ('_u' + i);
     if (!c.type) values[type] = 2;
-    return { type, hasRed: c.hasRed, poisoned: c.poisoned };
+    // Effect cards carry their own effective value; threading it here is what
+    // makes the AI value (and play around) Anchor/Keen/Lodestone/Drain.
+    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.evalue };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
@@ -1908,6 +1920,7 @@ function estimate(ofPlayer, viewer) {
 // My side's estimated total minus the best opposing side's, all
 // through my own eyes — the AI's working sense of the table.
 function sideSwing(me) {
+  applyCardEffects(); // refresh effective values for the (possibly hypothetical) board
   const mySide = [me, ...alliesOf(me)].reduce((s, i) => s + estimate(i, me), 0);
   const oppSides = {};
   for (const o of opponentsOf(me)) {
@@ -1982,8 +1995,17 @@ function aiChooseDeploy(who, count, faceUp) {
   if (!p.aiPlan) {
     const counts = {};
     for (const c of p.hand) counts[c.type] = (counts[c.type] || 0) + 1;
-    const scoreCard = c => c.type === G.cursedType ? 0
-      : regionVal(c.type) + (counts[c.type] >= 2 ? 2.5 : 0);
+    // Layered card value: base venue value, set potential, then the effect
+    // rider's worth — so the AI keeps Anchor/Keen/Lodestone/Drain when they pay.
+    const scoreCard = c => {
+      if (c.type === G.cursedType) return 0;
+      let v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
+      if (counts[c.type] >= 2) v += 2.5;                          // pair/triad potential
+      if (c.fx === 'keen') v += counts[c.type] >= 2 ? 1 : 0.3;    // fires with a twin in hand
+      else if (c.fx === 'lodestone') v += 1.4;                    // lifts up to two neighbours
+      else if (c.fx === 'drain') v += 1;                          // shaves the facing card
+      return v;
+    };
     const sorted = p.hand.slice().sort((a, b) => scoreCard(b) - scoreCard(a));
     const keep = sorted.slice(0, fp);
     // A less practiced player keeps the wrong card now and then.
@@ -2043,8 +2065,10 @@ function aiStoneBaseValue(who, color) {
       return best ? best.delta + 0.5 : 0;
     }
     case 'white': {
+      applyCardEffects();
+      // effVal == regionVal without effect cards, so this is a no-op outside the Circuit.
       const cands = [who, ...alliesOf(who)].flatMap(i => G.players[i].board).filter(c => !isLocked(c));
-      const top = cands.length ? Math.max(...cands.map(c => regionVal(c.type))) : 0;
+      const top = cands.length ? Math.max(...cands.map(c => effVal(c))) : 0;
       return threatened ? top + 1 : top * 0.4;
     }
     case 'blue': {
@@ -2156,12 +2180,13 @@ function aiPlace(who) {
   for (const color of new Set(p.active)) {
     switch (color) {
       case 'white': {
+        applyCardEffects();
         const candidates = [who, ...alliesOf(who)].flatMap(i => G.players[i].board).filter(c => !isLocked(c));
         if (!candidates.length) { options.push({ color, value: -1, fizzle: true }); break; }
         const threatened = opponentsOf(who).some(o => G.players[o].active.includes('blue'));
         const target = candidates.slice().sort((a, b) =>
-          (regionVal(b.type) + (hasRed(b) ? 3 : 0)) - (regionVal(a.type) + (hasRed(a) ? 3 : 0)))[0];
-        const value = (regionVal(target.type) + (hasRed(target) ? 3 : 0)) * (threatened ? 1 : 0.35);
+          (effVal(b) + (hasRed(b) ? 3 : 0)) - (effVal(a) + (hasRed(a) ? 3 : 0)))[0];
+        const value = (effVal(target) + (hasRed(target) ? 3 : 0)) * (threatened ? 1 : 0.35);
         options.push({ color, value, target });
         break;
       }
@@ -4595,17 +4620,45 @@ function circuitOpponent() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Each regular fields a build that matches their habits — a leaning 4-stone
+// pouch and two effect cards in an otherwise one-of-each deck. So a foe plays
+// to a recognizable identity (the Ferryman steals and drains, the Clerk locks
+// and anchors), and the same depleting draw applies to both sides of the table.
+const CIRCUIT_BUILDS = {
+  'The Ferryman': { pouch: { blue: 2, black: 1, white: 1 }, fx: [{ type: 'Ferry', fx: 'drain' }, { type: 'Coin', fx: 'keen' }] },
+  'The Clerk':    { pouch: { white: 2, red: 1, black: 1 },  fx: [{ type: 'Coin', fx: 'anchor' }, { type: 'Crest', fx: 'keen' }] },
+  'The Miner':    { pouch: { red: 2, black: 1, white: 1 },  fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Crest', fx: 'lodestone' }] },
+  'The Lady':     { pouch: { blue: 2, white: 1, black: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Quill', fx: 'drain' }] },
+  'The Wagoner':  { pouch: { blue: 2, black: 1, red: 1 },   fx: [{ type: 'Road', fx: 'drain' }, { type: 'Ferry', fx: 'lodestone' }] },
+  'The Tinker':   { pouch: { red: 2, white: 1, black: 1 },  fx: [{ type: 'Sword', fx: 'keen' }, { type: 'Bread', fx: 'keen' }] },
+  'The Stranger': { pouch: { blue: 1, black: 1, red: 1, white: 1 }, fx: [{ type: 'Quill', fx: 'drain' }, { type: 'Chain', fx: 'anchor' }] },
+  'The Old Hand': { pouch: { white: 2, black: 1, blue: 1 }, fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Chain', fx: 'lodestone' }] },
+  'The Deckhand': { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Sword', fx: 'lodestone' }] },
+};
+const CIRCUIT_DEFAULT_BUILD = { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [] };
+function circuitBuildFor(name) {
+  const b = CIRCUIT_BUILDS[name] || CIRCUIT_DEFAULT_BUILD;
+  return { pouch: Object.assign({}, b.pouch), deck: TYPES.slice().concat(b.fx || []) };
+}
+
 /* ---- Depleting decks: both the card deck and the stone pouch are draw piles
-   that reshuffle their discard when dry. Reset at the start of each table (a
-   fresh shuffle of the whole owned deck/pouch), then cycle hand to hand. ---- */
+   that reshuffle their discard when dry, per seat (you AND the foe). Reset at
+   the start of each table (a fresh shuffle of the whole owned deck/pouch), then
+   cycle hand to hand. ---- */
+function makePileSet(deck, pouch) {
+  const stoneDraw = [];
+  for (const c of STONE_KEYS) for (let i = 0; i < ((pouch && pouch[c]) || 0); i++) stoneDraw.push(c);
+  return {
+    deck: deck || [], pouch: pouch || {},
+    cardDraw: shuffle((deck || []).slice()), cardDiscard: [], cardHand: null,
+    stoneDraw: shuffle(stoneDraw), stoneDiscard: [], stoneHand: null,
+  };
+}
 function circuitResetPiles() {
   const g = GAUNTLET;
-  g.cardDraw = shuffle((g.deck || []).slice());
-  g.cardDiscard = []; g.cardHand = null;
-  g.stoneDraw = [];
-  for (const c of STONE_KEYS) for (let i = 0; i < ((g.pouch && g.pouch[c]) || 0); i++) g.stoneDraw.push(c);
-  shuffle(g.stoneDraw);
-  g.stoneDiscard = []; g.stoneHand = null;
+  g.piles = {};
+  g.piles[0] = makePileSet(g.deck, g.pouch);                 // you (seat 0)
+  if (g.oppDeck || g.oppPouch) g.piles[1] = makePileSet(g.oppDeck, g.oppPouch); // the foe (seat 1)
 }
 // Draw n entries from a depleting pile (draw → discard → reshuffle when dry).
 function drawPile(draw, discard, n) {
@@ -4621,18 +4674,16 @@ function drawPile(draw, discard, n) {
   return out;
 }
 // Each hand: last hand's draw goes to the discard, then draw a fresh hand.
-function circuitDrawCards(n) {
-  const g = GAUNTLET;
-  if (g.cardHand) for (const c of g.cardHand) g.cardDiscard.push(c);
-  g.cardHand = drawPile(g.cardDraw, g.cardDiscard, n);
-  return g.cardHand;
+function pileDrawCards(ps, n) {
+  if (ps.cardHand) for (const c of ps.cardHand) ps.cardDiscard.push(c);
+  ps.cardHand = drawPile(ps.cardDraw, ps.cardDiscard, n);
+  return ps.cardHand;
 }
-function circuitDrawStones(n) {
-  const g = GAUNTLET;
-  if (g.stoneHand) for (const s of g.stoneHand) g.stoneDiscard.push(s);
-  g.stoneHand = drawPile(g.stoneDraw, g.stoneDiscard, n);
+function pileDrawStones(ps, n) {
+  if (ps.stoneHand) for (const s of ps.stoneHand) ps.stoneDiscard.push(s);
+  ps.stoneHand = drawPile(ps.stoneDraw, ps.stoneDiscard, n);
   const drawn = { red: 0, white: 0, blue: 0, black: 0 };
-  for (const s of g.stoneHand) drawn[s]++;
+  for (const s of ps.stoneHand) drawn[s]++;
   return drawn;
 }
 
@@ -4643,7 +4694,9 @@ function circuitRung() {
   g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
   g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
   g.foeHp = g.foeMax;
-  circuitResetPiles(); // each table starts with a fresh shuffle of the owned deck + pouch
+  const build = circuitBuildFor(g.opp); // the foe fields its own leaning pouch + effect deck
+  g.oppDeck = build.deck; g.oppPouch = build.pouch;
+  circuitResetPiles(); // each table starts with a fresh shuffle of both seats' deck + pouch
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
   // A very high target so the engine never ends the table via the ledger —
@@ -4693,7 +4746,8 @@ function updateCircuitHud() {
   const g = GAUNTLET;
   if (!g.active) { hud.style.display = 'none'; return; }
   hud.style.display = '';
-  const drawN = g.cardDraw ? g.cardDraw.length : 0;
+  const you = g.piles && g.piles[0];
+  const drawN = you ? you.cardDraw.length : 0;
   hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Table <b>${g.rung}</b> · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
@@ -4724,8 +4778,9 @@ function showDeckView(mode) {
   $('deckClose').onclick = () => closeModal('deckModal');
 
   const body = $('deckViewBody');
-  const cardSpecs = remaining ? (g.cardDraw || []) : (g.deck || []);
-  const stoneList = remaining ? (g.stoneDraw || []) : (function () {
+  const you = (g.piles && g.piles[0]) || { cardDraw: [], cardDiscard: [], cardHand: null, stoneDraw: [], stoneDiscard: [], stoneHand: null };
+  const cardSpecs = remaining ? (you.cardDraw || []) : (g.deck || []);
+  const stoneList = remaining ? (you.stoneDraw || []) : (function () {
     const out = []; for (const c of STONE_KEYS) for (let i = 0; i < ((g.pouch && g.pouch[c]) || 0); i++) out.push(c); return out;
   })();
 
@@ -4749,10 +4804,10 @@ function showDeckView(mode) {
   const cTotal = g.deck ? g.deck.length : 0;
   const pTotal = STONE_KEYS.reduce((s, c) => s + ((g.pouch && g.pouch[c]) || 0), 0);
   const cMeta = remaining
-    ? `draw <b>${cardSpecs.length}</b> · discard <b>${g.cardDiscard ? g.cardDiscard.length : 0}</b> · in hand <b>${g.cardHand ? g.cardHand.length : 0}</b> · deck ${cTotal}`
+    ? `draw <b>${cardSpecs.length}</b> · discard <b>${you.cardDiscard ? you.cardDiscard.length : 0}</b> · in hand <b>${you.cardHand ? you.cardHand.length : 0}</b> · deck ${cTotal}`
     : `<b>${cTotal}</b> cards`;
   const pMeta = remaining
-    ? `draw <b>${stoneList.length}</b> · discard <b>${g.stoneDiscard ? g.stoneDiscard.length : 0}</b> · in hand <b>${g.stoneHand ? g.stoneHand.length : 0}</b> · pouch ${pTotal}`
+    ? `draw <b>${stoneList.length}</b> · discard <b>${you.stoneDiscard ? you.stoneDiscard.length : 0}</b> · in hand <b>${you.stoneHand ? you.stoneHand.length : 0}</b> · pouch ${pTotal}`
     : `<b>${pTotal}</b> stones`;
 
   body.innerHTML =
@@ -4950,7 +5005,10 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
-    circuitResetPiles, circuitDrawCards, circuitDrawStones, _gauntlet: () => GAUNTLET,
+    circuitResetPiles, circuitBuildFor,
+    circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
+    circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
+    _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
