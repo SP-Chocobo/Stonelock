@@ -396,7 +396,15 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 - **Base game unchanged:** campaign/standard keep the shared regional pool. Only
   the run swaps the draw source to your deck.
 
-### 6.4b Effect-card model + the scoring change it needs (decided)
+### 6.4b Effect-card model + the scoring change it needs (✅ BUILT — Circuit MVP)
+> **Shipped (v=167):** the per-card value override (`card.evalue`) + an
+> `applyCardEffects()` board pass now drive scoring and the value badges; the
+> Circuit loadout offers 5 effect cards (type + fx), pick 2 into the owned deck;
+> cards wear an fx ribbon in-hand, on-board, and in the loadout. Starter riders
+> live: **Anchor / Keen / Lodestone / Drain** (Wild still deferred). Unit-tested
+> in `tests/circuit.test.js`; base-game scoring confirmed unchanged (no-op
+> without effect cards). Notes below are the original design.
+
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live
 in the existing card model and the loadout/deck unchanged; the fx is the extra.

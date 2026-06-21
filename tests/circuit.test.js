@@ -73,4 +73,46 @@ for (let i = 0; i < VENUES.length; i++) {
   assert(Gr.players && Gr.players[0].board && Gr.players[1].board, `${VENUES[i]}: table dealt`);
 }
 
-console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, and all 6 venue tables build clean.');
+// --- effect cards: per-card value overrides, base game untouched ---
+const vals = { A: 1, B: 1, C: 1 };
+const plain = M.bestSelection([{ type: 'A' }, { type: 'B' }, { type: 'C' }], vals, {});
+assert(plain.raw === 3, 'plain cards score from the value table (no evalue → base game unchanged)');
+const boosted = M.bestSelection([{ type: 'A', evalue: 3 }, { type: 'B' }, { type: 'C' }], vals, {});
+assert(boosted.raw === 5, 'an effect card overrides its own value (3 + 1 + 1)');
+const drained = M.bestSelection([{ type: 'A', evalue: 0 }, { type: 'B' }, { type: 'C' }], vals, {});
+assert(drained.raw === 2, 'a drained card reads 0 but still fills a slot');
+
+// applyCardEffects: keen kinship, lodestone neighbours, anchor pin, cross-board drain
+M.startCircuit();
+G = M._state();
+const RV = G.region.values;
+const T = M.TYPES;
+function setBoards(b0, b1) { G.players[0].board = b0; G.players[1].board = b1; M.applyCardEffects(); }
+
+// keen: +1 with a twin of its type, +0 alone
+setBoards([{ type: T[0], fx: 'keen' }, { type: T[0] }, { type: T[1] }], [{ type: T[2] }, { type: T[3] }, { type: T[4] }]);
+assert(G.players[0].board[0].evalue === RV[T[0]] + 1, 'keen +1 when it holds another of its type');
+setBoards([{ type: T[0], fx: 'keen' }, { type: T[1] }, { type: T[2] }], [{ type: T[3] }, { type: T[4] }, { type: T[5] }]);
+assert(G.players[0].board[0].evalue === RV[T[0]], 'keen is base value with no twin');
+
+// anchor: pinned to 2 regardless of venue value
+setBoards([{ type: T[0], fx: 'anchor' }, { type: T[1] }, { type: T[2] }], [{ type: T[3] }, { type: T[4] }, { type: T[5] }]);
+assert(G.players[0].board[0].evalue === 2, 'anchor pins value to 2 regardless of venue');
+
+// lodestone: +1 to each neighbour, itself unchanged
+setBoards([{ type: T[0] }, { type: T[1], fx: 'lodestone' }, { type: T[2] }], [{ type: T[3] }, { type: T[4] }, { type: T[5] }]);
+assert(G.players[0].board[0].evalue === RV[T[0]] + 1 && G.players[0].board[2].evalue === RV[T[2]] + 1, 'lodestone lifts both neighbours');
+assert(G.players[0].board[1].evalue === RV[T[1]], 'lodestone does not lift itself');
+
+// drain: the facing same-slot card on the opposing board reads -1
+setBoards([{ type: T[0] }, { type: T[1] }, { type: T[2] }], [{ type: T[3], fx: 'drain' }, { type: T[4] }, { type: T[5] }]);
+assert(G.players[0].board[0].evalue === Math.max(0, RV[T[0]] - 1), 'drain knocks the facing same-slot card down by 1');
+assert(G.players[0].board[1].evalue === RV[T[1]], 'drain only touches the facing slot');
+
+// loadout now deals effect cards and threads them into the owned deck
+M.startCircuit();
+g = M._gauntlet();
+const fxInDeck = g.deck.filter(c => c && typeof c === 'object' && c.fx).length;
+assert(fxInDeck === 2, 'the owned deck carries the two chosen effect cards');
+
+console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');

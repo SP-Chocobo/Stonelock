@@ -1130,6 +1130,26 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .loadcard.selected { outline: 2px solid var(--gold-bright); outline-offset: 2px; transform: translateY(-7px); border-color: var(--gold-bright); }
 .loadcard.selected:hover { transform: translateY(-7px); transition-delay: 0s; }
 
+/* Effect-card badge — a small ribbon naming the card's rider. */
+.cfx {
+  position: absolute; top: 5px; right: 5px; z-index: 3;
+  font-family: 'Cinzel', Georgia, serif; font-size: 8.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 7px; color: #f7eccf;
+  background: rgba(20,14,8,0.78); border: 1px solid var(--gold-dim);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5); pointer-events: none;
+}
+.cfx-anchor    { border-color: #6fa8c9; color: #cfe8f5; }
+.cfx-keen      { border-color: #d7b25a; color: #f6e6b4; }
+.cfx-lodestone { border-color: #b58ad8; color: #ecdcf8; }
+.cfx-drain     { border-color: #c97a6a; color: #f5d4cb; }
+.board .cfx { font-size: 7px; top: 3px; right: 3px; padding: 0 4px; }
+body[data-compact="1"] .board .cfx { display: none; }
+/* Loadout effect key — the legend under the offered cards. */
+.ldfxkey { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center;
+  margin-top: 10px; font-size: 11px; color: var(--parchment-dim); }
+.ldfxkey b { color: var(--gold); font-family: 'Cinzel', Georgia, serif; font-weight: 600; }
+
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;
   background: rgba(0,0,0,0.28); padding: 12px 16px; text-align: left; }

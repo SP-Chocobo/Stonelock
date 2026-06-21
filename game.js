@@ -296,7 +296,9 @@ function bestSelection(cards, values, opts = {}) {
         const cursed = cards[i].poisoned || (!!opts.cursed && t === opts.cursed); // scores nothing, builds nothing
         if (!cursed) {
           counts[t] = (counts[t] || 0) + 1;
-          if (k === 0) raw += values[t]; // phantoms score no raw value
+          // Effect cards carry a pre-computed effective value (evalue); plain
+          // cards fall back to the region's value table. Phantoms score no raw.
+          if (k === 0) raw += (cards[i].evalue != null ? cards[i].evalue : values[t]);
         }
         picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed });
       }
@@ -940,9 +942,14 @@ function startHand() {
     const owned = (G.gauntlet && p === 0 && GAUNTLET.deck && GAUNTLET.deck.length) ? shuffle(GAUNTLET.deck.slice()) : null;
     for (let k = 0; k < handSizeFor(p); k++) {
       const dealt = owned ? (owned.pop() || active.pop()) : active.pop();
+      // Owned-deck entries may be effect cards: { type, fx }. Plain entries are
+      // a bare type string. The fx rider drives the per-card value pass.
+      const dealtType = (dealt && typeof dealt === 'object') ? dealt.type : dealt;
+      const dealtFx = (dealt && typeof dealt === 'object') ? dealt.fx : null;
       const card = {
         id: id++,
-        type: (fixed && fixed[k]) || dealt,
+        type: (fixed && fixed[k]) || dealtType,
+        fx: dealtFx,
         owner: p,
         zone: 'hand',
         faceUp: false,
@@ -1801,14 +1808,69 @@ function stoneHasValidTarget(color) {
 /* ---------------- AI ---------------- */
 
 function regionVal(type) { return G.region.values[type]; }
+
+// Effect cards: a card may carry an `fx` rider that shifts effective value.
+const CIRCUIT_ANCHOR = 2; // Anchor pins a card to this value regardless of venue
+const FX_INFO = {
+  anchor:    { label: 'Anchor',    blurb: 'Always worth 2, whatever the venue pays.' },
+  keen:      { label: 'Keen',      blurb: '+1 if you hold another card of its type.' },
+  lodestone: { label: 'Lodestone', blurb: '+1 to the cards on either side of it.' },
+  drain:     { label: 'Drain',     blurb: 'The facing card in the same slot reads −1.' },
+};
+
+// Compute each card's effective value (evalue) from its fx rider, the board
+// around it, and the opposing board. A no-op for plain cards (evalue ==
+// regionVal), so base-game scoring is unchanged. Set every hand before scoring
+// and every render so the table shows the live numbers.
+function applyCardEffects() {
+  if (!G.players) return;
+  const boards = G.players.map(p => p.board);
+  // Pass 1: base value (Anchor pins to a fixed floor; else the venue value).
+  for (const board of boards) {
+    for (const c of board) c.evalue = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : regionVal(c.type);
+  }
+  // Pass 2: same-board riders (Keen kinship, Lodestone neighbours).
+  for (const board of boards) {
+    for (let i = 0; i < board.length; i++) {
+      const c = board[i];
+      if (c.fx === 'keen' && board.some(o => o !== c && o.type === c.type)) c.evalue += 1;
+      if (c.fx === 'lodestone') {
+        if (board[i - 1]) board[i - 1].evalue += 1;
+        if (board[i + 1]) board[i + 1].evalue += 1;
+      }
+    }
+  }
+  // Pass 3: cross-board Drain (the facing same-slot card reads -1; its
+  // pair/triad eligibility is untouched — only the raw value drops).
+  for (let i = 0; i < boards.length; i++) {
+    for (let s = 0; s < boards[i].length; s++) {
+      if (boards[i][s].fx !== 'drain') continue;
+      for (let j = 0; j < boards.length; j++) {
+        if (j === i || !boards[j][s]) continue;
+        boards[j][s].evalue -= 1;
+      }
+    }
+  }
+  for (const board of boards) for (const c of board) if (c.evalue < 0) c.evalue = 0;
+}
+
 // The card's value badge. Under the Cursed Register, the voided type reads 0
-// (the cursed value-stone), since it scores nothing this hand.
+// (the cursed value-stone), since it scores nothing this hand. Effect cards
+// show their live effective value.
 function cvalHtml(card) {
   const poisoned = isPoisoned(card);
   const cursed = poisoned || (G.cursedType && card.type === G.cursedType);
-  const v = cursed ? 0 : regionVal(card.type);
+  const base = (card.evalue != null) ? card.evalue : regionVal(card.type);
+  const v = cursed ? 0 : base;
   const tip = poisoned ? ' title="Poisoned — scores nothing this hand"' : cursed ? ' title="Cursed — voided this hand"' : '';
   return `<div class="cval val-${v}"${tip}>${v}</div>`;
+}
+
+// The effect-card badge (Anchor/Keen/Lodestone/Drain). Empty for plain cards.
+function cfxHtml(card) {
+  if (!card.fx || !FX_INFO[card.fx]) return '';
+  const info = FX_INFO[card.fx];
+  return `<div class="cfx cfx-${card.fx}" title="${info.label} — ${info.blurb}">${info.label}</div>`;
 }
 
 function knownBoardFor(viewer, ofPlayer) {
@@ -2194,8 +2256,9 @@ function showdown() {
   announce('The Showdown — every veiled card is flipped');
   SFX.play('sting');
 
+  applyCardEffects();
   const sel = G.players.map(p => bestSelection(
-    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) })),
+    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c), evalue: c.evalue })),
     G.region.values,
     variantOpts()
   ));
@@ -2490,6 +2553,7 @@ function animateMoves(prev) {
 
 function render() {
   if (typeof document === 'undefined' || !G) return;
+  applyCardEffects(); // keep effective card values current for the value badges
   const prevRects = captureRects();
   renderScore();
   renderPanels();
@@ -3183,6 +3247,7 @@ function cardEl(card) {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
+      ${cfxHtml(card)}
       ${cvalHtml(card)}`;
     if (!card.faceUp) {
       el.classList.add('veiled');
@@ -3344,6 +3409,7 @@ function renderHand() {
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
+      ${cfxHtml(card)}
       ${cvalHtml(card)}`;
     if (UI.mode === 'pickCards') {
       el.classList.add('targetable');
@@ -4401,6 +4467,16 @@ const CIRCUIT_POUCHES = [
   { key: 'breaker', pouch: { black: 2, blue: 1, red: 1 } },
   { key: 'reaver', pouch: { blue: 2, red: 1, black: 1 } },
 ];
+// The starter effect-card pool. A run offers a handful of typed cards, each
+// carrying one fx rider, so the two-card add is a real decision (value vs. effect).
+const CIRCUIT_FX = ['anchor', 'keen', 'lodestone', 'drain'];
+function circuitOfferCards(n) {
+  const types = shuffle(TYPES.slice());
+  const fxBag = shuffle(CIRCUIT_FX.slice());
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ type: types[i % types.length], fx: fxBag[i % fxBag.length] });
+  return out;
+}
 let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
 function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
@@ -4408,7 +4484,7 @@ function startCircuit() {
   if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
   // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
   const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
-  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: shuffle(TYPES.slice()).slice(0, 5), picks: [] };
+  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5), picks: [] };
   if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
   circuitIntro();
 }
@@ -4434,7 +4510,7 @@ function circuitLoadoutScreen() {
   const mc = $('circuitModal').querySelector('.modalcard');
   if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'Outfit for the Circuit';
-  $('circuitText').textContent = 'Pick a stone pouch, then add two cards to round out your deck — you start with one of each.';
+  $('circuitText').textContent = 'Pick a stone pouch, then add two effect cards to round out your deck — you start with one of each plain card.';
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -4460,25 +4536,33 @@ function circuitLoadoutScreen() {
   ps.appendChild(prow);
   body.appendChild(ps);
 
-  // Cards — real card visuals; click two to add (highlight), Begin confirms.
+  // Cards — real card visuals with their effect; click two to add (highlight).
   const cs = document.createElement('div'); cs.className = 'ldsection';
-  cs.innerHTML = `<div class="ldhead">Add two cards — ${circuitLoad.picks.length}/2</div>`;
+  cs.innerHTML = `<div class="ldhead">Add two effect cards — ${circuitLoad.picks.length}/2</div>`;
   const crow = document.createElement('div'); crow.className = 'ldcards';
-  for (const t of circuitLoad.offer) {
-    const sel = circuitLoad.picks.includes(t);
-    const v = (REGIONS.bar.values[t] != null) ? REGIONS.bar.values[t] : 2;
+  for (const card of circuitLoad.offer) {
+    const t = card.type, fx = card.fx;
+    const sel = circuitLoad.picks.includes(card);
+    const v = (fx === 'anchor') ? CIRCUIT_ANCHOR : ((REGIONS.bar.values[t] != null) ? REGIONS.bar.values[t] : 2);
+    const info = FX_INFO[fx] || { label: fx, blurb: '' };
     const c = document.createElement('div');
     c.className = 'card faceup loadcard' + (sel ? ' selected' : '');
-    c.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cicon icon-${t}"></div><div class="cname">${t}</div>`;
+    c.title = `${info.label} — ${info.blurb}`;
+    c.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${fx}">${info.label}</div><div class="cicon icon-${t}"></div><div class="cname">${t}</div>`;
     c.onclick = () => {
-      const j = circuitLoad.picks.indexOf(t);
+      const j = circuitLoad.picks.indexOf(card);
       if (j >= 0) circuitLoad.picks.splice(j, 1);
-      else if (circuitLoad.picks.length < 2) circuitLoad.picks.push(t);
+      else if (circuitLoad.picks.length < 2) circuitLoad.picks.push(card);
       circuitLoadoutScreen();
     };
     crow.appendChild(c);
   }
   cs.appendChild(crow);
+  const blurbs = document.createElement('div'); blurbs.className = 'ldfxkey';
+  blurbs.innerHTML = circuitLoad.offer
+    .filter((c, i, a) => a.findIndex(o => o.fx === c.fx) === i)
+    .map(c => `<span><b>${FX_INFO[c.fx].label}</b> — ${FX_INFO[c.fx].blurb}</span>`).join('');
+  cs.appendChild(blurbs);
   const note = document.createElement('div'); note.className = 'ldnote';
   note.textContent = 'Values shown are the common table — every venue reshapes them.';
   cs.appendChild(note);
@@ -4753,7 +4837,7 @@ if (typeof window !== 'undefined') {
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
-    startCircuit, circuitRung, circuitEnd, circuitHandResult, _gauntlet: () => GAUNTLET,
+    startCircuit, circuitRung, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO, _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
   };
 }
