@@ -511,6 +511,57 @@ Mitigations baked into the design:
 - Even so, **budget a genuine AI pass** before/alongside the first real run
   phase. The Gauntlet (§9) is partly a *test* of whether the core + AI hold up.
 
+### 8.1 AI architecture notes (review round 2 — Codex)
+The current AI is a readable heuristic evaluator (visible-score estimate with
+hidden cards as generic value-2; cards by regional value + pair potential; stones
+by simulated swing; personalities = multipliers; bosses = same brain + rule/turn
+advantages). That's the *right* shape — legible, cheap, tunable. **Tighten by
+authoring, not by deepening search** (more opaque = wrong direction). Concretely:
+- **Add an AI role layer** — `opponent | ally | boss | elite`. Personalities stay,
+  but **role sets priorities.** Allies should weight *team survival* and *protect
+  the player's carry card* over personal score (today the Old Hand benefits allies
+  via `alliesOf` but isn't authored enough — it solo-wins only ~46%, below even).
+- **Per-companion doctrine scripts** (tiny, hard-coded): Old Hand → lock the
+  ally's highest-contribution card; Black an enemy Red/Blue hitting the ally
+  first. Ferryman-ally → Blue only if it improves *team* swing without breaking
+  the player's structure. Clerk-ally → secure the team's best Pair/Triad, no
+  speculative Blue. Distinct feel without deep search.
+- **Explain hook (debug):** let AI decisions optionally emit a reason ("White:
+  player's Coin is the current best anchor"). Invisible to players; invaluable
+  for tuning.
+- **Owned-deck effects = bounded primitives**, never generic search (restates §8):
+  "buff own best visible hand", "protect carry", "break enemy pair", "swap
+  lowest-for-highest if known".
+- **Slot bosses need placement doctrine.** `archAiPlaceSlots` currently queues by
+  slot availability and lets `archAiCommit` do the clever part — so the Archivist
+  "programs" stones greedily, not with intent. 3–4 authored patterns ("protect
+  the centre lane", "bait then reverse", "Blue before/after White by tier") would
+  make the sequencing-mastery boss feel sharp.
+
+### 8.2 Bot battery — first run (`tests/ai-battery.js`)
+Each Regular (seat 0) vs a neutral Deckhand, 40 all-AI duels per venue; cell =
+Regular win%. **Findings:**
+- **The roster is NOT samey** — per-row spreads of 18–45 pts show identity that
+  genuinely swings by venue. The personality × regional-leverage interaction is
+  real and *load-bearing*, which is exactly what the run needs. (Codex's
+  "flat ~50% everywhere" failure mode does **not** apply.)
+- **But the roster is imbalanced as opponents/allies:** Ferryman **66%** and
+  Wagoner/Miner **59%** are strong; **Clerk 36%** and **Tinker 37%** are weak vs
+  the *same* baseline. For the Circuit's rotating opponents this means some tables
+  are near-free and others walls, purely by who shows up; for the merc system
+  you'd always pick Ferryman, never Clerk.
+- **Codex's predicted venue mismatches are real:** Tinker is dead in the Gambling
+  Hall (20%, its Red-chasing fails under the Cursed Register) but fine in Court
+  (55%); the Wagoner crushes the Tavern (83%) and collapses in Court (38%); the
+  Ferryman dominates the Hall (85%) but is even in the Slums (45%).
+- **The Clerk's "build-and-lock" doctrine underperforms everywhere** (23–45%) — a
+  clear authoring target.
+- **Action:** the battery is now a standing tool (`node tests/ai-battery.js`).
+  Before regulars become run opponents/allies, do a **balance pass** (lift
+  Clerk/Tinker, temper Ferryman) and re-run; keep the venue-driven spread (it's
+  the good part), just narrow the *baseline* gap so no opponent is a gimme or a
+  brick.
+
 ---
 
 ## 9. Build plan (phased so each step de-risks the next)
