@@ -396,13 +396,35 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 - **Base game unchanged:** campaign/standard keep the shared regional pool. Only
   the run swaps the draw source to your deck.
 
+### 6.4b Effect-card model + the scoring change it needs (decided)
+Effect cards are **typed cards with an `fx` rider** — they still have a type
+(pair/triad normally), an icon, and a venue value, *plus* an effect. So they live
+in the existing card model and the loadout/deck unchanged; the fx is the extra.
+- **The one engine change:** `bestSelection` values cards **by type**
+  (`values[type]`), so per-card effects (drain *this* card −1, anchor *this* one)
+  don't fit. Add an **optional per-card value** (`card.evalue`) that
+  `bestSelection` uses when present, set by a **board-effects pass** run before
+  scoring. **No-op when no effect cards are in play, so the base game's scoring is
+  untouched.** Thread `evalue` through the ~6 bestSelection call sites
+  (showdown, twoBestHands, the AI estimate, the Apothecary cut).
+- **Value-mods first** (all resolve in that pass, AI-safe/static); **Wild last**
+  (it changes set-matching logic, not just value).
+- **Starter set for the Circuit loadout** (pick 2 of 5; each card = a type + fx):
+  - **Anchor** — value is fixed regardless of venue (a hedge vs regional leverage).
+  - **Keen** — +1 if you also field another of its type (rewards committing to a set).
+  - **Lodestone** — +1 to its neighbours in the footprint (adjacency/support seed).
+  - **Mirror Drain** — the opposing card in the **same slot** loses 1 raw value;
+    its pair/triad eligibility is untouched (value-axis disruption via the Mirror
+    keyword — the inverse of the type-shuffle, which breaks sets but keeps value).
+  - **Wild** — counts as any type to complete a Pair/Triad *(deferred — set logic)*.
+
 ### 6.5 Card idea catalog (raw — tag each by axis + AI-safety before building)
 - **Wild / Joker** — fills any type for a set, or flexes value. *(structure,
   static)*
-- **Mirror debuff −1 / buff +1** — same mechanic, opposite valence; **modal
-  "choose one"** version is a board-*read* (−1 breaks their set vs +1 completes
-  yours; thresholds make it asymmetric and deep). Stamped ceiling = *do both*.
-  *(value, static/modal)*
+- **Mirror Drain −1 / Mirror buff +1** — value on the opposing/own same-slot card;
+  drain leaves set-eligibility intact. **Modal "choose one"** version is a
+  board-*read* (−1 breaks their set vs +1 completes yours; thresholds make it
+  asymmetric and deep). Stamped ceiling = *do both*. *(value, static/modal)*
 - **Reveal the mirror** — private peek (ship first) or public flip (exposes it to
   stones). A "scout, then strike" setup piece. *(info, static)*
 - **Triad → Pair downgrade** (once/match). *(structure, active)*
