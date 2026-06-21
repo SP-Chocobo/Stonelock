@@ -2020,6 +2020,43 @@ function weightedOrder(keys, weights) {
   return out;
 }
 
+// An effect is "positional" when where the card sits changes its impact — i.e.
+// it reaches other cards (a spread/cross hook). Registry-driven, so a future
+// positional effect joins the deploy search automatically.
+function isPositionalFx(fx) { const e = EFFECTS[fx]; return !!(e && (e.spread || e.cross)); }
+
+// All orderings of a small array (footprints are tiny, ≤ ~5).
+function permutations(arr) {
+  if (arr.length <= 1) return [arr.slice()];
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+    for (const sub of permutations(rest)) out.push([arr[i], ...sub]);
+  }
+  return out;
+}
+
+// Choose the slot ordering (face-up cards in the front slots, hidden behind)
+// that maximizes the AI's own table swing — so positional effects land where
+// they pay. General over effects: it just scores the resulting board, letting
+// Lodestone seek interior slots between high cards and Drain seek the slot
+// facing the foe's best card, all via sideSwing. Keeps the exposure split intact.
+function positionDeploy(who, faceUpSet, hiddenSet) {
+  if (faceUpSet.length > 5 || hiddenSet.length > 5) return { faceUp: faceUpSet, hidden: hiddenSet };
+  const p = G.players[who];
+  const saved = p.board;
+  let best = null;
+  for (const f of permutations(faceUpSet)) {
+    for (const h of permutations(hiddenSet)) {
+      p.board = f.concat(h);
+      const score = sideSwing(who);
+      if (!best || score > best.score) best = { score, faceUp: f, hidden: h };
+    }
+  }
+  p.board = saved;
+  return best ? { faceUp: best.faceUp, hidden: best.hidden } : { faceUp: faceUpSet, hidden: hiddenSet };
+}
+
 function aiChooseDeploy(who, count, faceUp) {
   const p = G.players[who];
   const fp = footprintOf(who);
@@ -2051,7 +2088,19 @@ function aiChooseDeploy(who, count, faceUp) {
       return risk(a) - risk(b);
     });
     // queue: face-up cards lead so they fill the early (revealed) commits.
-    p.aiPlan = { faceUp: exposable.slice(0, 2), hidden: keep.filter(c => !exposable.slice(0, 2).includes(c)), queue: keep.slice() };
+    let faceUpSet = exposable.slice(0, 2);
+    let hiddenSet = keep.filter(c => !faceUpSet.includes(c));
+    // Positional mastery: if the kept cards include a positional effect (one with
+    // a spread/cross hook — Lodestone, Drain), search slot orderings to place
+    // them best (Lodestone interior between high cards; Drain facing the foe's
+    // strongest slot). Reorders WITHIN the exposure groups the risk pass chose,
+    // so what's revealed is unchanged. Skipped entirely without such effects, so
+    // base game / no-effect play is untouched.
+    if (keep.some(c => isPositionalFx(c.fx))) {
+      const placed = positionDeploy(who, faceUpSet, hiddenSet);
+      faceUpSet = placed.faceUp; hiddenSet = placed.hidden;
+    }
+    p.aiPlan = { faceUp: faceUpSet, hidden: hiddenSet, queue: faceUpSet.concat(hiddenSet) };
   }
   // The Magistrate fields everything face-up, in ranked order.
   if (isMagistrate(who)) return p.aiPlan.queue.splice(0, count);
@@ -5044,6 +5093,6 @@ if (typeof window !== 'undefined') {
     _gauntlet: () => GAUNTLET,
     _state: () => G, _ui: () => UI, _run: () => run(),
     // AI internals, exposed for decision-level effect tests.
-    _ai: { estimate, sideSwing, aiBestBlueTarget, aiBestRedTarget, aiBestBlackTarget, aiChooseDeploy, aiStonePreference, aiStoneValue, effVal, EFFECTS },
+    _ai: { estimate, sideSwing, aiBestBlueTarget, aiBestRedTarget, aiBestBlackTarget, aiChooseDeploy, aiStonePreference, aiStoneValue, effVal, EFFECTS, positionDeploy, isPositionalFx },
   };
 }

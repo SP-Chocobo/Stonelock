@@ -446,6 +446,17 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 >   value; deploy keeps the rider that pays), and layer per-bot persona priorities
 >   on top (Clerk weights White-over-Blue above the Ferryman on the same board).
 >   New effects don't land until the bots play the existing four right.
+> - **Positional mastery (generic, not per-effect).** When the kept cards include
+>   a *positional* effect — one with a `spread`/`cross` hook (`isPositionalFx`) —
+>   `aiChooseDeploy` runs `positionDeploy`: it searches slot orderings (within the
+>   exposure groups the risk pass chose) and picks the one that maximizes the AI's
+>   table swing. So Lodestone seeks an interior slot between high cards and Drain
+>   seeks the slot facing the foe's strongest card — emergent from scoring, no
+>   per-effect placement code, and a future positional effect joins the search for
+>   free. No-op (and skipped) when no positional effect is held, so base game is
+>   untouched. **Still open:** placement is bounded to *within* the face-up/hidden
+>   groups, so a Drain can't always reach a slot outside its group — full-board
+>   slot freedom + reacting to the foe's hidden/late commits is the next depth.
 
 Effect cards are **typed cards with an `fx` rider** — they still have a type
 (pair/triad normally), an icon, and a venue value, *plus* an effect. So they live

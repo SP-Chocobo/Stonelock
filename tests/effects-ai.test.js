@@ -122,4 +122,29 @@ const clerkR = whiteOverBlue('The Clerk');
 const ferryR = whiteOverBlue('The Ferryman');
 assert(clerkR > ferryR, `the Clerk weights White-over-Blue above the Ferryman, same board (Clerk ${clerkR.toFixed(2)} vs Ferryman ${ferryR.toFixed(2)})`);
 
-console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain correctly (with fog of war), target & keep them by effective value, and layer per-bot persona priorities on top.');
+/* ---------- POSITIONAL MASTERY: the AI places effects, not just values them ---------- */
+
+// Lodestone seeks an interior slot (two neighbours), flanked by high cards.
+G = setup('tavern', ['The Clerk', 'The Clerk']);
+G.players[1].board = []; // no opposing board → positioning is purely about my own value
+const lodeC = card('Sword', 'lodestone', 0);
+let placed = ai.positionDeploy(0, [card('Coin', null, 0), lodeC], [card('Bread', null, 0), card('Quill', null, 0)]);
+let board = placed.faceUp.concat(placed.hidden);
+let li = board.indexOf(lodeC);
+assert(li > 0 && li < board.length - 1, `Lodestone is placed in an interior slot (idx ${li} of ${board.length})`);
+assert(board[li - 1].evalue >= 3 && board[li + 1].evalue >= 3, 'Lodestone is flanked by the highest-value cards (both lifted)');
+
+// Drain seeks the slot facing the foe's strongest card.
+G = setup('tavern', ['The Ferryman', 'The Ferryman']);
+// foe (seat0, the opponent of our actor seat1) shows a strong card at slot 2
+G.players[0].board = [card('Quill', null, 0), card('Crest', null, 0), card('Coin', null, 0)]; // 1,1,3 — strong at slot 2
+const drainC = card('Chain', 'drain', 1);
+placed = ai.positionDeploy(1, [card('Quill', null, 1), card('Crest', null, 1)], [drainC, card('Ferry', null, 1)]);
+board = placed.faceUp.concat(placed.hidden);
+assert(board.indexOf(drainC) === 2, `Drain is placed in the slot facing the foe's strongest card (slot ${board.indexOf(drainC)})`);
+
+// A board with no positional effect is left to the exposure order (no needless churn).
+assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain'), 'Lodestone and Drain are positional');
+assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor'), 'Keen and Anchor are position-agnostic');
+
+console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain correctly (with fog of war), target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');
