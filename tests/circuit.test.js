@@ -221,4 +221,47 @@ M.circuitTakeEventAndAdvance();
 g = M._gauntlet();
 assert((g.pouch.red || 0) === 1, 'removing a stone above the floor thins the pouch');
 
-console.log('OK circuit: Standing init/damage/cap/ground-out, clear→advance+heal+score, 6 venues build clean, and effect cards score.');
+// --- charms (run-long player relics) ---
+// value lever: Loaded Coin lifts your Coin cards by 1
+M.startCircuit();
+g = M._gauntlet(); G = M._state();
+g.charms = ['loadedcoin'];
+const RVcoin = G.region.values['Coin'];
+G.players[0].board = [{ type: 'Coin', fx: null, owner: 0, origOwner: 0, faceUp: true, known: [true, true], stones: [] }];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === RVcoin + 1, 'Loaded Coin adds +1 to your Coin cards');
+// scoring sweeteners flow through bestSelection opts (Forger's Seal / Master Forger)
+const vv = { A: 2, B: 2 };
+const pairNo = M.bestSelection([{ type: 'A' }, { type: 'A' }, { type: 'B' }], vv, {});
+const pairYes = M.bestSelection([{ type: 'A' }, { type: 'A' }, { type: 'B' }], vv, { bonusAdd: 1 });
+assert(pairYes.score === pairNo.score + 1, "Forger's Seal (bonusAdd) sweetens a Pair");
+const triNo = M.bestSelection([{ type: 'A' }, { type: 'A' }, { type: 'A' }], vv, {});
+const triYes = M.bestSelection([{ type: 'A' }, { type: 'A' }, { type: 'A' }], vv, { triadAdd: 3 });
+assert(triYes.score === triNo.score + 3, 'Master Forger (triadAdd) sweetens a Triad');
+// drafting a charm adds it; Hardened raises max Standing on the spot
+M.startCircuit(); g = M._gauntlet();
+const ms0 = g.maxStanding;
+g.reward = { cards: [], stones: [], charms: ['hardened'], cardPick: null, stonePick: null, charmPick: 'hardened' };
+M.circuitTakeRewardAndAdvance();
+g = M._gauntlet();
+assert(g.charms.indexOf('hardened') >= 0, 'drafting a charm adds it to the run');
+assert(g.maxStanding === ms0 + 3, 'Hardened raises max Standing immediately');
+// economy charms pay out on a clear (Field Surgeon heal, War Chest score)
+M.startCircuit(); g = M._gauntlet();
+g.charms = ['fieldsurgeon', 'warchest']; g.tableCleared = true; g.standing = 5;
+const chScore0 = g.score, chRung0 = g.rung;
+M.circuitEnd();
+g = M._gauntlet();
+assert(g.standing === 5 + M.CIRCUIT.heal + 2, 'Field Surgeon heals +2 extra on a clear');
+assert(g.score === chScore0 + 10 + chRung0 + 5, 'War Chest pays +5 extra on a clear');
+// event hook: Momentum banks score on consecutive hand wins
+M.startCircuit(); g = M._gauntlet();
+g.charms = ['momentum']; const sc = g.score;
+M.circuitHandResult({ members: [0] }, 2); // first win: streak 1, +0
+M.circuitHandResult({ members: [0] }, 2); // second win: streak 2, +1
+assert(g.score === sc + 1, 'Momentum pays for a second consecutive win');
+// records: a charm offered in spoils is marked seen (compendium discovery)
+M.markCharmSeen('whetstone');
+assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
+
+console.log('OK circuit: Standing/damage/clear/heal, venues, effect cards, spoils, events, and charms.');

@@ -20,6 +20,7 @@ const cardVal = s => (s && typeof s === 'object' && s.fx === 'anchor') ? 2
 
 function setupTable(g) {
   g.tableCleared = false; g.groundOut = false;
+  g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false; // mirror circuitRung's per-table reset
   // a fresh foe each table, no immediate repeat
   const pool = ROSTER.filter(n => n !== g.opp);
   g.opp = pool[Math.floor(Math.random() * pool.length)];
@@ -52,6 +53,12 @@ function autoSpoils(g) {
   g.deck = g.deck.concat([best]);
   const col = r.stones[0];
   g.pouch = Object.assign({}, g.pouch, { [col]: (g.pouch[col] || 0) + 1 });
+  if (r.charms && r.charms.length) { // grab the first offered charm
+    const k = r.charms[0];
+    g.charms = (g.charms || []).concat([k]);
+    const add = M.CHARMS[k] && M.CHARMS[k].maxStandingAdd;
+    if (add) { g.maxStanding += add; g.standing += add; }
+  }
 }
 function autoEvent(g) {
   if (g.standing < g.maxStanding * 0.6) { g.standing = Math.min(g.maxStanding, g.standing + M.circuitHealAmount()); return; }
@@ -68,7 +75,7 @@ function simulateRun() {
   Object.assign(g, {
     active: true, rung: 1, cleared: 0, standing: C.maxStanding, maxStanding: C.maxStanding,
     score: 0, opp: null, deck: build.deck.slice(), pouch: Object.assign({}, build.pouch),
-    oppDeck: null, oppPouch: null,
+    oppDeck: null, oppPouch: null, charms: [], handBuff: 0,
   });
   const perTable = []; // true = cleared this table, false = died here
   while (g.active && g.rung <= CAP) {

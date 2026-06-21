@@ -304,7 +304,11 @@ function bestSelection(cards, values, opts = {}) {
       }
     }
     const struct = structure(counts);
-    const bonus = struct === 'triad' ? 6 : struct === 'pair' ? 2 : 0;
+    // Base structural bonus, plus any charm sweeteners passed in opts (Forger's
+    // Seal on Pairs/Triads, Master Forger on Triads). 0 without those charms.
+    const bonus = (struct === 'triad' ? 6 : struct === 'pair' ? 2 : 0)
+      + (struct !== 'singles' ? (opts.bonusAdd || 0) : 0)
+      + (struct === 'triad' ? (opts.triadAdd || 0) : 0);
     let penalty = 0;
     if (opts.riverlock && !picks.some(p => (p.type === 'Road' || p.type === 'Ferry') && !p.cursed)) {
       penalty = 2; // the Passage Requirement
@@ -335,6 +339,13 @@ function variantOpts() {
     cursed: G.cursedType || null,
     riverlock: G.variant === 'riverlock',
   };
+}
+// Scoring opts for one seat: the variant rules, plus the player's charm scoring
+// sweeteners (seat 0 in the Circuit). No-op for everyone else.
+function scoreOptsFor(seat) {
+  const o = variantOpts();
+  if (G.gauntlet && seat === 0) { o.bonusAdd = charmVal('bonusAdd'); o.triadAdd = charmVal('triadAdd'); }
+  return o;
 }
 
 // ---- The Archivist (4th boss) — pure resolution engine ----
@@ -910,10 +921,10 @@ function startHand() {
     // The Circuit: each seat with a build (you AND the foe) draws a working set
     // of stones from its own Pouch each hand — a depleting stone deck (draw →
     // discard → reshuffle when dry), so thinning and added stones shift the draw.
-    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones);
+    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones + (p === 0 ? charmVal('drawStones') : 0));
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
-    if (G.exhaustHands) {
+    if (G.exhaustHands && !(p === 0 && G.gauntlet && charmVal('noExhaust'))) {
       for (const color of STONE_KEYS) pool[color] = Math.max(0, pool[color] - slumBlocked(p, color));
     }
     // The Quartermaster (and the super boss) lock away one colour from all this hand.
@@ -1194,6 +1205,8 @@ function startHand() {
     log(`${playerName(1)} locks away the ${STONES[denied].name} this hand — no one at the table may spend it.`, 'sys');
     announce(`${STONES[denied].name} is locked away this hand`, denied, 1);
   }
+  // Charm hooks: reset the per-hand board buff, then let hand-start charms set it.
+  if (G.gauntlet) { GAUNTLET.handBuff = 0; charmFire('handStart', { handNum: G.handNum }); }
   run();
 }
 
@@ -1870,6 +1883,65 @@ const EFFECTS = {
 // UI/text consumers read label/blurb from the same registry (single source).
 const FX_INFO = EFFECTS;
 
+// ── Charms (relics) ───────────────────────────────────────────────────────
+// Run-long player passives, drafted between Circuit tables. Each declares the
+// lever it pulls and/or lifecycle hooks (`on`). Integration points sum/fire
+// across owned charms. PLAYER-ONLY + CIRCUIT-ONLY, so base game and the AI seat
+// stay untouched (every helper returns 0/no-op without owned charms). Fields:
+//   cardBonus(card,i,board) → +value to your board cards (seat 0)
+//   bonusAdd / triadAdd     → added to your Pair&Triad / Triad-only bonus
+//   valueFloor              → your cards never read below this
+//   drawStones / maxStandingAdd / healBonus / scoreBonus → economy levers
+//   noExhaust               → ignore exhaustion
+//   on: { fightStart, handStart, handWon, handLost }(g, ctx) → event hooks
+const CHARMS = {
+  loadedcoin:   { label: 'Loaded Coin',       blurb: 'Your Coin cards are worth +1.', cardBonus: c => c.type === 'Coin' ? 1 : 0 },
+  passagetoll:  { label: 'Passage Toll',      blurb: 'Your Road and Ferry cards are worth +1.', cardBonus: c => (c.type === 'Road' || c.type === 'Ferry') ? 1 : 0 },
+  whetstone:    { label: 'Whetstone',         blurb: 'Your effect cards are worth +1.', cardBonus: c => c.fx ? 1 : 0 },
+  forgerseal:   { label: "Forger's Seal",     blurb: 'Your Pairs and Triads pay +1.', bonusAdd: 1 },
+  masterforger: { label: 'Master Forger',     blurb: 'Your Triads pay +3 more.', triadAdd: 3 },
+  floorprice:   { label: 'Floor Price',       blurb: 'None of your cards read below 2.', valueFloor: 2 },
+  smugglers:    { label: "Smuggler's Lining", blurb: 'Draw one extra stone each hand.', drawStones: 1 },
+  ironpouch:    { label: 'Iron Pouch',        blurb: 'Your stones ignore exhaustion.', noExhaust: 1 },
+  hardened:     { label: 'Hardened',          blurb: 'Your maximum Standing is +3.', maxStandingAdd: 3 },
+  fieldsurgeon: { label: 'Field Surgeon',     blurb: 'Clearing a table heals +2 Standing.', healBonus: 2 },
+  warchest:     { label: 'War Chest',         blurb: 'Clearing a table pays +5 score.', scoreBonus: 5 },
+  firstblood:   { label: 'First Blood',       blurb: 'The first card you play each hand reads +1.', cardBonus: (c, i) => i === 0 ? 1 : 0 },
+  strongfinish: { label: 'Strong Finish',     blurb: 'The last card you play each hand reads +2.', cardBonus: (c, i, b) => i === b.length - 1 ? 2 : 0 },
+  opening:      { label: 'Opening Gambit',    blurb: 'On the first hand of each table, your board reads +1.', on: { handStart: (g, c) => { if (c.handNum === 1) g.handBuff = (g.handBuff || 0) + 1; } } },
+  spite:        { label: 'Spite Engine',      blurb: 'After a hand you lose, your board reads +1 the next hand.', on: { handLost: g => { g.spitePending = true; }, handStart: g => { if (g.spitePending) { g.handBuff = (g.handBuff || 0) + 1; g.spitePending = false; } } } },
+  momentum:     { label: 'Momentum',          blurb: 'Each hand won in a row pays +1 score, stacking.', on: { handWon: g => { g.winStreak = (g.winStreak || 0) + 1; g.score += (g.winStreak - 1); }, handLost: g => { g.winStreak = 0; } } },
+  counterpunch: { label: 'Counterpunch',      blurb: 'The first hand they take from you each table, heal 2.', on: { handLost: g => { if (!g.cpDone) { g.cpDone = true; g.standing = Math.min(g.maxStanding, g.standing + 2); } } } },
+  tithe:        { label: 'Tithe',             blurb: 'Win a hand by 4 or more and press 1 extra Standing.' },
+};
+function playerCharms() { return (typeof GAUNTLET !== 'undefined' && GAUNTLET && GAUNTLET.charms) || []; }
+function charmHas(key) { return playerCharms().indexOf(key) >= 0; }
+function charmVal(field) { return playerCharms().reduce((s, k) => { const v = CHARMS[k] && CHARMS[k][field]; return s + (typeof v === 'number' ? v : 0); }, 0); }
+function charmCardBonus(card, i, board) { return playerCharms().reduce((s, k) => { const f = CHARMS[k] && CHARMS[k].cardBonus; return s + (f ? f(card, i, board) : 0); }, 0); }
+function charmFire(ev, ctx) { for (const k of playerCharms()) { const h = CHARMS[k] && CHARMS[k].on && CHARMS[k].on[ev]; if (h) h(GAUNTLET, ctx || {}); } }
+
+// ── Circuit records (persisted across runs) ────────────────────────────────
+// Run history, charms discovered (seen in an offer — others stay blacked out in
+// the compendium), and best results. Stored in localStorage via the `ls` shim.
+const CIRCUIT_REC_KEY = 'stonelock_circuit_records';
+function circuitRecords() {
+  let r; try { r = JSON.parse(ls.get(CIRCUIT_REC_KEY)); } catch (e) { r = null; }
+  r = r || {};
+  r.seen = r.seen || {}; r.runs = r.runs || []; r.best = r.best || { tables: 0, score: 0 };
+  return r;
+}
+function saveCircuitRecords(r) { ls.set(CIRCUIT_REC_KEY, JSON.stringify(r)); }
+function markCharmSeen(key) { const r = circuitRecords(); if (!r.seen[key]) { r.seen[key] = 1; saveCircuitRecords(r); } }
+function charmSeen(key) { return !!circuitRecords().seen[key]; }
+function recordCircuitRun(g) {
+  const r = circuitRecords();
+  r.runs.unshift({ tables: g.cleared || 0, score: g.score || 0, foe: g.opp || '', venue: g.venue || '', charms: (g.charms || []).slice(), t: Date.now() });
+  r.runs = r.runs.slice(0, 20); // keep the last 20
+  r.best.tables = Math.max(r.best.tables, g.cleared || 0);
+  r.best.score = Math.max(r.best.score, g.score || 0);
+  saveCircuitRecords(r);
+}
+
 // Compute each card's effective value (evalue) from its fx rider, the board
 // around it, and the opposing board. A no-op for plain cards (evalue ==
 // regionVal), so base-game scoring is unchanged. Set every hand before scoring
@@ -1907,6 +1979,17 @@ function applyCardEffects() {
     }
   }
   for (const board of boards) for (const c of board) if (c && c.evalue < 0) c.evalue = 0;
+  // Charms (the player's run-long relics) buff seat 0's board. Player-only +
+  // gauntlet-only — a no-op without owned charms, so base game is untouched.
+  if (G.gauntlet && G.players[0]) {
+    const b0 = G.players[0].board, floor = charmVal('valueFloor'), hb = (GAUNTLET.handBuff || 0);
+    for (let i = 0; i < b0.length; i++) {
+      const c = b0[i]; if (!c) continue;
+      c.evalue += charmCardBonus(c, i, b0) + hb;
+      if (floor) c.evalue = Math.max(c.evalue, floor);
+      if (c.evalue < 0) c.evalue = 0;
+    }
+  }
 }
 
 // The card's value badge. Under the Cursed Register, the voided type reads 0
@@ -2384,10 +2467,10 @@ function showdown() {
   SFX.play('sting');
 
   applyCardEffects();
-  const sel = G.players.map(p => bestSelection(
+  const sel = G.players.map((p, idx) => bestSelection(
     p.board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c), evalue: c.evalue })),
     G.region.values,
-    variantOpts()
+    scoreOptsFor(idx)
   ));
 
   if (G.mode === 'raid') { raidShowdown(sel); return; }
@@ -4233,9 +4316,10 @@ const RAID_BOSSES = [
    that difficulty of the next boss — a diagonal climb from Magistrate · Easy.
    During alpha, an unlock-all bypass (default ON) keeps everything open. */
 const RAID_DIFF_ORDER = ['easy', 'standard', 'hard'];
+const _lsMem = {}; // in-memory fallback when localStorage is absent (headless/tests)
 const ls = {
-  get(k, d) { try { return typeof localStorage !== 'undefined' ? localStorage.getItem(k) : null; } catch (e) { return d; } },
-  set(k, v) { try { if (typeof localStorage !== 'undefined') localStorage.setItem(k, v); } catch (e) {} },
+  get(k, d) { try { if (typeof localStorage !== 'undefined') return localStorage.getItem(k); } catch (e) {} return (k in _lsMem) ? _lsMem[k] : (d != null ? d : null); },
+  set(k, v) { try { if (typeof localStorage !== 'undefined') { localStorage.setItem(k, v); return; } } catch (e) {} _lsMem[k] = v; },
 };
 function campaignBeaten() { try { return new Set(JSON.parse(ls.get('stonelock-campaign') || '[]')); } catch (e) { return new Set(); } }
 function markCampaignWin(boss, diff) { const s = campaignBeaten(); s.add(`${boss}-${diff}`); ls.set('stonelock-campaign', JSON.stringify([...s])); }
@@ -4577,8 +4661,9 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 16, maxStanding: 16, dmgCap: 4, heal: 4, foeBase: 9, foeStep: 2, drawStones: 3,
-  rewardCards: 3, rewardStones: 2, // between-table spoils: pick one of each (or skip)
+  startStanding: 16, maxStanding: 16, dmgCap: 4, heal: 4, foeBase: 9, foeStep: 3, drawStones: 3,
+  rewardCards: 3, rewardStones: 2, rewardCharms: 2, charmChance: 0.4, // charms are an occasional draft, not every table
+
   eventEvery: 4, deckFloor: 6,     // every Nth cleared table is an interlude event; don't thin the deck below this
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
@@ -4707,7 +4792,7 @@ function circuitLoadoutScreen() {
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
-  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch) };
+  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], handBuff: 0 };
   circuitRung();
 }
 
@@ -4786,6 +4871,9 @@ function pileDrawStones(ps, n) {
 function circuitRung() {
   const g = GAUNTLET;
   g.tableCleared = false; g.groundOut = false;
+  // Reset per-table charm state, then fire fight-start hooks.
+  g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
+  charmFire('fightStart');
   if (!g.opp) g.opp = circuitOpponent(); // may be pre-chosen so the between-table screen can reveal it
   g.venue = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
   g.foeMax = CIRCUIT.foeBase + (g.rung - 1) * CIRCUIT.foeStep; // tougher opponents deeper in
@@ -4805,14 +4893,18 @@ function circuitRung() {
 function circuitHandResult(winner, diff) {
   const g = GAUNTLET;
   if (!g.active || !winner || diff <= 0) return;
-  const dmg = Math.min(diff, CIRCUIT.dmgCap); // shaped: one hand can't decide a table outright
   if (winner.members.includes(0)) {
+    const press = diff + ((charmHas('tithe') && diff >= 4) ? 1 : 0); // Tithe presses a big win harder
+    const dmg = Math.min(press, CIRCUIT.dmgCap); // shaped: one hand can't decide a table outright
     g.foeHp = Math.max(0, g.foeHp - dmg);
     log(`The Circuit — you press ${g.opp} for ${dmg} (Standing ${g.foeHp}/${g.foeMax} left).`, 'you');
+    charmFire('handWon');
     if (g.foeHp <= 0) { g.tableCleared = true; G.over = true; }
   } else {
+    const dmg = Math.min(diff, CIRCUIT.dmgCap);
     g.standing = Math.max(0, g.standing - dmg);
     log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
+    charmFire('handLost');
     if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   }
   updateCircuitHud();
@@ -4823,8 +4915,8 @@ function circuitEnd() {
   closeModal('showdownModal');
   if (g.tableCleared) {
     g.cleared = g.rung;
-    g.score += 10 + g.rung; // tables are worth more as you climb
-    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal);
+    g.score += 10 + g.rung + charmVal('scoreBonus'); // tables are worth more as you climb (War Chest adds)
+    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
     g.rung++;
     g.opp = circuitOpponent(); // pre-pick the next foe so the between screen can reveal the matchup
     // Rhythm: most cleared tables offer spoils (gain); every Nth is an interlude
@@ -4833,17 +4925,25 @@ function circuitEnd() {
     else { g.reward = makeReward(); circuitRewardScreen(); }
   } else {
     g.active = false;
+    recordCircuitRun(g); // bank the run into the persisted records
     circuitScreen(true);
   }
   updateCircuitHud();
 }
 
-// Between-table spoils: an offer of cards and stones to grow your decks.
+// Between-table spoils: an offer of cards and stones to grow your decks, plus a
+// charm draft (1 of 2 unowned) when any remain.
+function unownedCharmKeys() { const owned = playerCharms(); return Object.keys(CHARMS).filter(k => owned.indexOf(k) < 0); }
 function makeReward() {
+  // Charms are an occasional draft (not every table), so they don't snowball.
+  const charmOffer = (Math.random() < (CIRCUIT.charmChance != null ? CIRCUIT.charmChance : 0.4))
+    ? shuffle(unownedCharmKeys()).slice(0, CIRCUIT.rewardCharms || 2) : [];
+  charmOffer.forEach(markCharmSeen); // discovery: appearing in an offer reveals it in the compendium
   return {
     cards: circuitOfferCards(CIRCUIT.rewardCards),       // N effect cards (type + fx)
     stones: shuffle(STONE_KEYS.slice()).slice(0, CIRCUIT.rewardStones),
-    cardPick: null, stonePick: null,
+    charms: charmOffer,
+    cardPick: null, stonePick: null, charmPick: null,
   };
 }
 
@@ -4905,6 +5005,24 @@ function circuitRewardScreen() {
   ss.appendChild(srow);
   body.appendChild(ss);
 
+  // Charm — take one run-long relic (when any remain unowned).
+  if (r.charms && r.charms.length) {
+    const cm = document.createElement('div'); cm.className = 'ldsection';
+    cm.innerHTML = `<div class="ldhead">Take a charm — ${r.charmPick ? '1' : '0'}/1 · optional</div>`;
+    const cmrow = document.createElement('div'); cmrow.className = 'charmoffer';
+    for (const key of r.charms) {
+      const ch = CHARMS[key]; if (!ch) continue;
+      const sel = r.charmPick === key;
+      const b = document.createElement('button');
+      b.className = 'charmcard' + (sel ? ' selected' : '');
+      b.innerHTML = `<div class="charmcard-h">${ch.label}</div><div class="charmcard-b">${ch.blurb}</div>`;
+      b.onclick = () => { r.charmPick = (r.charmPick === key) ? null : key; circuitRewardScreen(); };
+      cmrow.appendChild(b);
+    }
+    cm.appendChild(cmrow);
+    body.appendChild(cm);
+  }
+
   // Review your decks before committing (opens over this screen; closing returns
   // here with your selection intact).
   const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
@@ -4915,7 +5033,7 @@ function circuitRewardScreen() {
 
   const next = $('circuitNext');
   next.disabled = false;
-  next.textContent = (r.cardPick || r.stonePick) ? 'Take & set out ›' : 'Skip & set out ›';
+  next.textContent = (r.cardPick || r.stonePick || r.charmPick) ? 'Take & set out ›' : 'Skip & set out ›';
   next.onclick = circuitTakeRewardAndAdvance;
   $('circuitModal').classList.add('open');
 }
@@ -4926,6 +5044,11 @@ function circuitTakeRewardAndAdvance() {
   if (r) {
     if (r.cardPick) g.deck = g.deck.concat([r.cardPick]);
     if (r.stonePick) g.pouch = Object.assign({}, g.pouch, { [r.stonePick]: (g.pouch[r.stonePick] || 0) + 1 });
+    if (r.charmPick) {
+      g.charms = (g.charms || []).concat([r.charmPick]);
+      const add = CHARMS[r.charmPick] && CHARMS[r.charmPick].maxStandingAdd;
+      if (add) { g.maxStanding += add; g.standing += add; } // gain the buffer immediately
+    }
     g.reward = null;
   }
   circuitRung();
@@ -5095,7 +5218,8 @@ function updateCircuitHud() {
     `<div class="chud-bars">` +
       `<div class="chud-bar you"><span class="chud-lab">You</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
       `<div class="chud-bar foe"><span class="chud-lab">${g.opp || ''}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
-    `</div>`;
+    `</div>` +
+    ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
   const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
 }
 
@@ -5152,9 +5276,16 @@ function showDeckView(mode) {
     ? `draw <b>${stoneList.length}</b> · discard <b>${you.stoneDiscard ? you.stoneDiscard.length : 0}</b> · in hand <b>${you.stoneHand ? you.stoneHand.length : 0}</b> · pouch ${pTotal}`
     : `<b>${pTotal}</b> stones`;
 
+  const charms = (g.charms || []);
+  const charmHtml = charms.length
+    ? `<div class="ldsection"><div class="ldhead">Charms — ${charms.length}</div><div class="charmlist">` +
+        charms.map(k => `<div class="charmrow"><span class="charmrow-h">${CHARMS[k].label}</span><span class="charmrow-b">${CHARMS[k].blurb}</span></div>`).join('') +
+      `</div></div>`
+    : '';
   body.innerHTML =
     `<div class="ldsection"><div class="ldhead">Cards — ${cMeta}</div><div class="ldcards deckcards">${cardHtml}</div></div>` +
     `<div class="ldsection"><div class="ldhead">Pouch — ${pMeta}</div><div class="deckstones">${stoneHtml}</div></div>` +
+    charmHtml +
     (remaining ? `<div class="ldnote">What's left to draw — the order is shuffled, so this is the pool, not the sequence.</div>` : '');
   $('deckModal').classList.add('open');
 }
@@ -5385,7 +5516,8 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', boot);
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    bestSelection, REGIONS, TYPES, STONES, CIRCUIT,
+    bestSelection, REGIONS, TYPES, STONES, CIRCUIT, CHARMS,
+    circuitRecords, markCharmSeen, charmSeen,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
