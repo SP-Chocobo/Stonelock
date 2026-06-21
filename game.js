@@ -905,6 +905,9 @@ function startHand() {
     let pool = { red: 2, white: 2, blue: 2, black: 2 };
     if (gauntlet) pool = { red: 1, white: 1, blue: 1, black: 1 };
     else if (raid && isMagistrate(p)) pool = { red: 3, white: 3, blue: 3, black: 3 };
+    // The Circuit: the player (seat 0) spends from their chosen Pouch, not the
+    // default supply. (Academy venue keeps its one-of-each rule, handled above.)
+    else if (G.gauntlet && p === 0 && GAUNTLET.pouch) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, GAUNTLET.pouch);
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands) {
@@ -932,8 +935,11 @@ function startHand() {
   }
   for (let p = 0; p < G.nPlayers; p++) {
     const fixed = G.fixedHands && G.fixedHands[p];
+    // The Circuit: the player (seat 0) draws from their owned deck, reshuffled
+    // each hand, instead of the shared regional pool.
+    const owned = (G.gauntlet && p === 0 && GAUNTLET.deck && GAUNTLET.deck.length) ? shuffle(GAUNTLET.deck.slice()) : null;
     for (let k = 0; k < handSizeFor(p); k++) {
-      const dealt = active.pop();
+      const dealt = owned ? (owned.pop() || active.pop()) : active.pop();
       const card = {
         id: id++,
         type: (fixed && fixed[k]) || dealt,
@@ -4383,11 +4389,70 @@ const CIRCUIT = {
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
 };
-let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 14, maxStanding: 14, foeHp: 10, foeMax: 10, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false };
+let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 14, maxStanding: 14, foeHp: 10, foeMax: 10, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck: null, pouch: null };
+
+// Starter pouches (4 stones each) — your "character." Leans, not extremes.
+const CIRCUIT_POUCHES = [
+  { key: 'locksmith', name: 'The Locksmith', pouch: { white: 2, black: 1, red: 1 } },
+  { key: 'ferryman', name: "The Ferryman's Way", pouch: { blue: 2, black: 1, white: 1 } },
+  { key: 'alchemist', name: 'The Alchemist', pouch: { red: 2, blue: 1, black: 1 } },
+];
+let circuitLoad = { pouch: 'locksmith', offer: [], picks: [] };
+function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
 function startCircuit() {
   if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
-  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false };
+  circuitLoad = { pouch: 'locksmith', offer: shuffle(TYPES.slice()).slice(0, 5), picks: [] };
+  if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
+  circuitLoadoutScreen();
+}
+
+// Outfit screen: pick a pouch (4 stones) and add 2 cards to a base of one-of-each
+// (→ a 10-card owned deck, intentionally smaller than the standard 64-pool).
+function circuitLoadoutScreen() {
+  if (typeof document === 'undefined') return;
+  $('circuitTitle').textContent = 'Outfit for the Circuit';
+  $('circuitText').textContent = 'Pick a stone pouch, then add two cards to your deck — you start with one of each, so the pair you add is what you lean on.';
+  const stats = $('circuitStats');
+  stats.innerHTML = '';
+  const head = (t) => { const h = document.createElement('div'); h.className = 'unlockhead'; h.textContent = t; stats.appendChild(h); };
+  head('Your pouch — 4 stones');
+  const prow = document.createElement('div'); prow.className = 'chiprow';
+  for (const a of CIRCUIT_POUCHES) {
+    const b = document.createElement('button');
+    b.className = 'pillopt' + (circuitLoad.pouch === a.key ? ' selected' : '');
+    b.innerHTML = `<span class="pilllabel">${a.name}</span><span class="pillsub">${stoneSummary(a.pouch)}</span>`;
+    b.onclick = () => { circuitLoad.pouch = a.key; circuitLoadoutScreen(); };
+    prow.appendChild(b);
+  }
+  stats.appendChild(prow);
+  head(`Add 2 cards (${circuitLoad.picks.length}/2)`);
+  const crow = document.createElement('div'); crow.className = 'chiprow';
+  for (const t of circuitLoad.offer) {
+    const sel = circuitLoad.picks.includes(t);
+    const b = document.createElement('button');
+    b.className = 'pillopt' + (sel ? ' selected' : '');
+    b.innerHTML = `<span class="pilllabel">${t}</span><span class="pillsub">extra copy</span>`;
+    b.onclick = () => {
+      const j = circuitLoad.picks.indexOf(t);
+      if (j >= 0) circuitLoad.picks.splice(j, 1);
+      else if (circuitLoad.picks.length < 2) circuitLoad.picks.push(t);
+      circuitLoadoutScreen();
+    };
+    crow.appendChild(b);
+  }
+  stats.appendChild(crow);
+  const next = $('circuitNext');
+  next.textContent = 'Begin the Circuit ›';
+  next.disabled = circuitLoad.picks.length !== 2;
+  next.onclick = () => { if (circuitLoad.picks.length === 2) circuitBegin(); };
+  $('circuitModal').classList.add('open');
+}
+
+function circuitBegin() {
+  const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || CIRCUIT_POUCHES[0];
+  const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
+  GAUNTLET = { active: true, rung: 1, cleared: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: arch.name };
   circuitRung();
 }
 
@@ -4463,6 +4528,7 @@ function circuitScreen(over) {
   const g = GAUNTLET;
   const title = $('circuitTitle'), text = $('circuitText'), stats = $('circuitStats');
   const next = $('circuitNext');
+  next.disabled = false; // the loadout screen may have disabled it
   if (over) {
     SFX.play('lose');
     title.textContent = 'The Circuit ends';

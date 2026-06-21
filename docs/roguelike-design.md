@@ -257,11 +257,28 @@ Your owned, built card deck (§6.4): draft cards in, **thin** dead ones out,
 **Roguelike-only** — the base game keeps the shared regional pool. Venues still
 reshape values per fight, so the deck is venue/act-relative (§2).
 
-### 5.4 The ally / mercenary
-Recruit a Regular to fight beside you (2v2 nodes / hired for N tables). The
-**Regular *is* the merc "class"** — its innate lean is the "aura" (the Old Hand's
-protective instinct). Then **outfit them**: assign stones/cards from your
-**shared** inventory.
+### 5.4 The ally / mercenary — a recruited bench (Wildfrost model)
+Recruit Regulars over the run (an early event seeds your first); keep a **bench
+of up to ~3**, and **field one for fights that need an ally** (2v2 nodes), re-kit
+between fights. The **Regular *is* the merc "class"** — its innate lean is the
+"aura" (the Old Hand's protective instinct). Then **outfit them**: assign
+stones/cards from your **shared** inventory.
+
+- **The bench cap (~3) makes recruiting a decision** — who to keep, who to
+  dismiss; and a fielded ally can be **lost** (real stakes behind the
+  investment). Viable now that the balance pass (§8.2) put the whole roster in a
+  fair 48–58% band — pre-balance, a fielded Clerk was a 36% liability.
+- **Re-kit freely between fights.** Equipping spends from shared inventory
+  (opportunity cost, below), but reallocation between fights is free — a loadout
+  *puzzle* ("keep the Twin Red or hand it to my anchor for this Court fight?"),
+  not a grind. This is "fully kit whoever you're fielding."
+- **Bounded ally AI is the constraint** (§8.1): each fielded ally runs its
+  deck/pouch on a scripted **doctrine**, never a search — the more kit
+  flexibility, the more it must execute arbitrary loadouts predictably.
+- **Optional depth:** default an auto-kit; surface the loadout only for fights
+  that field an ally, so solo tables stay clean.
+- **Sequencing:** the companion layer sits *on top of* the player's own
+  deck/pouch — build that first; recruit-events + bench come after.
 
 Why this is the cleanest answer to the ally-AI worry: **outfitting moves agency
 from the AI's choices to your setup.** A predictable partner running a kit *you*
