@@ -148,6 +148,18 @@ g.curNode = { type: 'event', col: 1 }; g.charms = ['masterforger'];
 g.event = { kind: 'gamble', giveCharm: 'masterforger', gain: 'forgerseal' };
 M.circuitTakeEventAndAdvance();
 assert(!g.charms.includes('masterforger') && g.charms.includes('forgerseal'), 'the pawnbroker swaps one charm for another');
+// gold windfall: banks its coin
+g.curNode = { type: 'event', col: 1 }; const coin0 = g.coin || 0;
+g.event = { kind: 'gold', gold: 12 };
+M.circuitTakeEventAndAdvance();
+assert((g.coin || 0) === coin0 + 12, 'a windfall banks its coin');
+// Resonance charm: heals 1 on every third stone placed
+assert(M.CHARMS.resonance && M.CHARMS.resonance.on.stonePlaced, 'Resonance fires on stone placement');
+const rg = { standing: 5, maxStanding: 20, resoCount: 0 };
+M.CHARMS.resonance.on.stonePlaced(rg); M.CHARMS.resonance.on.stonePlaced(rg);
+assert(rg.standing === 5, 'Resonance does not heal before the third stone');
+M.CHARMS.resonance.on.stonePlaced(rg);
+assert(rg.standing === 6, 'Resonance heals 1 Standing on the third stone');
 
 // --- depleting decks conserve across reshuffles ---
 [g, G] = enterFirstFight();

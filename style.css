@@ -1314,6 +1314,15 @@ body[data-compact="1"] .board .cfx { display: none; }
 .eventopt.disabled { opacity: 0.4; cursor: default; }
 .eventopt-l { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 14px; }
 .eventopt-n { font-size: 11.5px; color: var(--parchment-dim); margin-top: 3px; }
+/* A Windfall: a big coin find. */
+.goldfind { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; }
+.goldfind-ic { font-size: 40px; color: #f0d99a; text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+.goldfind-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 26px; color: #f0d99a; }
+/* Coin won on the spoils screen — an explicit banked reward. */
+.coinwon { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px; }
+.coinwon-ic { font-size: 24px; color: #f0d99a; }
+.coinwon-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 18px; color: #f0d99a; }
+.coinwon-tot { font-size: 12px; color: var(--parchment-dim); }
 
 /* Styled effect-card hover tooltip — a richer reminder than the native title. */
 .fxtip {

@@ -1910,6 +1910,7 @@ function applyStone(actor, key, target) {
     }
   }
   G.events.push(ev);
+  if (G.gauntlet && actor === 0) charmFire('stonePlaced'); // Resonance and kin
   UI.flashIds = ev.cards.map(c => c.id);
   render();
 }
@@ -2093,6 +2094,9 @@ const CHARMS = {
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
   cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
   foresight:    { label: 'Foresight',         blurb: 'See the next cards waiting in your draw pile (in the deck view).', foresight: 2 },
+  resonance:    { label: 'Resonance',         blurb: 'Every third stone you place at a table, recover 1 Standing.',
+    on: { fightStart: g => { g.resoCount = 0; },
+          stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 1); log('Resonance — a stone rings true; you recover 1 Standing.', 'you'); updateCircuitHud(); } } } },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -5461,10 +5465,12 @@ function circuitEnd() {
     const tier = nodeTier(g.act, node.col || 0);
     g.score += 10 + tier + charmVal('scoreBonus');
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
-    g.coin += (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    const coinWon = (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    g.coin += coinWon;
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances the map.
     g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2 });
+    g.reward.coin = coinWon; // shown explicitly on the spoils screen
     circuitRewardScreen();
   } else {
     g.active = false;
@@ -5505,6 +5511,13 @@ function circuitRewardScreen() {
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
+
+  // Coin won — an explicit, banked reward (already added to your purse).
+  if (r.coin) {
+    const cb = document.createElement('div'); cb.className = 'ldsection';
+    cb.innerHTML = `<div class="coinwon"><span class="coinwon-ic">⛁</span><span class="coinwon-amt">+${r.coin} coin</span><span class="coinwon-tot">purse: ${g.coin}</span></div>`;
+    body.appendChild(cb);
+  }
 
   // Cards — take one (click to toggle; leaving none selected = skip).
   const cs = document.createElement('div'); cs.className = 'ldsection';
@@ -5768,7 +5781,7 @@ function makeCircuitEvent() {
   const g = GAUNTLET;
   // Random encounters only — never the interlude (that now lives on its own
   // Repose node, rolled into the map explicitly).
-  const kinds = ['cache', 'cache', 'ambush', 'ambush'];
+  const kinds = ['cache', 'cache', 'ambush', 'ambush', 'gold', 'blood'];
   if (upgradableStones(g).length) kinds.push('whetstone');
   if (pouchTotal(g.pouch) > 1) kinds.push('swap');
   if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
@@ -5778,6 +5791,8 @@ function makeCircuitEvent() {
   else if (kind === 'swap') ev.gain = STONE_KEYS[Math.floor(rnd() * STONE_KEYS.length)];
   else if (kind === 'gamble') ev.gain = shuffle(unownedCharmKeys())[0];
   else if (kind === 'ambush') { ev.foe = pickFoe(); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
+  else if (kind === 'gold') ev.gold = 10 + Math.floor(rnd() * 6); // a 10–15 coin windfall
+  else if (kind === 'blood') { ev.step = 0; ev.spentHp = 0; ev.gotGold = 0; }
   return ev;
 }
 
@@ -5816,6 +5831,8 @@ function circuitEventScreen() {
     case 'swap': return renderSwapEvent(g);
     case 'gamble': return renderGambleEvent(g);
     case 'ambush': return renderAmbushEvent(g);
+    case 'gold': return renderGoldEvent(g);
+    case 'blood': return renderBloodEvent(g);
     default: return renderInterludeEvent(g);
   }
 }
@@ -5992,6 +6009,49 @@ function renderAmbushEvent(g) {
   $('circuitModal').classList.add('open');
 }
 
+// A Windfall: a flat coin find, no strings.
+function renderGoldEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const body = eventShell('A Windfall', `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin. A purse lies forgotten in the dust — and it is heavy.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="goldfind"><span class="goldfind-ic">⛁</span><span class="goldfind-amt">+${ev.gold} coin</span></div>`;
+  body.appendChild(sec);
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false;
+  next.textContent = 'Pocket it ›';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// The Blood Price: bleed for coin, the pot growing each round (step N costs N
+// Standing, pays 2N−1 coin). Cumulative; stop whenever you like. Applied live.
+function renderBloodEvent(g) {
+  const ev = g.event;
+  const nextN = (ev.step || 0) + 1;
+  const cost = nextN, gain = 2 * nextN - 1;
+  const canBleed = g.standing > cost; // must survive the cut (stay ≥ 1)
+  SFX.play('flip');
+  const body = eventShell('The Blood Price', `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin. A back-alley wager: open a vein and the pot grows. Bleed as often as you dare — then walk.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = (ev.step ? `<div class="ldnote">So far: <b>${ev.spentHp}</b> Standing spent for <b>${ev.gotGold}</b> coin.</div>` : '') +
+    `<div class="ldnote">Next cut: lose <b>${cost}</b> Standing, gain <b>${gain}</b> coin.</div>`;
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  const bleed = document.createElement('button');
+  bleed.className = 'eventopt' + (canBleed ? '' : ' disabled'); bleed.disabled = !canBleed;
+  bleed.innerHTML = `<div class="eventopt-l">Open a vein</div><div class="eventopt-n">−${cost} Standing · +${gain} coin</div>`;
+  bleed.onclick = () => { g.standing -= cost; g.coin = (g.coin || 0) + gain; ev.step = nextN; ev.spentHp += cost; ev.gotGold += gain; circuitEventScreen(); };
+  const walk = document.createElement('button');
+  walk.className = 'eventopt';
+  walk.innerHTML = `<div class="eventopt-l">${ev.step ? 'Bind the wound & go' : 'Walk away'}</div><div class="eventopt-n">${ev.step ? `Keep your ${ev.gotGold} coin and move on.` : 'Take nothing; lose nothing.'}</div>`;
+  walk.onclick = circuitTakeEventAndAdvance;
+  orow.appendChild(bleed); orow.appendChild(walk);
+  sec.appendChild(orow); body.appendChild(sec);
+  eventReviewBtn(body);
+  $('circuitNext').style.display = 'none'; // the choices above drive it
+  $('circuitModal').classList.add('open');
+}
+
 // A grid of the owned deck's individual cards (optionally filtered), for the
 // remove / move pickers.
 function eventCardPicker(head, isSel, onPick, filter) {
@@ -6050,6 +6110,8 @@ function circuitTakeEventAndAdvance() {
     else if (kind === 'swap') {
       if (ev.stoneColor && (g.pouch[ev.stoneColor] || 0) > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1, [ev.gain]: (g.pouch[ev.gain] || 0) + 1 });
     }
+    else if (kind === 'gold') { g.coin = (g.coin || 0) + (ev.gold || 0); }
+    else if (kind === 'blood') { /* already applied per bleed; nothing to confirm */ }
     else if (kind === 'gamble') {
       if (ev.giveCharm && ev.gain && (g.charms || []).includes(ev.giveCharm)) {
         const lost = CHARMS[ev.giveCharm], got = CHARMS[ev.gain];
