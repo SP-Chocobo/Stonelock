@@ -83,6 +83,7 @@ function simulateRun() {
     g.curNode = node;
     if (node.type === 'event' || node.type === 'repose') { autoEvent(g); M.circuitTakeEventAndAdvance(); continue; }
     if (node.type === 'shop') { g.shop = M.makeShop(); autoShop(g); g.shop = null; M.circuitAfterNode(); continue; }
+    if (node.type === 'puzzle') { M.circuitAfterNode(); continue; } // puzzles are human-only; the neutral pilot walks past
     setupFight(g, node);
     if (!playFight()) break;
     if (g.tableCleared) { M.circuitEnd(); autoReward(g); M.circuitTakeRewardAndAdvance(); }

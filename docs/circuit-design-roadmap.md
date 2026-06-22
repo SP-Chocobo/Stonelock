@@ -50,6 +50,28 @@ All nine regulars now have a signature relic:
 Each is boss-only and offered only by its own persona, so a full set of nine
 gives every act boss a distinct, build-defining prize.
 
+## Shipped (puzzles) — authored stone-placement riddles
+
+A rare node (1 per act, never the first two columns). A puzzle is a fixed board
+(your cards + a rival board, both able to carry **modifiers** shown with real
+effect math — a Drain pulling your card down, a Lodestone propping neighbours
+up) and a set of stones. You get **3 guesses**; each guess is one stone→target
+line. Outcomes are **authored, not computed** — a response table maps each
+meaningful placement to specific flavor + a `solve` flag, so a puzzle plays out
+exactly as designed. Solve and the reward scales by guess (1st a relic, 2nd a
+stone upgrade, 3rd gold); a miss costs 2 Standing; you may walk away.
+
+Authoring is pure data in `PUZZLES`:
+```
+key: { name, flavor, venue, you:[...cards], foe:[...cards], stones:[...],
+       responses: { '<stone>@you0': {text, solve?}, 'blue@you2>foe0': {...} },
+       miss: { text } }            // cards may be 'Coin' or { type:'Ferry', fx:'drain' }
+```
+Backlog: author a real set of tight puzzles; **mirror Academy-safe ones into
+the Academy** (the resolver/screen are mode-agnostic; `puzzleAcademySafe()`
+flags puzzles that avoid Circuit-only stones); optional multi-step (sequence)
+puzzles; relic/upgrade reward icons.
+
 ## Backlog (prioritized) — bigger moments
 
 ### 1. Act themes (NEXT — locked in)

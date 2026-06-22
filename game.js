@@ -5309,8 +5309,10 @@ function nodeFoeCharms(type, act, foe) {
   return shuffle(pool.slice()).slice(0, n);
 }
 function mkNode(type, col, idx, act) {
-  const foe = (type === 'event' || type === 'shop' || type === 'repose') ? null : pickFoeFor(type, act);
-  return { type, col, idx, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false, edges: [] };
+  const foe = (type === 'event' || type === 'shop' || type === 'repose' || type === 'puzzle') ? null : pickFoeFor(type, act);
+  const node = { type, col, idx, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false, edges: [] };
+  if (type === 'puzzle' && PUZZLE_KEYS.length) node.puzzle = PUZZLE_KEYS[Math.floor(rnd() * PUZZLE_KEYS.length)];
+  return node;
 }
 // Link column A → B with adjacency-biased edges: every A node gets ≥1 outgoing,
 // every B node ≥1 incoming (no dead ends, nothing unreachable), plus a little
@@ -5369,6 +5371,7 @@ function buildAct(act) {
   };
   placeOne('shop', 2, N - 3); placeOne('shop', 2, N - 3);
   placeOne('repose', 1, N - 3); placeOne('repose', 1, N - 3);
+  if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
@@ -5532,6 +5535,7 @@ function circuitEnterNode(node) {
   if (node.type === 'event') { g.event = makeCircuitEvent(); circuitEventScreen(); return; }
   if (node.type === 'repose') { g.event = { kind: 'interlude', choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
   if (node.type === 'shop') { g.shop = makeShop(); circuitShopScreen(); return; }
+  if (node.type === 'puzzle') { g.puzzle = { key: node.puzzle || PUZZLE_KEYS[0], tryN: 0, sel: null }; circuitPuzzleScreen(); return; }
   circuitSetupFight(node);
 }
 // Set up a duel/elite/boss for the given node (foe, venue, Standing, foe charms).
@@ -5608,9 +5612,9 @@ function nodeFoeMax(node) {
 function mapNodeHtml(node) {
   // The road ahead reads only by KIND — who waits at a fight and how hard they
   // hit stays unknown until you're across the table from them.
-  const names = { duel: 'Duel', elite: 'Elite', event: 'Encounter', repose: 'Repose', boss: 'Boss', shop: 'Shop' };
-  const sub = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', event: 'who knows what', repose: 'rest & refit', shop: 'spend your coin' };
-  const icon = { duel: '⚔', elite: '★', boss: '☠', event: '?', repose: '✦', shop: '⛃' };
+  const names = { duel: 'Duel', elite: 'Elite', event: 'Encounter', repose: 'Repose', boss: 'Boss', shop: 'Shop', puzzle: 'Puzzle' };
+  const sub = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', event: 'who knows what', repose: 'rest & refit', shop: 'spend your coin', puzzle: 'a tailored riddle' };
+  const icon = { duel: '⚔', elite: '★', boss: '☠', event: '?', repose: '✦', shop: '⛃', puzzle: '◆' };
   const subEl = `<div class="mapnode-f">${sub[node.type] || ''}</div>`;
   return `<div class="mapnode-i">${icon[node.type] || ''}</div><div class="mapnode-t">${names[node.type]}</div>${subEl}`;
 }
@@ -6382,6 +6386,219 @@ function renderPactEvent(g) {
   $('circuitModal').classList.add('open');
 }
 
+// ── Puzzles ───────────────────────────────────────────────────────────────
+// A puzzle is a hand-authored stone-placement riddle: a fixed board of your
+// cards, a fixed rival board, and a set of stones. You get 3 guesses; each
+// guess is ONE placement (a stone onto a target). Outcomes are NOT computed by
+// the engine — the author writes a specific response for every meaningful
+// (stone → target), so a puzzle plays out exactly as designed. The placement
+// whose response is `solve` wins; the reward scales by how few guesses it took
+// (1st: a relic, 2nd: a stone upgrade, 3rd: gold). A wrong guess costs 2
+// Standing; you may bail. Authoring is pure data — drop entries in PUZZLES.
+//   you/foe : arrays of card type names (rendered with the venue's values)
+//   stones  : the stone keys you may place (red/twinred/white/blue/green/…)
+//   responses : { '<placementKey>': { text, solve? } }  — see puzzleKey()
+//   miss    : the default response for any placement not listed (a wrong line)
+const PUZZLES = {
+  wayfarer: {
+    name: 'A Wayfarer’s Riddle',
+    flavor: 'One stone decides it. Read the board and pick the line that lands.',
+    venue: 'tavern',
+    you: ['Coin', 'Sword', 'Quill'],                 // 3 / 2 / 1 at the Tavern
+    foe: ['Bread', { type: 'Ferry', fx: 'drain' }, 'Chain'], // the Ferry's Drain pulls your Sword to 1
+    stones: ['twinred', 'red'],
+    responses: {
+      'twinred@you0': { solve: true, text: 'Two phantoms crown the Coin — a full Triad of coins, and the table tips to you.' },
+      'twinred@you1': { text: 'A Triad of Swords — but they’re drained thin. It scores too lean to break the wall.' },
+      'twinred@you2': { text: 'Three Quills is still a pauper’s hand. It falls short.' },
+      'red@you0': { text: 'One phantom makes only a Pair of coins — not enough to take the table.' },
+      'red@you1': { text: 'A Pair of drained Swords. The wall holds.' },
+      'red@you2': { text: 'A Pair of Quills changes little.' },
+    },
+    miss: { text: 'The line comes up short.' },
+  },
+};
+const PUZZLE_KEYS = Object.keys(PUZZLES);
+function puzzleValues(p) { const v = VENUES[p.venue]; return REGIONS[(v && v.region) || 'bar'].values; }
+function puzzleSpecType(s) { return (s && typeof s === 'object') ? s.type : s; }
+function puzzleSpecFx(s) { return (s && typeof s === 'object') ? s.fx : null; }
+// Resolve display values across both puzzle boards through the real effect
+// hooks (so an authored Drain/Lodestone/etc. is shown exactly as it scores).
+// Charm-only and venue-reading effects (Surge/Contraband/Runesmith/Echo/Wild)
+// aren't supported on puzzle cards — author with the board-reading ones.
+function puzzleEvalues(boards, values) {
+  for (const b of boards) for (const c of b) if (c) { const e = EFFECTS[c.fx]; c.evalue = (e && e.base && c.fx !== 'contraband' && c.fx !== 'surge') ? e.base(c) : values[c.type]; }
+  for (const b of boards) for (const c of b) if (c) { const e = EFFECTS[c.fx]; if (e && e.self) c.evalue += e.self(c, b); }
+  for (let bi = 0; bi < boards.length; bi++) { const b = boards[bi]; for (let i = 0; i < b.length; i++) { const c = b[i]; if (!c) continue; const e = EFFECTS[c.fx]; if (!e) continue; if (e.slot) c.evalue += e.slot(c, i, b, boards); if (e.spread) e.spread(c, i, b); if (e.cross) { const owner = (c.origOwner != null) ? c.origOwner : bi; if (!e.ownerLocked || owner === bi) e.cross(c, i, boards, bi); } } }
+  for (const b of boards) for (const c of b) if (c && c.evalue < 0) c.evalue = 0;
+}
+// The signature an authored response is keyed by. Blue (a swap) names both
+// cards; every other stone names its single target.
+function puzzleKey(stone, side, idx, swap) {
+  return stoneBase(stone) === 'blue' ? `${stone}@you${idx}>foe${swap}` : `${stone}@${side}${idx}`;
+}
+function puzzleResponse(p, key) { return (p.responses && p.responses[key]) || p.miss || { text: 'Nothing comes of it.' }; }
+// A working board (for the screen to show the phantom/swap a guess produces).
+function puzzleFresh(p) {
+  const mk = t => ({ type: t, phantoms: 0, locked: false, poisoned: false });
+  return { you: p.you.map(mk), foe: p.foe.map(mk) };
+}
+function puzzlePreview(p, stone, side, idx, swap) {
+  const st = puzzleFresh(p), base = stoneBase(stone);
+  if (base === 'red') { (side === 'you' ? st.you : st.foe)[idx].phantoms += (stone === 'twinred' ? 2 : 1); }
+  else if (base === 'white') { (side === 'you' ? st.you : st.foe)[idx].locked = true; }
+  else if (base === 'green') { st.foe[idx].poisoned = true; }
+  else if (base === 'blue') { const a = st.you[idx], b = st.foe[swap]; st.you[idx] = b; st.foe[swap] = a; }
+  return st;
+}
+// Headless helper (tests/authoring): the authored response for one placement.
+function solvePuzzle(key, placementKey) { const p = PUZZLES[key]; if (!p) return null; return puzzleResponse(p, placementKey); }
+// A puzzle is Academy-safe (re-usable as base-game practice) when it leans on no
+// Circuit-exclusive stones — i.e. no variants. (Run charms never touch a puzzle.)
+function puzzleAcademySafe(p) { return (p.academy != null) ? !!p.academy : p.stones.every(s => !isVariant(s)); }
+
+function puzzleFresh(p) {
+  const mk = (s, owner) => ({ type: puzzleSpecType(s), fx: puzzleSpecFx(s), phantoms: 0, locked: false, poisoned: false, owner, origOwner: owner, stones: [] });
+  return { you: p.you.map(s => mk(s, 0)), foe: p.foe.map(s => mk(s, 1)) };
+}
+function puzzlePreview(p, stone, side, idx, swap) {
+  const st = puzzleFresh(p), base = stoneBase(stone);
+  if (base === 'red') { (side === 'you' ? st.you : st.foe)[idx].phantoms += (stone === 'twinred' ? 2 : 1); }
+  else if (base === 'white') { (side === 'you' ? st.you : st.foe)[idx].locked = true; }
+  else if (base === 'green') { st.foe[idx].poisoned = true; }
+  else if (base === 'blue') { const a = st.you[idx], b = st.foe[swap]; a.owner = 1; b.owner = 0; st.you[idx] = b; st.foe[swap] = a; }
+  puzzleEvalues([st.you, st.foe], puzzleValues(p));
+  return st;
+}
+// The puzzle reward scales by how few guesses it took: 1st a relic, 2nd a stone
+// upgrade, 3rd gold — each falling through to the next if unavailable.
+function circuitPuzzleReward(g, guess) {
+  const relic = () => { const k = shuffle(unownedCharmKeys())[0]; if (!k) return null; g.charms = (g.charms || []).concat([k]); markCharmSeen(k); const a = CHARMS[k].maxStandingAdd; if (a) { g.maxStanding += a; g.standing += a; } return `a relic — ${CHARMS[k].label}`; };
+  const upgrade = () => { const ups = upgradableStones(g); if (!ups.length) return null; const base = ups[Math.floor(rnd() * ups.length)], v = variantForBase(base); g.pouch = Object.assign({}, g.pouch, { [base]: g.pouch[base] - 1, [v]: (g.pouch[v] || 0) + 1 }); return `a stone honed to ${getStone(v).name}`; };
+  const gold = () => { g.coin = (g.coin || 0) + 12; return '12 coin'; };
+  if (guess === 1) return relic() || upgrade() || gold();
+  if (guess === 2) return upgrade() || gold();
+  return gold();
+}
+
+// The puzzle screen: read the board (modifiers and all), pick one stone→target
+// line, and commit. The authored response decides it; a miss costs 2 Standing.
+function circuitPuzzleScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET, q = g.puzzle, p = PUZZLES[q.key];
+  if (!p) { circuitAfterNode(); return; }
+  SFX.play('flip');
+  const guess = q.tryN + 1;
+  const body = eventShell(p.name, `${p.flavor}  ·  Guess ${guess} of 3 — a wrong line costs 2 Standing. (Standing ${g.standing}/${g.maxStanding})`);
+  const st = (q.pick && q.pick.done) ? puzzlePreview(p, q.pick.stone, q.pick.side, q.pick.idx, q.pick.swap) : puzzleFresh(p);
+  if (!(q.pick && q.pick.done)) puzzleEvalues([st.you, st.foe], puzzleValues(p));
+
+  const cardEl = (c, side, i, clickable) => {
+    const el = document.createElement('div');
+    el.className = 'card faceup loadcard puzzlecard' + (c.poisoned ? ' cursedpick' : '') + (clickable ? ' targetable' : '');
+    const info = c.fx ? (FX_INFO[c.fx] || { label: c.fx }) : null;
+    const v = c.poisoned ? 0 : c.evalue;
+    el.innerHTML = `<div class="cval val-${Math.max(0, Math.min(3, v))}">${v}</div>` +
+      (info ? `<div class="cfx cfx-${c.fx}">${info.label}</div>` : '') +
+      `<div class="cicon icon-${c.type}"></div><div class="cname">${c.type}${c.phantoms ? ' ' + '✧'.repeat(c.phantoms) : ''}</div>`;
+    if (clickable) el.onclick = () => puzzleClickCard(side, i);
+    return el;
+  };
+  const boardRow = (cards, side) => {
+    const row = document.createElement('div'); row.className = 'ldcards puzzlerow';
+    const need = q.pick && !q.pick.done ? q.pick.need : null;
+    cards.forEach((c, i) => row.appendChild(cardEl(c, side, i, need === side)));
+    return row;
+  };
+  const foeSec = document.createElement('div'); foeSec.className = 'ldsection';
+  foeSec.innerHTML = `<div class="ldhead">The rival’s board</div>`; foeSec.appendChild(boardRow(st.foe, 'foe'));
+  const youSec = document.createElement('div'); youSec.className = 'ldsection';
+  youSec.innerHTML = `<div class="ldhead">Your board</div>`; youSec.appendChild(boardRow(st.you, 'you'));
+  body.appendChild(foeSec); body.appendChild(youSec);
+
+  // Stones to spend.
+  const ss = document.createElement('div'); ss.className = 'ldsection';
+  ss.innerHTML = `<div class="ldhead">${q.pick && !q.pick.done ? promptForPick(q.pick) : 'Choose a stone, then its target'}</div>`;
+  const srow = document.createElement('div'); srow.className = 'ldpouches';
+  for (const stone of p.stones) {
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (q.pick && q.pick.stone === stone && !q.pick.done ? ' selected' : '');
+    b.title = `${getStone(stone).name} — ${getStone(stone).power}`;
+    const cl = document.createElement('div'); cl.className = 'ldstones';
+    const d = document.createElement('span'); d.className = `stonedot ${stoneBase(stone)}${isVariant(stone) ? ' variant' : ''}`; cl.appendChild(d);
+    b.appendChild(cl);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = getStone(stone).name.replace(' Stone', '');
+    b.appendChild(lab);
+    b.onclick = () => puzzlePickStone(stone);
+    srow.appendChild(b);
+  }
+  ss.appendChild(srow); body.appendChild(ss);
+
+  // Preview + commit, once a full line is chosen.
+  if (q.pick && q.pick.done) {
+    const resp = puzzleResponse(p, puzzleKey(q.pick.stone, q.pick.side, q.pick.idx, q.pick.swap));
+    const pv = document.createElement('div'); pv.className = 'ldsection puzzlepreview';
+    pv.innerHTML = `<div class="ldnote">${resp.text}</div>`;
+    body.appendChild(pv);
+  }
+
+  const next = $('circuitNext'); next.style.display = 'none';
+  // Action buttons in the body (commit / reconsider / bail).
+  const acts = document.createElement('div'); acts.className = 'introbtns';
+  if (q.pick && q.pick.done) {
+    const commit = document.createElement('button'); commit.className = 'btn primary'; commit.textContent = 'Commit this line ›';
+    commit.onclick = puzzleCommit;
+    const back = document.createElement('button'); back.className = 'btn'; back.textContent = 'Reconsider';
+    back.onclick = () => { q.pick = null; circuitPuzzleScreen(); };
+    acts.appendChild(commit); acts.appendChild(back);
+  }
+  const bail = document.createElement('button'); bail.className = 'btn ghost'; bail.textContent = 'Walk away';
+  bail.onclick = () => { g.puzzle = null; circuitAfterNode(); };
+  acts.appendChild(bail);
+  body.appendChild(acts);
+  $('circuitModal').classList.add('open');
+}
+function promptForPick(pick) {
+  const base = stoneBase(pick.stone), nm = getStone(pick.stone).name;
+  if (pick.need === 'foe') return `${nm} — click a rival card to target.`;
+  if (base === 'blue') return pick.idx == null ? `${nm} — click one of YOUR cards to give up.` : `${nm} — now click a rival card to seize.`;
+  return `${nm} — click one of YOUR cards.`;
+}
+function puzzlePickStone(stone) {
+  const q = GAUNTLET.puzzle; const base = stoneBase(stone);
+  q.pick = { stone, side: base === 'green' ? 'foe' : 'you', need: base === 'green' ? 'foe' : 'you', idx: null, swap: null, done: false };
+  circuitPuzzleScreen();
+}
+function puzzleClickCard(side, i) {
+  const q = GAUNTLET.puzzle; if (!q.pick || q.pick.done) return; const base = stoneBase(q.pick.stone);
+  if (base === 'blue') {
+    if (q.pick.idx == null) { if (side !== 'you') return; q.pick.idx = i; q.pick.need = 'foe'; }
+    else { if (side !== 'foe') return; q.pick.swap = i; q.pick.done = true; }
+  } else {
+    if (side !== q.pick.need) return; q.pick.idx = i; q.pick.done = true;
+  }
+  circuitPuzzleScreen();
+}
+function puzzleCommit() {
+  const g = GAUNTLET, q = g.puzzle, p = PUZZLES[q.key];
+  const resp = puzzleResponse(p, puzzleKey(q.pick.stone, q.pick.side, q.pick.idx, q.pick.swap));
+  const guess = q.tryN + 1;
+  if (resp.solve) {
+    const reward = circuitPuzzleReward(g, guess);
+    g.puzzle = null;
+    toast(`Puzzle solved on guess ${guess} — you win ${reward}.`);
+    SFX.play('win');
+    circuitAfterNode();
+    return;
+  }
+  // a miss
+  g.standing = Math.max(1, g.standing - 2);
+  q.tryN = guess; q.pick = null;
+  if (guess >= 3) { g.puzzle = null; toast('The riddle bests you. You move on.'); circuitAfterNode(); return; }
+  SFX.play('sting');
+  circuitPuzzleScreen();
+}
+
 // A grid of the owned deck's individual cards (optionally filtered), for the
 // remove / move pickers.
 function eventCardPicker(head, isSel, onPick, filter) {
@@ -6816,6 +7033,7 @@ if (typeof window !== 'undefined') {
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
+    PUZZLES, solvePuzzle, puzzleAcademySafe,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

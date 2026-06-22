@@ -384,6 +384,24 @@ M.applyCardEffects();
 assert(G.players[0].board[0].evalue === M.REGIONS.bar.values.Coin + 2 && G.players[0].board[1].evalue === M.REGIONS.bar.values.Sword,
   "Highwayman's Cut reads +2 on a stolen card only");
 
+// --- puzzles: authored response table, node placement, Academy-safety ---
+assert(M.solvePuzzle('wayfarer', 'twinred@you0').solve === true, 'the authored solving line is marked solve');
+assert(!M.solvePuzzle('wayfarer', 'twinred@you1').solve, 'a non-solving authored line is a miss');
+assert(M.solvePuzzle('wayfarer', 'blue@you2>foe0').text && !M.solvePuzzle('wayfarer', 'blue@you2>foe0').solve, 'an unlisted placement falls to the miss response');
+assert(M.solvePuzzle('nope', 'x') === null, 'an unknown puzzle resolves to null');
+// each act seeds exactly one puzzle node (in the branching columns, never the first two)
+for (const act of [1, 2, 3]) {
+  M.seedRng(700 + act);
+  const flat = M.buildAct(act).cols.flat();
+  const pz = flat.filter(n => n.type === 'puzzle');
+  assert(pz.length === 1 && pz[0].puzzle && M.PUZZLES[pz[0].puzzle], `act ${act} seeds one puzzle node with a valid key`);
+  assert(M.buildAct(act).cols.slice(0, 2).flat().every(n => n.type !== 'puzzle'), `no puzzle in act ${act}'s first two columns`);
+}
+M.clearRng();
+// Academy-safety: a base-stones puzzle is re-usable; a variant-stone one is Circuit-only
+assert(!M.puzzleAcademySafe(M.PUZZLES.wayfarer), 'a Twin Red puzzle is Circuit-only (not Academy-safe)');
+assert(M.puzzleAcademySafe({ stones: ['red', 'blue', 'white'] }), 'a base-stones puzzle is Academy-safe');
+
 // --- act-scoped foe pools: neutral toughs fill duels, named regulars headline ---
 for (const act of [1, 2, 3]) {
   M.seedRng(900 + act);

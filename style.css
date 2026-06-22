@@ -1321,7 +1321,15 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapnode-repose .mapnode-i { color: #8fc7a0; }
 .mapnode-boss .mapnode-i { color: #d9685b; }
 .mapnode-shop .mapnode-i { color: #d9c06a; }
+.mapnode-puzzle .mapnode-t { color: #6fc0c9; }
+.mapnode-puzzle .mapnode-i { color: #6fc0c9; }
 @media (max-width: 640px) { .mapnode-i { font-size: 16px; } }
+/* Puzzle board: two rows of cards (rival above, yours below). */
+.puzzlerow { justify-content: center; }
+.puzzlecard { cursor: default; }
+.puzzlecard.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.puzzlecard.targetable:hover { transform: translateY(-2px); }
+.puzzlepreview .ldnote { font-style: italic; color: #cde; }
 /* The shop (The Fence). */
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }
