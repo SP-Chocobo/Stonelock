@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=203">
+<link rel="stylesheet" href="style.css?v=204">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=203" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=203" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=204" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=204" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=203" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=203" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=204" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=204" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -384,10 +384,16 @@
     (6 — a true coin-flip against good play), <b>Hardcore</b> (7 — it opens, answers, and closes).
     Coordinate: gang your six stones to shatter one of its two engines, and lock your own scorers
     before it strips them.</p>
-    <p>Two bosses sit the high seat. <b>The Magistrate</b> plays the fight as described above.
-    <b>The Warden</b> is the same, but every stone spent — yours and its — is <b>exhausted for a
-    hand</b> before it returns; it keeps one of every stone within reach and spends ruthlessly.
-    Ration your disruption, or be ground down.</p>
+    <p>Six bosses sit the high seat, unlocked in turn. <b>The Magistrate</b> plays the fight as
+    described above. <b>The Warden</b> is the same, but every stone spent — yours and its — is
+    <b>exhausted for a hand</b> before it returns; it keeps one of every stone within reach and
+    spends ruthlessly. <b>The Apothecary</b> hoards a Green Stone for the last word, cutting your
+    best unlocked card to nothing — lock what matters before the scalpel falls. <b>The
+    Quartermaster</b> locks one stone colour away from the whole table each hand, cycling red →
+    white → blue → black. <b>The Archivist</b> is a slot-mode fight: stones are placed onto empty
+    slots first and resolve in placement order, then you fill the slots with cards. <b>The
+    Crucible</b> is the all-layers culmination that combines their tricks. Ration your disruption,
+    or be ground down.</p>
     <p>A locked card shields more than itself: if either card of a trade is later locked, a Black
     Stone can no longer unwind that trade.</p>
 
@@ -414,6 +420,6 @@
   </div>
 </div>
 
-<script src="game.js?v=203"></script>
+<script src="game.js?v=204"></script>
 </body>
 </html>

@@ -4,18 +4,15 @@
 browser-based adaptation of the card-and-stone game from the novel.
 
 You are not building a rigid recipe; you are **seizing assets**. Commit cards to the
-table across three deployment phases, telegraph your Interaction Stones, thin them to
-two, and warp the board — duplicate your high cards, lock your assets, or steal
-straight out of your opponent's layout — before the showdown flips every veiled card.
+table across deployment phases, spend your Interaction Stones, and warp the board —
+duplicate your high cards, lock your assets, or steal straight out of an opponent's
+layout — before the showdown flips every veiled card and the best three count.
 
 ## Playing
 
-Open `index.html` and you land on the **title screen** — Start Game, Tutorial,
-or Rules. The guided **tutorial** walks one full hand, spotlighting each piece
-of the UI as it comes up. In a match, the sidebar **Menu** button returns to the
-title (with a confirmation so you don't lose a game by accident).
-
-No build step and no dependencies — open `index.html` in any modern browser.
+Open `index.html` and you land on the **title screen**. No build step and no
+dependencies — it runs in any modern browser, and hosts cleanly on GitHub Pages
+(Settings → Pages → deploy from branch).
 
 Or serve it locally:
 
@@ -24,69 +21,105 @@ python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-It also hosts cleanly on GitHub Pages (Settings → Pages → deploy from branch).
+### Modes
 
-## This version
+- **Standard Game** — a single table. Solo 1v1, 4-player Free-for-All, or Paired
+  Teams (2v2). Pick how many seats are real players (hotseat on one device);
+  bots fill the rest. Two deals: Small Game (5 cards) or House Deep Draft (9).
+- **The Circuit** — the roguelike run (see below).
+- **Campaign** — the raid bosses: one oversized opponent you and an ally face
+  down across a longer match (see below).
+- **The Academy** — a guided tutorial that walks one full hand, spotlighting each
+  piece of the UI, plus the pure-interaction Gauntlet drill.
+- **The Regulars** — the table personas and their habits.
+- **Rules** — the full reference.
 
-- **Raid Boss — The Magistrate**: a co-op fight reached from the title's Raid
-  Boss button. You and an ally (bot or co-op hotseat) play the standard game;
-  the Magistrate is one boss who fields a larger face-up board (seven cards),
-  telegraphs from a deep three-of-each pouch, answers every move and keeps the
-  last word, and scores its two best non-overlapping hands. Every action is
-  taken in turn, so the boss's board and picks reveal as you play. Your two
-  scores combine; the marker moves by (party − Magistrate) and the boss holds
-  any tie. Difficulty sets the boss's stone count — Easy (5) / Standard (6) /
-  Hardcore (7) — measured against a greedy team at roughly 80% / 45% / 30%.
-- **Hotseat play**: pick how many seats are real players (2–4) on one device for
-  any table shape — bots fill the rest. Duel, FFA, or 2v2 (allied / rival), with
-  name entry and a pass-confirmation screen guarding hidden information between turns.
-- **Three table formats**: Solo 1v1, 4-player Free-for-All, and Paired Teams
-  (2v2 — your AI partner sits opposite; team totals decide the showdown, but
-  multiples never pool across layouts; partners may Lock each other's cards
-  and never trade against each other).
-- **Two deals**: Small Game (5 cards, 2–1–1 footprint, best 3 of 4) or House
-  Deep Draft (9 cards, 2–2–1 footprint, best 3 of 5, leftovers dead).
+## The Circuit
+
+A seeded roguelike run: three **acts**, each a branching **map** of nodes you
+pick a path through to an act boss. You carry a small **deck** of cards and a
+**pouch** of stones — both depleting draw piles that reshuffle when dry — and
+press each opponent's **Standing** to zero while protecting your own (a
+two-sided attrition; there is no point target). Win a fight, lose Standing on a
+lost hand, and the run ends when your Standing is gone — or when you conquer all
+three act bosses.
+
+- **Node kinds** read by glyph on the map (the opponent's identity and exact
+  strength stay hidden until you sit down across from them):
+  - **Duel / Elite / Boss** — fights. Elites and bosses carry charms and hit harder.
+  - **Repose** — rest and refit: heal, thin a card, thin a stone, or move a modifier.
+  - **Encounter** — a random event: a card **Cache** (take one), a **Whetstone**
+    (upgrade a stone to its variant), a **Crooked Trade** (give a stone, take a
+    random one), the **Pawnbroker** (swap a charm for a random one), an **Ambush**
+    (fight for spoils or pay Standing to slip past), a **Windfall** (free coin),
+    or the **Blood Price** (bleed escalating Standing for escalating coin).
+  - **Shop — The Fence** — spend the coin you win from fights on cards, stones,
+    charm relics, stone upgrades, a heal, or a one-off card thin.
+- **Charms** are run-long relics drafted from elite/boss spoils, shops, and
+  events — value boosters, economy levers, and trick effects (Mulligan, Cycle,
+  Foul Play, Resonance, and more). The rarest, **Wildcard**, is a boss-only
+  relic: it imbues one card to count as *any* type for a Pair or Triad.
+- **Stone variants** upgrade a base stone's power: **Twin Red** (two phantoms),
+  **Deadbolt White** (locks two cards), **Riptide Blue** (a sticky swap a single
+  Black only downgrades), and **Onyx Black** (undoes the last two effects).
+- A **Records & Compendium** screen tracks your best runs and everything you've
+  discovered — charms, modifiers, and stone variants.
+
+## Campaign — the raid bosses
+
+Co-op fights against a single oversized opponent. You and an ally (bot or hotseat)
+play the standard game; the boss fields a larger board, draws from a deep pouch,
+and scores its two best non-overlapping hands. Your two scores combine and the
+marker moves by (party − boss); the boss holds any tie. The roster:
+
+- **The Magistrate** — a wide, methodical face-up board. Never bluffs.
+- **The Warden** — spends without mercy and exhausts every stone *you* play,
+  while its own pouch never runs dry.
+- **The Apothecary** — keeps a Green Stone for the last word, cutting your best
+  unlocked card to nothing. Lock what matters before the scalpel falls.
+- **The Quartermaster** — locks away one stone colour from the whole table each
+  hand, cycling red → white → blue → black.
+- **The Archivist** — a slot-mode duel: stones are placed onto empty slots first
+  and resolve in order; then you fill the slots with cards.
+- **The Crucible** — the all-layers fight that combines the others' tricks.
+
+Difficulty sets the boss's stone count (Easy / Standard / Hardcore).
+
+## The stones, cards, and scoring
+
+- **Interaction Stones** — Red (Duplication / phantom), White (Lock), Blue
+  (Exchange / steal), Black (Disruption / undo the last effect on a card). A
+  Black Stone undoing a trade sends every riding stone home with its card.
+- **Effect cards** carry a rider that shifts a card's effective value or the
+  board around it — Anchor, Keen, Lodestone, Drain, Sentinel, Harmony, Bulwark,
+  Siphon, Gleam, Cantrip (these appear in the Circuit; Wildcard is charm-only).
 - **Sovereign Honor scoring** (no betting): two-sided tables race the Ledger
   Stone by the net difference of each showdown; the Free-for-All table is a
-  purse race where every seat banks its margin over the lowest hand each
-  showdown. Match length selectable (10 / 20 / full 40).
-- **The Academy Gauntlet** venue replaces telegraphing and thinning with a
-  pure-interaction drill: every player holds one of each stone and places all
-  four in serpentine turn order, free to choose which stone and target each
-  round.
-- The table plays the **Bar-Level valuation** ("The Practical Common"). The
-  engine supports all three regional value tables (House Games, Dock /
-  Traveler); they will surface alongside the regional rule variants so the
-  value shifts pair with actual rule changes.
-- All four **Interaction Stones** — Red (Duplication), White (Lock), Blue
-  (Exchange), Black (Disruption). All stones are placed in turn during the
-  resolution phases; a Black Stone undoing a trade sends every riding stone
-  home with its card.
-- The **Rule of Rotation**: the Dealer Token passes after every hand.
+  purse race where every seat banks its margin over the lowest hand.
+- **Venues** carry regional value tables and house rules: the Roadside Tavern
+  (baseline), the River Docks (**Riverlock** — field a Road or Ferry or lose 2),
+  the Slum Tables (**Slumlock** — a placed stone is exhausted for two hands), the
+  Gambling Hall (**Cursed Register** — one card type is voided each hand), the
+  Academy Gauntlet (no telegraph or thinning — place all four stones in turn),
+  and the Court of Precedence (**stones placed first**, onto empty slots, then
+  cards).
 
 ### Rule interpretations made for the digital table
 
-The source document leaves a few edges to the hosting venue; this table rules:
-
-- A locked card cannot be targeted by *any* subsequent stone, from any player —
-  and if either card of a trade is later locked, a Black Stone can no longer
-  unwind that trade.
-- A Red Stone's phantom counts toward **structure only**: it can stand as the
-  second or third copy for a Pair or Triad bonus, but scores no regional value
-  of its own (per "build toward a Pair or Triad *flat bonus*").
-- One Red Stone per card.
-- A Blue or Black Stone (or any stone with no legal target) may be set down
-  without effect.
-- The best 3-of-4 selection at showdown is computed automatically and shown with
-  a full breakdown.
-
-### Not yet at this table
-
-The money variants (Fixed Purse, Raw Exchange) with betting, folds and
-all-ins, and the regional house rules (Slumlock, Riverlock, Cursed Register).
+- A locked card cannot be targeted by *any* later stone, from any player — and if
+  either card of a trade is later locked, a Black Stone can no longer unwind it.
+- A Red Stone's phantom counts toward **structure only**: it can stand as a second
+  or third copy for a Pair or Triad bonus, but scores no value of its own.
+- One Red Stone per card (a Twin Red variant places two phantoms).
+- A stone with no legal target may be set down without effect.
+- The best three-card selection at showdown is computed automatically and shown
+  with a full breakdown (effect modifiers included).
 
 ## Files
 
 - `index.html` — page structure and the rules reference
 - `style.css` — the warm tavern-table look
 - `game.js` — engine, AI, and UI (also loadable in Node for headless testing)
+- `tests/` — Node test suites (`node tests/*.test.js`) and the Circuit balance
+  battery (`K=120 node tests/circuit-battery.js`)
+- `docs/` — design notes (`roguelike-design.md`, `archivist-design.md`)

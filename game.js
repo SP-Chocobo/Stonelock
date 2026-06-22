@@ -2131,7 +2131,7 @@ const CHARMS = {
   crownjewel:   { label: 'Crown Jewel',       blurb: 'Your single highest-value card reads +2.', cardBonus: (c, i, b) => { const m = Math.max(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 2 : 0; } },
   evenkeel:     { label: 'Even Keel',         blurb: 'Your lowest-value card reads +1.', cardBonus: (c, i, b) => { const m = Math.min(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 1 : 0; } },
   fullsatchel:  { label: 'Full Satchel',      blurb: 'Draw one extra card each hand (more to choose from).', drawCards: 1 },
-  bulwarkcharm: { label: 'Bulwark',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
+  bulwarkcharm: { label: 'Bracing',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
   vigor:        { label: 'Vigor',             blurb: 'Start each table at full Standing.', on: { fightStart: g => { g.standing = g.maxStanding; } } },
   tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +2 score.', on: { handWon: g => { g.score += 2; } } },
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
@@ -5029,7 +5029,7 @@ function circuitIntro() {
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
   $('circuitStats').className = 'victoryunlocks';
   $('circuitTitle').textContent = 'The Circuit';
-  $('circuitText').textContent = 'A run of three acts — outfit a stone pouch and a deck, choose your path through each act to its boss, and build as you climb. This run is seeded: the same seed plays the same run.';
+  $('circuitText').textContent = 'A run of three acts — outfit a stone pouch and a deck, then choose your path through each act to its boss. Win fights for coin and spoils, draft charms, upgrade stones, and spend at The Fence as you climb. Seeded: the same seed always plays the same run.';
   const stats = $('circuitStats'); stats.innerHTML = '';
   const rec = circuitRecords(), nCharms = Object.keys(CHARMS).length, seen = Object.keys(rec.seen).length;
   const line = document.createElement('div'); line.className = 'unlockitem';
