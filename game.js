@@ -982,8 +982,10 @@ function startHand() {
     // The Circuit: each seat with a build draws this hand from its own owned
     // deck — a depleting draw pile that reshuffles its discard when dry —
     // instead of the shared regional pool. Thinning cycles its bombs back faster.
-    const owned = (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) ? pileDrawCards(GAUNTLET.piles[p], handSizeFor(p)) : null;
-    for (let k = 0; k < handSizeFor(p); k++) {
+    // Full Satchel (charm) draws seat 0 a larger hand — more to choose from.
+    const hs = handSizeFor(p) + ((G.gauntlet && p === 0) ? charmVal('drawCards') : 0);
+    const owned = (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) ? pileDrawCards(GAUNTLET.piles[p], hs) : null;
+    for (let k = 0; k < hs; k++) {
       const dealt = owned ? (owned[k] != null ? owned[k] : active.pop()) : active.pop();
       // Owned-deck entries may be effect cards: { type, fx }. Plain entries are
       // a bare type string. The fx rider drives the per-card value pass.
@@ -1928,6 +1930,23 @@ const EFFECTS = {
     self: (c, board) => Math.min(2, board.filter(o => o && o !== c && o.fx).length),
     aiKeep: () => 0.8, // pays off in an effect-dense deck
   },
+  bulwark: {
+    label: 'Bulwark', blurb: '+1 for each card beside it (rewards a packed interior).',
+    slot: (c, i, board) => (board[i - 1] ? 1 : 0) + (board[i + 1] ? 1 : 0),
+    aiKeep: () => 1.2, // wants an interior slot — the opposite of Sentinel
+  },
+  siphon: {
+    label: 'Siphon', blurb: '+1 to itself, and the facing card in the same slot reads −1.',
+    self: () => 1,
+    ownerLocked: true,
+    cross: (c, i, boards, ownerBoard) => { for (let j = 0; j < boards.length; j++) { if (j === ownerBoard || !boards[j][i]) continue; boards[j][i].evalue -= 1; } },
+    aiKeep: () => 1.6, // a vampiric Drain: lifts you and shaves them
+  },
+  gleam: {
+    label: 'Gleam', blurb: '+2 — but only if it is your one and only effect card.',
+    self: (c, board) => board.some(o => o && o !== c && o.fx) ? 0 : 2,
+    aiKeep: (c, ctx) => 1, // rewards a lean deck — the opposite of Harmony
+  },
 };
 // UI/text consumers read label/blurb from the same registry (single source).
 const FX_INFO = EFFECTS;
@@ -1962,6 +1981,12 @@ const CHARMS = {
   momentum:     { label: 'Momentum',          blurb: 'Each hand won in a row pays +1 score, stacking.', on: { handWon: g => { g.winStreak = (g.winStreak || 0) + 1; g.score += (g.winStreak - 1); }, handLost: g => { g.winStreak = 0; } } },
   counterpunch: { label: 'Counterpunch',      blurb: 'The first hand they take from you each table, heal 2.', on: { handLost: g => { if (!g.cpDone) { g.cpDone = true; g.standing = Math.min(g.maxStanding, g.standing + 2); } } } },
   tithe:        { label: 'Tithe',             blurb: 'Win a hand by 4 or more and press 1 extra Standing.' },
+  crownjewel:   { label: 'Crown Jewel',       blurb: 'Your single highest-value card reads +2.', cardBonus: (c, i, b) => { const m = Math.max(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 2 : 0; } },
+  evenkeel:     { label: 'Even Keel',         blurb: 'Your lowest-value card reads +1.', cardBonus: (c, i, b) => { const m = Math.min(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 1 : 0; } },
+  fullsatchel:  { label: 'Full Satchel',      blurb: 'Draw one extra card each hand (more to choose from).', drawCards: 1 },
+  bulwarkcharm: { label: 'Bulwark',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
+  vigor:        { label: 'Vigor',             blurb: 'Start each table at full Standing.', on: { fightStart: g => { g.standing = g.maxStanding; } } },
+  tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +2 score.', on: { handWon: g => { g.score += 2; } } },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -5240,7 +5265,7 @@ function circuitHandResult(winner, diff) {
     charmFire('handWon');
     if (g.foeHp <= 0) { g.tableCleared = true; G.over = true; }
   } else {
-    const dmg = Math.min(diff, CIRCUIT.dmgCap);
+    const dmg = Math.max(1, Math.min(diff, CIRCUIT.dmgCap) - charmVal('dmgReduce')); // Bulwark softens a lost hand (min 1)
     g.standing = Math.max(0, g.standing - dmg);
     log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
     charmFire('handLost');

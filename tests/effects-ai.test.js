@@ -123,6 +123,32 @@ M.applyCardEffects();
 const harmPair = ai.estimate(0, 0);
 assert(harmPair === harmAlone + 1, `AI assesses Harmony as +1 per other effect card (${harmAlone} → ${harmPair})`);
 
+// Bulwark — +1 for each adjacent card (interior > edge).
+const RV = G.region.values;
+G.players[1].board = [];
+G.players[0].board = [card('Quill', null, 0), card('Sword', 'bulwark', 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[1].evalue === RV['Sword'] + 2, 'Bulwark reads +2 between two neighbours');
+G.players[0].board = [card('Sword', 'bulwark', 0), card('Bread', null, 0), card('Quill', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === RV['Sword'] + 1, 'Bulwark reads +1 on an edge (one neighbour)');
+
+// Siphon — +1 to itself, −1 to the facing card.
+G.players[0].board = [card('Coin', 'siphon', 0), card('Bread', null, 0), card('Quill', null, 0)];
+G.players[1].board = [card('Bread', null, 1), card('Quill', null, 1), card('Crest', null, 1)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === RV['Coin'] + 1, 'Siphon lifts itself +1');
+assert(G.players[1].board[0].evalue === RV['Bread'] - 1, 'Siphon shaves the facing card −1');
+
+// Gleam — +2 only as the sole effect card.
+G.players[1].board = [];
+G.players[0].board = [card('Coin', 'gleam', 0), card('Quill', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === RV['Coin'] + 2, 'Gleam reads +2 as the only effect card');
+G.players[0].board = [card('Coin', 'gleam', 0), card('Quill', 'keen', 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === RV['Coin'], 'Gleam gives nothing alongside another effect card');
+
 /* ---------- DECISIONS: stone targeting engages effect value ---------- */
 
 // Blue — the AI steals the highest effective-value enemy card (here the Anchor).
@@ -206,7 +232,7 @@ li = board.indexOf(sent);
 assert(li === 0 || li === board.length - 1, `Sentinel is placed on an end slot (idx ${li} of ${board.length})`);
 
 // A board with no positional effect is left to the exposure order (no needless churn).
-assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain') && ai.isPositionalFx('sentinel'), 'Lodestone, Drain and Sentinel are positional');
-assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor') && !ai.isPositionalFx('harmony'), 'Keen, Anchor and Harmony are position-agnostic');
+assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain') && ai.isPositionalFx('sentinel') && ai.isPositionalFx('bulwark') && ai.isPositionalFx('siphon'), 'Lodestone, Drain, Sentinel, Bulwark and Siphon are positional');
+assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor') && !ai.isPositionalFx('harmony') && !ai.isPositionalFx('gleam'), 'Keen, Anchor, Harmony and Gleam are position-agnostic');
 
 console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain correctly (with fog of war), target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');

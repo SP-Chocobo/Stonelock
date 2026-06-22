@@ -419,9 +419,13 @@ cards. The deck is the multiset of card types you draw your fielded cards from.
 > `applyCardEffects()` board pass now drive scoring and the value badges; the
 > Circuit loadout offers 5 effect cards (type + fx), pick 2 into the owned deck;
 > cards wear an fx ribbon in-hand, on-board, and in the loadout. Starter riders
-> live: **Anchor / Keen / Lodestone / Drain / Sentinel / Harmony** (Wild still
-> deferred). Sentinel (+2 on an end slot — a `slot` self-by-position hook) and
-> Harmony (+1 per other effect card you field) add a positional counter-pull to
+> live (9): **Anchor / Keen / Lodestone / Drain / Sentinel / Harmony / Bulwark
+> (+1 per adjacent card, interior-loving) / Siphon (+1 self, −1 facing) / Gleam
+> (+2 if your only effect card)** — Wild still deferred (needs a set-matching
+> hook). Bulwark↔Sentinel and Gleam↔Harmony are deliberate tension pairs
+> (interior vs edge, lean vs dense). Charms total **24** (added Crown Jewel, Even
+> Keel, Full Satchel, Bulwark, Vigor, Toll Keeper). Sentinel and
+> Harmony add a positional counter-pull to
 > Lodestone and a build-around payoff; both dropped in as registry entries with
 > their own gate assertions, no core-loop edits. Unit-tested
 > in `tests/circuit.test.js`; base-game scoring confirmed unchanged (no-op
