@@ -5608,6 +5608,23 @@ function circuitShopThin(cardIdx) {
   g.coin -= s.thinPrice; g.deck = g.deck.slice(0, cardIdx).concat(g.deck.slice(cardIdx + 1)); s.sold.thin = true; s.thinning = false;
   circuitShopScreen();
 }
+// One shop ware as an icon-first tile: a big glyph, a name, a one-line gloss,
+// and a price badge. Greys out when sold, unaffordable, or unavailable.
+function shopTile(o) {
+  const dead = o.sold || o.available === false;
+  const b = document.createElement('button');
+  b.className = 'shoptile shoptile-' + o.accent + (dead ? ' sold' : (o.afford ? '' : ' cantafford')) + (o.selected ? ' selected' : '');
+  b.disabled = dead || !o.afford;
+  if (o.title) b.title = o.title;
+  const priceLabel = o.soldLabel != null ? o.soldLabel : (o.sold ? 'sold' : o.price + 'c');
+  b.innerHTML = `<div class="shoptile-ic">${o.icon}</div>` +
+    `<div class="shoptile-name">${o.name}</div>` +
+    (o.desc ? `<div class="shoptile-desc">${o.desc}</div>` : '') +
+    `<div class="shoptile-price">${priceLabel}</div>`;
+  if (!dead && o.afford && o.onClick) b.onclick = o.onClick;
+  return b;
+}
+
 function circuitShopScreen() {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET, s = g.shop;
@@ -5632,37 +5649,47 @@ function circuitShopScreen() {
   });
   cs.appendChild(crow); body.appendChild(cs);
 
-  // Stones + charms + utilities as a row of priced buttons
-  const us = document.createElement('div'); us.className = 'ldsection'; us.innerHTML = `<div class="ldhead">Stones, charms & services</div>`;
-  const urow = document.createElement('div'); urow.className = 'shoprow';
+  // Stones, charms, upgrades & services as visual tiles (icon-first).
+  const us = document.createElement('div'); us.className = 'ldsection'; us.innerHTML = `<div class="ldhead">Wares & services</div>`;
+  const urow = document.createElement('div'); urow.className = 'shopwares';
   s.stones.forEach((it, i) => {
     const sold = s.sold['s' + i];
-    const b = document.createElement('button'); b.className = 'shopbtn' + (sold ? ' sold' : (can(it.price) ? '' : ' cantafford'));
-    b.innerHTML = `<span class="stonedot ${it.color}"></span> ${STONES[it.color].name.replace(' Stone', '')} <b>${sold ? 'sold' : it.price + 'c'}</b>`;
-    b.disabled = sold || !can(it.price); b.onclick = () => circuitShopBuy('stone', i); urow.appendChild(b);
+    urow.appendChild(shopTile({
+      accent: 'stone', icon: `<span class="stonedot ${it.color} big"></span>`,
+      name: STONES[it.color].name.replace(' Stone', ''), desc: STONES[it.color].power,
+      title: `${STONES[it.color].name} — ${STONES[it.color].desc}`,
+      price: it.price, sold, afford: can(it.price), onClick: () => circuitShopBuy('stone', i),
+    }));
+  });
+  (s.upgrades || []).forEach((it, i) => {
+    const sold = s.sold['u' + i], have = (g.pouch[it.base] || 0) > 0;
+    urow.appendChild(shopTile({
+      accent: 'upgrade', icon: `<span class="stonedot ${it.base} big variant"></span><span class="shoptile-up">⇪</span>`,
+      name: getStone(it.variant).name, desc: getStone(it.variant).power,
+      title: `${getStone(it.variant).name} — ${getStone(it.variant).desc}`,
+      price: it.price, sold, available: have, soldLabel: sold ? 'done' : (have ? null : 'need ' + STONES[it.base].name.replace(' Stone', '')),
+      afford: can(it.price), onClick: () => circuitShopBuy('upgrade', i),
+    }));
   });
   s.charms.forEach((it, i) => {
     const sold = s.sold['m' + i], ch = CHARMS[it.key];
-    const b = document.createElement('button'); b.className = 'shopbtn charm' + (sold ? ' sold' : (can(it.price) ? '' : ' cantafford'));
-    b.title = ch.blurb; b.innerHTML = `★ ${ch.label} <b>${sold ? 'sold' : it.price + 'c'}</b>`;
-    b.disabled = sold || !can(it.price); b.onclick = () => circuitShopBuy('charm', i); urow.appendChild(b);
+    urow.appendChild(shopTile({
+      accent: 'charm', icon: '✦', name: ch.label, desc: ch.blurb, title: ch.blurb,
+      price: it.price, sold, afford: can(it.price), onClick: () => circuitShopBuy('charm', i),
+    }));
   });
-  // upgrades: turn a base stone you hold into its variant
-  (s.upgrades || []).forEach((it, i) => {
-    const sold = s.sold['u' + i], have = (g.pouch[it.base] || 0) > 0;
-    const b = document.createElement('button'); b.className = 'shopbtn charm' + (sold || !have ? ' sold' : (can(it.price) ? '' : ' cantafford'));
-    b.title = `${getStone(it.variant).name} — ${getStone(it.variant).desc}`;
-    b.innerHTML = `⇪ ${getStone(it.variant).name} <b>${sold ? 'done' : !have ? '—' : it.price + 'c'}</b>`;
-    b.disabled = sold || !have || !can(it.price); b.onclick = () => circuitShopBuy('upgrade', i); urow.appendChild(b);
-  });
-  // heal
-  const hb = document.createElement('button'); const healOff = g.standing >= g.maxStanding;
-  hb.className = 'shopbtn' + (healOff || !can(s.healPrice) ? ' cantafford' : ''); hb.disabled = healOff || !can(s.healPrice);
-  hb.innerHTML = `+${CIRCUIT.shopHealAmt} Standing <b>${s.healPrice}c</b>`; hb.onclick = () => circuitShopBuy('heal'); urow.appendChild(hb);
-  // thin
-  const tb = document.createElement('button'); const thinOff = s.sold.thin || g.deck.length <= CIRCUIT.deckFloor;
-  tb.className = 'shopbtn' + (thinOff || !can(s.thinPrice) ? ' cantafford' : ''); tb.disabled = thinOff || !can(s.thinPrice);
-  tb.innerHTML = `Thin a card <b>${s.sold.thin ? 'done' : s.thinPrice + 'c'}</b>`; tb.onclick = () => { s.thinning = !s.thinning; circuitShopScreen(); }; urow.appendChild(tb);
+  const healOff = g.standing >= g.maxStanding;
+  urow.appendChild(shopTile({
+    accent: 'heal', icon: '✚', name: 'Patch up', desc: `+${CIRCUIT.shopHealAmt} Standing`,
+    price: s.healPrice, sold: healOff, soldLabel: healOff ? 'full' : null,
+    afford: can(s.healPrice), onClick: () => circuitShopBuy('heal'),
+  }));
+  const thinOff = s.sold.thin || g.deck.length <= CIRCUIT.deckFloor;
+  urow.appendChild(shopTile({
+    accent: 'thin', icon: '✂', name: 'Thin a card', desc: 'Strike one card from your deck',
+    price: s.thinPrice, sold: thinOff, soldLabel: s.sold.thin ? 'done' : (thinOff ? 'min' : null),
+    selected: s.thinning, afford: can(s.thinPrice), onClick: () => { s.thinning = !s.thinning; circuitShopScreen(); },
+  }));
   us.appendChild(urow);
   if (s.thinning) {
     const pick = eventCardPicker('Thin which card?', () => false, i => circuitShopThin(i));
