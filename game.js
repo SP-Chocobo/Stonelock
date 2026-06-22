@@ -4889,10 +4889,10 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 1, drawStones: 3,
+  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
+  acts: 3, actRows: 8, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5085,7 +5085,7 @@ function circuitBegin() {
 /* ---- The run map: each act is a few columns of nodes you path through to a
    boss. Node types: duel / elite (tougher + foe charms) / event (the interlude)
    / boss (act-ender). Finite acts bound the run (and the snowball). ---- */
-function rollNodeType() { const r = rnd(); if (r < 0.22) return 'elite'; if (r < 0.45) return 'event'; return 'duel'; }
+function rollNodeType() { const r = rnd(); if (r < 0.20) return 'elite'; if (r < 0.46) return 'event'; if (r < 0.64) return 'repose'; return 'duel'; }
 function pickFoe() { return BOT_POOL[Math.floor(rnd() * BOT_POOL.length)]; }
 // Elites/bosses carry persona-appropriate charms; earlier acts carry none.
 function nodeFoeCharms(type, act, foe) {
@@ -5096,7 +5096,7 @@ function nodeFoeCharms(type, act, foe) {
   return shuffle(pool.slice()).slice(0, n);
 }
 function mkNode(type, col, idx, act) {
-  const foe = (type === 'event' || type === 'shop') ? null : pickFoe();
+  const foe = (type === 'event' || type === 'shop' || type === 'repose') ? null : pickFoe();
   return { type, col, idx, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false, edges: [] };
 }
 // Link column A → B with adjacency-biased edges: every A node gets ≥1 outgoing,
@@ -5259,7 +5259,8 @@ function nodeTier(act, col) { return (act - 1) * CIRCUIT.actRows + col; }
 function circuitEnterNode(node) {
   const g = GAUNTLET;
   g.curNode = node;
-  if (node.type === 'event') { g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
+  if (node.type === 'event') { g.event = makeCircuitEvent(); circuitEventScreen(); return; }
+  if (node.type === 'repose') { g.event = { kind: 'interlude', choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
   if (node.type === 'shop') { g.shop = makeShop(); circuitShopScreen(); return; }
   circuitSetupFight(node);
 }
@@ -5311,12 +5312,13 @@ function nodeFoeMax(node) {
   return m;
 }
 function mapNodeHtml(node) {
-  const names = { duel: 'Duel', elite: 'Elite', event: 'Event', boss: 'Boss', shop: 'Shop' };
-  const sub = { event: 'an interlude', shop: 'spend your coin' };
-  const foe = node.foe ? `<div class="mapnode-f">${node.foe}</div>` : `<div class="mapnode-f">${sub[node.type] || ''}</div>`;
-  const ch = (node.foeCharms && node.foeCharms.length) ? `<div class="mapnode-c" title="carries ${node.foeCharms.length} charm(s)">★${node.foeCharms.length}</div>` : '';
-  const hp = node.type === 'event' ? '' : `<div class="mapnode-hp">${nodeFoeMax(node)} Standing</div>`;
-  return `<div class="mapnode-t">${names[node.type]}</div>${foe}${hp}${ch}`;
+  // The road ahead reads only by KIND — who waits at a fight and how hard they
+  // hit stays unknown until you're across the table from them.
+  const names = { duel: 'Duel', elite: 'Elite', event: 'Encounter', repose: 'Repose', boss: 'Boss', shop: 'Shop' };
+  const sub = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', event: 'who knows what', repose: 'rest & refit', shop: 'spend your coin' };
+  const icon = { duel: '⚔', elite: '★', boss: '☠', event: '?', repose: '✦', shop: '⛃' };
+  const subEl = `<div class="mapnode-f">${sub[node.type] || ''}</div>`;
+  return `<div class="mapnode-i">${icon[node.type] || ''}</div><div class="mapnode-t">${names[node.type]}</div>${subEl}`;
 }
 // The act map — pick a node in the current column to advance toward the boss.
 function circuitMapScreen() {
@@ -5706,19 +5708,75 @@ function eventReady() {
   return false;
 }
 
+// ── Circuit events ────────────────────────────────────────────────────────
+// An event node rolls a KIND when entered, each with its own screen + payload.
+// The interlude (the original heal/thin menu) is the common one; the rest add
+// texture: a free card cache, a stone whetstone (upgrade to a variant), a
+// crooked trade (give a stone, take a random one), a pawnbroker (swap a charm
+// for a random one), and an ambush (fight for spoils or pay Standing to slip).
+function variantForBase(base) { return Object.keys(STONE_VARIANTS).find(v => STONE_VARIANTS[v].base === base) || null; }
+function upgradableStones(g) { return STONE_KEYS.filter(c => (g.pouch[c] || 0) > 0 && variantForBase(c)); }
+function makeCircuitEvent() {
+  const g = GAUNTLET;
+  // Random encounters only — never the interlude (that now lives on its own
+  // Repose node, rolled into the map explicitly).
+  const kinds = ['cache', 'cache', 'ambush', 'ambush'];
+  if (upgradableStones(g).length) kinds.push('whetstone');
+  if (pouchTotal(g.pouch) > 1) kinds.push('swap');
+  if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
+  const kind = kinds[Math.floor(rnd() * kinds.length)];
+  const ev = { kind, choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null, giveCharm: null };
+  if (kind === 'cache') ev.offer = circuitOfferCards(3);
+  else if (kind === 'swap') ev.gain = STONE_KEYS[Math.floor(rnd() * STONE_KEYS.length)];
+  else if (kind === 'gamble') ev.gain = shuffle(unownedCharmKeys())[0];
+  else if (kind === 'ambush') { ev.foe = pickFoe(); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
+  return ev;
+}
+
+// Shared modal shell for an event screen.
+function eventShell(title, text) {
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  $('circuitTitle').textContent = title;
+  $('circuitText').textContent = text;
+  const body = $('circuitStats'); body.className = 'circuitload'; body.innerHTML = '';
+  return body;
+}
+function eventReviewBtn(body) {
+  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
+  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
+  rb.onclick = () => showDeckView('full');
+  rev.appendChild(rb); body.appendChild(rev);
+}
+// A clickable card tile (used by the cache offer).
+function eventOfferCard(c, selected, onClick) {
+  const type = specType(c), fx = specFx(c), v = specVal(c);
+  const info = fx ? (FX_INFO[fx] || { label: fx }) : null;
+  const el = document.createElement('div');
+  el.className = 'card faceup loadcard' + (selected ? ' selected' : '');
+  el.innerHTML = `<div class="cval val-${v}">${v}</div>${info ? `<div class="cfx cfx-${fx}">${info.label}</div>` : ''}<div class="cicon icon-${type}"></div><div class="cname">${type}</div>`;
+  el.onclick = onClick;
+  return el;
+}
+
 function circuitEventScreen() {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET;
-  if (!g.event) g.event = { choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null };
+  if (!g.event) g.event = { kind: 'interlude', choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null };
+  switch (g.event.kind) {
+    case 'cache': return renderCacheEvent(g);
+    case 'whetstone': return renderWhetstoneEvent(g);
+    case 'swap': return renderSwapEvent(g);
+    case 'gamble': return renderGambleEvent(g);
+    case 'ambush': return renderAmbushEvent(g);
+    default: return renderInterludeEvent(g);
+  }
+}
+
+function renderInterludeEvent(g) {
   const ev = g.event;
   const avail = eventAvail();
   SFX.play('win');
-  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
-  $('circuitTitle').textContent = 'An Interlude';
-  $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding}. A quiet node — refine your hand or recover. Choose one, then back to the map.`;
-  const body = $('circuitStats');
-  body.className = 'circuitload';
-  body.innerHTML = '';
+  const body = eventShell('An Interlude', `Standing ${g.standing}/${g.maxStanding}. A quiet node — refine your hand or recover. Choose one, then back to the map.`);
 
   // The four options as selectable tiles.
   const opts = [
@@ -5759,6 +5817,130 @@ function circuitEventScreen() {
   next.disabled = anyAvail && !eventReady();
   next.textContent = !anyAvail ? 'Move on ›' : eventReady() ? 'Confirm ›' : 'Choose an option';
   next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// A Traveler's Cache: a small spread of cards; take one or leave it.
+function renderCacheEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const body = eventShell('A Traveler’s Cache', `Standing ${g.standing}/${g.maxStanding}. A dropped satchel spills a few cards across the road. Take one for your deck, or leave it and move on.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">Take one card</div>`;
+  const row = document.createElement('div'); row.className = 'ldcards';
+  ev.offer.forEach((c, i) => row.appendChild(eventOfferCard(c, ev.cardIdx === i, () => { ev.cardIdx = ev.cardIdx === i ? null : i; circuitEventScreen(); })));
+  sec.appendChild(row); body.appendChild(sec);
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false;
+  next.textContent = ev.cardIdx != null ? 'Take it ›' : 'Leave it ›';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// The Whetstone: upgrade one base stone in your pouch to its variant, free.
+function renderWhetstoneEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const body = eventShell('The Whetstone', `Standing ${g.standing}/${g.maxStanding}. A stone-cutter offers to hone one of your stones into its finer form — at no charge. Choose one, or pass.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">Upgrade which stone?</div>`;
+  const rowEl = document.createElement('div'); rowEl.className = 'ldpouches';
+  for (const color of upgradableStones(g)) {
+    const variant = variantForBase(color);
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
+    b.title = `${getStone(variant).name} — ${getStone(variant).power}: ${getStone(variant).desc}`;
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    const d = document.createElement('span'); d.className = `stonedot ${color} variant`; cluster.appendChild(d);
+    b.appendChild(cluster);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `⇪ ${getStone(variant).name}`;
+    b.appendChild(lab);
+    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
+    rowEl.appendChild(b);
+  }
+  sec.appendChild(rowEl); body.appendChild(sec);
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false;
+  next.textContent = ev.stoneColor ? 'Hone it ›' : 'Pass ›';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// A Crooked Trade: give up a stone of your choice, take a fixed random one.
+function renderSwapEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const body = eventShell('A Crooked Trade', `Standing ${g.standing}/${g.maxStanding}. A fence will only deal in kind: hand over a stone and you walk away with a ${STONES[ev.gain].name}. Pick what you can spare.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">Give up which stone? (you receive a ${STONES[ev.gain].name})</div>`;
+  const rowEl = document.createElement('div'); rowEl.className = 'ldpouches';
+  for (const color of STONE_KEYS) {
+    const n = g.pouch[color] || 0; if (!n) continue;
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
+    b.title = `${STONES[color].name} — ${STONES[color].power}`;
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
+    b.appendChild(cluster);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')} ×${n}`;
+    b.appendChild(lab);
+    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
+    rowEl.appendChild(b);
+  }
+  sec.appendChild(rowEl); body.appendChild(sec);
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = '';
+  next.disabled = !ev.stoneColor;
+  next.textContent = ev.stoneColor ? 'Make the trade ›' : 'Choose a stone to give';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// The Pawnbroker: sacrifice one charm to gain a different random one (refusable).
+function renderGambleEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const gainC = CHARMS[ev.gain];
+  const body = eventShell('The Pawnbroker', `Standing ${g.standing}/${g.maxStanding}. A broker eyes your charms. Pawn one and a ${gainC ? gainC.label : 'mystery charm'} is yours in return — or keep what you have and walk on.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">Pawn which charm? (you receive <b>${gainC ? gainC.label : '—'}</b> — ${gainC ? gainC.blurb : ''})</div>`;
+  const rowEl = document.createElement('div'); rowEl.className = 'compendium';
+  for (const key of playerCharms()) {
+    const c = CHARMS[key]; if (!c) continue;
+    const b = document.createElement('button');
+    b.className = 'compcard' + (ev.giveCharm === key ? ' selected' : '');
+    b.innerHTML = `<div class="compcard-h">${c.label}</div><div class="compcard-b">${c.blurb}</div>`;
+    b.onclick = () => { ev.giveCharm = ev.giveCharm === key ? null : key; circuitEventScreen(); };
+    rowEl.appendChild(b);
+  }
+  sec.appendChild(rowEl); body.appendChild(sec);
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false;
+  next.textContent = ev.giveCharm ? 'Pawn it ›' : 'Walk on ›';
+  next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// An Ambush: stand and fight a duel for spoils, or pay Standing to slip past.
+function renderAmbushEvent(g) {
+  const ev = g.event;
+  SFX.play('sting');
+  const body = eventShell('An Ambush', `Standing ${g.standing}/${g.maxStanding}. A figure blocks the road, hand on a satchel of stones. Stand and fight for the spoils, or pay them off in blood — lose ${ev.dmg} Standing and slip past.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  const fight = document.createElement('button');
+  fight.className = 'eventopt';
+  fight.innerHTML = `<div class="eventopt-l">Stand and fight</div><div class="eventopt-n">A duel for coin and a card — but a loss ends the run.</div>`;
+  fight.onclick = () => { g.curNode.foe = ev.foe; g.event = null; closeModal('circuitModal'); circuitSetupFight(g.curNode); };
+  const pay = document.createElement('button');
+  pay.className = 'eventopt' + (g.standing <= ev.dmg ? ' disabled' : '');
+  pay.disabled = g.standing <= ev.dmg;
+  pay.innerHTML = `<div class="eventopt-l">Slip past</div><div class="eventopt-n">Lose ${ev.dmg} Standing (to ${Math.max(0, g.standing - ev.dmg)}/${g.maxStanding}) and move on.</div>`;
+  pay.onclick = () => { g.standing = Math.max(1, g.standing - ev.dmg); g.event = null; circuitAfterNode(); };
+  orow.appendChild(fight); orow.appendChild(pay);
+  sec.appendChild(orow); body.appendChild(sec);
+  eventReviewBtn(body);
+  $('circuitNext').style.display = 'none'; // choices are the buttons above
   $('circuitModal').classList.add('open');
 }
 
@@ -5805,20 +5987,41 @@ function eventStonePicker() {
   return sec;
 }
 
-// Apply the chosen interlude action, then set the next table.
+// Apply the chosen event outcome (by kind), then advance the map. Headless-safe:
+// the battery/tests build g.event directly with an interlude choice and no kind,
+// which falls through to the interlude branch.
 function circuitTakeEventAndAdvance() {
   const g = GAUNTLET, ev = g.event;
-  if (ev && ev.choice && eventReady()) {
-    if (ev.choice === 'heal') g.standing = Math.min(g.maxStanding, g.standing + circuitHealAmount());
-    else if (ev.choice === 'removeCard' && g.deck.length > CIRCUIT.deckFloor) g.deck = g.deck.slice(0, ev.cardIdx).concat(g.deck.slice(ev.cardIdx + 1));
-    else if (ev.choice === 'removeStone' && pouchTotal(g.pouch) > CIRCUIT.drawStones && g.pouch[ev.stoneColor] > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1 });
-    else if (ev.choice === 'moveMod') {
-      const fx = specFx(g.deck[ev.srcIdx]);
-      if (fx && !specFx(g.deck[ev.dstIdx])) {
-        const deck = g.deck.slice();
-        deck[ev.srcIdx] = specType(deck[ev.srcIdx]);                       // source becomes plain
-        deck[ev.dstIdx] = { type: specType(deck[ev.dstIdx]), fx };          // destination gains the rider
-        g.deck = deck;
+  const kind = (ev && ev.kind) || 'interlude';
+  if (ev) {
+    if (kind === 'cache') { if (ev.cardIdx != null && ev.offer) g.deck = g.deck.concat([ev.offer[ev.cardIdx]]); }
+    else if (kind === 'whetstone') {
+      const v = ev.stoneColor && variantForBase(ev.stoneColor);
+      if (v && (g.pouch[ev.stoneColor] || 0) > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1, [v]: (g.pouch[v] || 0) + 1 });
+    }
+    else if (kind === 'swap') {
+      if (ev.stoneColor && (g.pouch[ev.stoneColor] || 0) > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1, [ev.gain]: (g.pouch[ev.gain] || 0) + 1 });
+    }
+    else if (kind === 'gamble') {
+      if (ev.giveCharm && ev.gain && (g.charms || []).includes(ev.giveCharm)) {
+        const lost = CHARMS[ev.giveCharm], got = CHARMS[ev.gain];
+        if (lost && lost.maxStandingAdd) { g.maxStanding -= lost.maxStandingAdd; g.standing = Math.min(g.standing, g.maxStanding); }
+        g.charms = g.charms.filter(c => c !== ev.giveCharm).concat([ev.gain]);
+        if (got && got.maxStandingAdd) { g.maxStanding += got.maxStandingAdd; g.standing += got.maxStandingAdd; }
+      }
+    }
+    else if (ev.choice && eventReady()) { // interlude / repose
+      if (ev.choice === 'heal') g.standing = Math.min(g.maxStanding, g.standing + circuitHealAmount());
+      else if (ev.choice === 'removeCard' && g.deck.length > CIRCUIT.deckFloor) g.deck = g.deck.slice(0, ev.cardIdx).concat(g.deck.slice(ev.cardIdx + 1));
+      else if (ev.choice === 'removeStone' && pouchTotal(g.pouch) > CIRCUIT.drawStones && g.pouch[ev.stoneColor] > 0) g.pouch = Object.assign({}, g.pouch, { [ev.stoneColor]: g.pouch[ev.stoneColor] - 1 });
+      else if (ev.choice === 'moveMod') {
+        const fx = specFx(g.deck[ev.srcIdx]);
+        if (fx && !specFx(g.deck[ev.dstIdx])) {
+          const deck = g.deck.slice();
+          deck[ev.srcIdx] = specType(deck[ev.srcIdx]);                       // source becomes plain
+          deck[ev.dstIdx] = { type: specType(deck[ev.dstIdx]), fx };          // destination gains the rider
+          g.deck = deck;
+        }
       }
     }
   }
@@ -5835,6 +6038,8 @@ function updateCircuitHud() {
   hud.style.display = '';
   const you = g.piles && g.piles[0];
   const drawN = you ? you.cardDraw.length : 0;
+  // At the table the persona IS revealed (you know who you face here) — it's
+  // only the map tree that keeps it hidden.
   const node = g.curNode, tag = node && node.type === 'boss' ? ' ⚔' : node && node.type === 'elite' ? ' ★' : '';
   hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · <b>${g.coin || 0}</b>c · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
@@ -6170,7 +6375,7 @@ if (typeof window !== 'undefined') {
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
-    circuitTakeEventAndAdvance, circuitHealAmount,
+    circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

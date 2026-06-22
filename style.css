@@ -1256,12 +1256,22 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapnode-t { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
 .mapnode-duel .mapnode-t { color: var(--parchment); }
 .mapnode-elite .mapnode-t { color: #e6b15a; }
-.mapnode-event .mapnode-t { color: #8fc7a0; }
+.mapnode-event .mapnode-t { color: #b79bd6; }
+.mapnode-repose .mapnode-t { color: #8fc7a0; }
 .mapnode-boss .mapnode-t { color: #d9685b; }
 .mapnode-f { font-size: 11px; color: var(--gold); margin-top: 2px; font-family: 'Alegreya', serif; }
 .mapnode-hp { font-size: 10px; color: var(--parchment-dim); margin-top: 2px; }
 .mapnode-c { position: absolute; top: 4px; right: 5px; font-size: 10px; color: #e6b15a; }
 .mapnode-shop .mapnode-t { color: #d9c06a; }
+/* Big kind-glyph at the top of each node (the map reads by icon first). */
+.mapnode-i { font-size: 20px; line-height: 1; margin-bottom: 3px; }
+.mapnode-duel .mapnode-i { color: var(--parchment); }
+.mapnode-elite .mapnode-i { color: #e6b15a; }
+.mapnode-event .mapnode-i { color: #b79bd6; }
+.mapnode-repose .mapnode-i { color: #8fc7a0; }
+.mapnode-boss .mapnode-i { color: #d9685b; }
+.mapnode-shop .mapnode-i { color: #d9c06a; }
+@media (max-width: 640px) { .mapnode-i { font-size: 16px; } }
 /* The shop (The Fence). */
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }

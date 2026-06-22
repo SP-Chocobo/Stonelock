@@ -122,6 +122,33 @@ g.event = { choice: 'removeCard', cardIdx: 0 };
 M.circuitTakeEventAndAdvance();
 assert(M._gauntlet().deck.length === dN - 1, 'remove-a-card thins the deck');
 
+// --- the new encounter events (cache / whetstone / swap / gamble) ---
+M.startCircuit(); g = M._gauntlet();
+// every random event is an encounter, never the interlude (that's the Repose node)
+g.pouch = { red: 1, white: 1, blue: 1, black: 1 }; g.charms = [];
+for (let i = 0; i < 40; i++) assert(M.makeCircuitEvent().kind !== 'interlude', 'random events never roll the interlude');
+assert(M.variantForBase('red') === 'twinred' && M.upgradableStones(g).length === 3, 'upgradable stones are the held bases that have a variant');
+// cache: taking a card adds it to the deck
+g.curNode = { type: 'event', col: 1 }; const cdN = g.deck.length;
+g.event = { kind: 'cache', offer: [{ type: 'Coin', fx: null }, { type: 'Sword', fx: 'keen' }], cardIdx: 1 };
+M.circuitTakeEventAndAdvance();
+assert(g.deck.length === cdN + 1, 'a cache pick adds the chosen card to the deck');
+// whetstone: upgrades a held base stone to its variant
+g.curNode = { type: 'event', col: 1 }; g.pouch = { red: 1, white: 1, blue: 1, black: 1 };
+g.event = { kind: 'whetstone', stoneColor: 'red' };
+M.circuitTakeEventAndAdvance();
+assert((g.pouch.red || 0) === 0 && (g.pouch.twinred || 0) === 1, 'a whetstone hones Red into Twin Red');
+// swap: gives up a chosen stone for the fixed offered one
+g.curNode = { type: 'event', col: 1 }; g.pouch = { white: 2, blue: 1 };
+g.event = { kind: 'swap', stoneColor: 'white', gain: 'black' };
+M.circuitTakeEventAndAdvance();
+assert((g.pouch.white || 0) === 1 && (g.pouch.black || 0) === 1, 'a crooked trade swaps a stone for the offered one');
+// gamble: pawns one charm for another
+g.curNode = { type: 'event', col: 1 }; g.charms = ['masterforger'];
+g.event = { kind: 'gamble', giveCharm: 'masterforger', gain: 'forgerseal' };
+M.circuitTakeEventAndAdvance();
+assert(!g.charms.includes('masterforger') && g.charms.includes('forgerseal'), 'the pawnbroker swaps one charm for another');
+
 // --- depleting decks conserve across reshuffles ---
 [g, G] = enterFirstFight();
 M.circuitResetPiles();

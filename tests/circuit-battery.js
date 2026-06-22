@@ -81,7 +81,7 @@ function simulateRun() {
   while (g.active && guard++ < 200) {
     const node = chooseNode(g, M.circuitReachable(g.map)); // only the edge-reachable nodes
     g.curNode = node;
-    if (node.type === 'event') { autoEvent(g); M.circuitTakeEventAndAdvance(); continue; }
+    if (node.type === 'event' || node.type === 'repose') { autoEvent(g); M.circuitTakeEventAndAdvance(); continue; }
     if (node.type === 'shop') { g.shop = M.makeShop(); autoShop(g); g.shop = null; M.circuitAfterNode(); continue; }
     setupFight(g, node);
     if (!playFight()) break;
