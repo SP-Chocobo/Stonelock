@@ -40,10 +40,15 @@ and create a run narrative ("I beat the Ferryman, I got River King's Toll").
 - **Iron Verdict** (Clerk) — your first card committed each hand begins Locked.
 - **Sovereign's Favor** (Lady) — your locked cards read +2 (pairs with Iron Verdict / White / Deadbolt — a lock build).
 
-Remaining personas (Stranger, Tinker, Deckhand, Old Hand, Wagoner) have no
-signature yet — easy to add (one charm entry + a hook). Veilwalker (Stranger,
-"reveal a veiled enemy card") was deferred: it needs a mid-hand reveal *after*
-the opponent commits face-down, not a handStart hook.
+All nine regulars now have a signature relic:
+- **Matched Set** (Tinker) — your Pairs pay +3 (a wide/pairs build).
+- **Highwayman's Cut** (Wagoner) — cards you steal with Blue read +2 (a steal build).
+- **Following Sea** (Deckhand) — the hand after a win, your board reads +2 (a momentum presser, mirror of Spite Engine).
+- **Second Wind** (Old Hand) — the first time your Standing would break each act, survive at 1 (a clutch death-save — a real *moment*).
+- **Veilwalker** (Stranger) — each hand, one of the opponent's veiled cards is revealed to you (fires when the foe commits face-down, once per hand).
+
+Each is boss-only and offered only by its own persona, so a full set of nine
+gives every act boss a distinct, build-defining prize.
 
 ## Backlog (prioritized) — bigger moments
 

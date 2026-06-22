@@ -349,7 +349,7 @@ M.startCircuit(); g = M._gauntlet(); g.charms = [];
 const bossR = M.makeReward({ charm: true, boss: true, foe: 'The Ferryman' });
 assert(bossR.charms.length === 3 && bossR.charms.includes('riverking') && bossR.charms.includes('wildcard'),
   'a Ferryman boss offers its signature relic, a random charm, and a Wildcard');
-const bossR2 = M.makeReward({ charm: true, boss: true, foe: 'The Deckhand' }); // no signature
+const bossR2 = M.makeReward({ charm: true, boss: true, foe: null }); // a foe with no signature persona
 assert(bossR2.charms.includes('wildcard') && !bossR2.charms.some(k => M.CHARMS[k].persona),
   'a boss with no signature still offers Wildcard plus randoms');
 // Sovereign's Favor reads +2 on a locked card
@@ -359,6 +359,30 @@ G.players[0].board = [sfCard('Coin', true), sfCard('Sword', false), sfCard('Quil
 M.applyCardEffects();
 assert(G.players[0].board[0].evalue === M.REGIONS.bar.values.Coin + 2 && G.players[0].board[1].evalue === M.REGIONS.bar.values.Sword,
   "Sovereign's Favor reads +2 on a locked card only");
+
+// --- the rest of the cast's signature relics ---
+const allSigs = { riverking: 'The Ferryman', motherlode: 'The Miner', ironverdict: 'The Clerk', sovereign: 'The Lady', matchedset: 'The Tinker', highwayman: 'The Wagoner', followingsea: 'The Deckhand', secondwind: 'The Old Hand', veilwalker: 'The Stranger' };
+for (const k in allSigs) assert(M.CHARMS[k] && M.CHARMS[k].bossOnly && M.CHARMS[k].persona === allSigs[k], `${k} is the boss relic for ${allSigs[k]}`);
+// every regular has a signature, offered only by their own boss
+for (const persona of new Set(Object.values(allSigs))) {
+  M.startCircuit(); const gg = M._gauntlet(); gg.charms = [];
+  const sig = Object.keys(allSigs).find(k => allSigs[k] === persona);
+  assert(M.makeReward({ charm: true, boss: true, foe: persona }).charms.includes(sig), `${persona}'s boss offers ${sig}`);
+}
+// Matched Set — Pairs pay +3
+const msv = { Coin: 3, Quill: 1 }, msHand = [{ type: 'Coin' }, { type: 'Coin' }, { type: 'Quill' }];
+assert(M.bestSelection(msHand, msv, { pairAdd: 3 }).score === M.bestSelection(msHand, msv, {}).score + 3, 'Matched Set adds +3 to a Pair');
+// Following Sea — +2 board the hand after a win
+assert(M.CHARMS.followingsea.on.handWon && M.CHARMS.followingsea.on.handStart, 'Following Sea has win/start hooks');
+const fsG = { handBuff: 0 }; M.CHARMS.followingsea.on.handWon(fsG); M.CHARMS.followingsea.on.handStart(fsG);
+assert(fsG.handBuff === 2, 'Following Sea grants +2 board the hand after a win');
+// Highwayman's Cut — a stolen card (owner ≠ origOwner) reads +2
+[g, G] = enterFirstFight(); g.charms = ['highwayman'];
+const bc = (type, orig) => ({ type, fx: null, owner: 0, origOwner: orig, faceUp: true, known: [true, true], zone: 'board', poisoned: false, stones: [] });
+G.players[0].board = [bc('Coin', 1), bc('Sword', 0), bc('Quill', 0)]; // first card was stolen from seat 1
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === M.REGIONS.bar.values.Coin + 2 && G.players[0].board[1].evalue === M.REGIONS.bar.values.Sword,
+  "Highwayman's Cut reads +2 on a stolen card only");
 
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');

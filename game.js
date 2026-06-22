@@ -360,7 +360,8 @@ function bestSelection(cards, values, opts = {}) {
     // Seal on Pairs/Triads, Master Forger on Triads). 0 without those charms.
     const bonus = (struct === 'triad' ? 6 : struct === 'pair' ? 2 : 0)
       + (struct !== 'singles' ? (opts.bonusAdd || 0) : 0)
-      + (struct === 'triad' ? (opts.triadAdd || 0) : 0);
+      + (struct === 'triad' ? (opts.triadAdd || 0) : 0)
+      + (struct === 'pair' ? (opts.pairAdd || 0) : 0); // Matched Set (boss relic)
     let penalty = 0;
     if (opts.riverlock && !picks.some(p => !p.cursed && (p.wild || p.type === 'Road' || p.type === 'Ferry'))) {
       penalty = 2; // the Passage Requirement (a Wildcard can stand in for the Road/Ferry)
@@ -400,6 +401,7 @@ function scoreOptsFor(seat) {
     o.bonusAdd = charmValSeat('bonusAdd', seat);
     o.triadAdd = charmValSeat('triadAdd', seat);
     o.phantomValue = charmValSeat('phantomValue', seat);                 // Motherlode (boss relic)
+    o.pairAdd = charmValSeat('pairAdd', seat);                           // Matched Set (boss relic)
     if (charmsOf(seat).includes('riverking')) o.foldTypes = { Road: 'RoadFerry', Ferry: 'RoadFerry' }; // River King's Toll
   }
   return o;
@@ -1292,7 +1294,7 @@ function startHand() {
     announce(`${STONES[denied].name} is locked away this hand`, denied, 1);
   }
   // Charm hooks: reset the per-hand board buff, then let hand-start charms set it.
-  if (G.gauntlet) { GAUNTLET.handBuff = 0; charmFire('handStart', { handNum: G.handNum }); }
+  if (G.gauntlet) { GAUNTLET.handBuff = 0; G.veilUsed = false; charmFire('handStart', { handNum: G.handNum }); }
   // Hand-edit charms (player only): Mulligan on a table's first hand, Cycle every
   // hand. Insert a hand-edit step before the first commit.
   if (G.gauntlet && G.players[0]) {
@@ -2212,6 +2214,11 @@ const CHARMS = {
   motherlode:   { label: 'Motherlode',         blurb: 'Each Red phantom you field scores +1 (phantoms are no longer worthless).', bossOnly: 1, persona: 'The Miner', phantomValue: 1 },
   ironverdict:  { label: 'Iron Verdict',       blurb: 'The first card you commit each hand begins Locked.', bossOnly: 1, persona: 'The Clerk' },
   sovereign:    { label: "Sovereign's Favor",  blurb: 'Your locked cards read +2.', bossOnly: 1, persona: 'The Lady', cardBonus: (c) => isLocked(c) ? 2 : 0 },
+  matchedset:   { label: 'Matched Set',        blurb: 'Your Pairs pay +3.', bossOnly: 1, persona: 'The Tinker', pairAdd: 3 },
+  highwayman:   { label: "Highwayman's Cut",    blurb: 'Cards you steal with Blue read +2 on your board.', bossOnly: 1, persona: 'The Wagoner', cardBonus: (c) => (c.owner === 0 && c.origOwner != null && c.origOwner !== c.owner) ? 2 : 0 },
+  followingsea: { label: 'Following Sea',       blurb: 'The hand after you win one, your whole board reads +2.', bossOnly: 1, persona: 'The Deckhand', on: { handWon: (g) => { g.pressNext = true; }, handStart: (g) => { if (g.pressNext) { g.handBuff = (g.handBuff || 0) + 2; g.pressNext = false; } } } },
+  secondwind:   { label: 'Second Wind',         blurb: 'The first time your Standing would break each act, you survive at 1 instead.', bossOnly: 1, persona: 'The Old Hand' },
+  veilwalker:   { label: 'Veilwalker',          blurb: "Each hand, one of the opponent's veiled cards is revealed to you.", bossOnly: 1, persona: 'The Stranger' },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -2542,6 +2549,12 @@ function deployCards(who, cards, faceUp) {
   // Iron Verdict (boss relic): the first card you commit each hand starts Locked.
   if (G.gauntlet && wasEmpty && cards.length && charmsOf(who).includes('ironverdict') && !isLocked(cards[0])) {
     cards[0].stones.push({ color: 'white', by: who });
+  }
+  // Veilwalker (boss relic): when the opponent veils a card, the player glimpses
+  // one of their face-down cards (once per hand).
+  if (G.gauntlet && !faceUp && who !== 0 && !G.veilUsed && charmsOf(0).includes('veilwalker')) {
+    const veiled = G.players[who].board.filter(c => !c.faceUp && !c.known[0]);
+    if (veiled.length) { veiled[Math.floor(rnd() * veiled.length)].known[0] = true; G.veilUsed = true; }
   }
 }
 
@@ -5518,6 +5531,7 @@ function circuitAfterNode() {
     if (g.act >= CIRCUIT.acts) { circuitVictory(); return; }
     g.act++; g.map = buildAct(g.act);
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal); // a breather between acts
+    g.secondWindUsed = false; // Second Wind recharges each act
   }
   // Owe a Wildcard imbue? (Took the charm but no card carries it — e.g. just
   // gained it, or the imbued card was later thinned.) Pick before the map.
@@ -5668,6 +5682,12 @@ function circuitHandResult(winner, diff) {
     g.standing = Math.max(0, g.standing - dmg);
     log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
     charmFire('handLost');
+    // Second Wind (boss relic): cheat death once per act.
+    if (g.standing <= 0 && charmHas('secondwind') && !g.secondWindUsed) {
+      g.secondWindUsed = true; g.standing = 1;
+      log('Second Wind — you should be finished, but you find your feet at 1 Standing.', 'you');
+      announce('Second Wind — you cling on at 1 Standing', 'white', 0);
+    }
     if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   }
   updateCircuitHud();
