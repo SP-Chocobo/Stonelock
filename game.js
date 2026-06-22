@@ -71,6 +71,7 @@ const STONE_VARIANTS = {
   twinred:  { base: 'red',   name: 'Twin Red',     power: 'Double Duplication',  desc: 'Places TWO phantoms onto your card — enough to stand as a whole Triad on its own.' },
   deadbolt: { base: 'white', name: 'Deadbolt White', power: 'Double Lock',       desc: 'Locks your card AND an adjacent one — two cards shielded by a single stone.' },
   riptide:  { base: 'blue',  name: 'Riptide Blue', power: 'Undertow Exchange',     desc: 'Swaps a card like Blue, but the pull is strong: a Black Stone only weakens it back to an ordinary swap. It takes a SECOND Black to actually unwind the trade.' },
+  onyx:     { base: 'black', name: 'Onyx Black',   power: 'Double Disruption',     desc: 'Undoes the last TWO stone effects on the table — two disruptions from a single stone.' },
 };
 function isVariant(key) { return !!STONE_VARIANTS[key]; }
 function stoneBase(key) { return STONE_VARIANTS[key] ? STONE_VARIANTS[key].base : key; }
@@ -1865,38 +1866,46 @@ function applyStone(actor, key, target) {
       break;
     }
     case 'black': {
-      const prev = target.event;
-      if (prev.color === 'blue' && prev.riptide) {
-        // Undertow: the first Black only weakens a Riptide back to an ordinary
-        // swap. The trade stands; a second Black can then unwind it normally.
-        prev.riptide = false;
-        ev.cards = prev.cards.slice();
-        ev.undid = prev;
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the riptide — the undertow breaks, but the trade holds. It is an ordinary swap now.`, logClass(actor));
-        announce('Black Stone — the riptide is broken to a plain swap', 'black', actor);
-        break;
+      // One Black "charge": downgrade a Riptide, or undo a Red/Blue/Green.
+      // Returns the cards it touched (for the flash) — Onyx fires it twice.
+      const charge = (prev) => {
+        if (prev.color === 'blue' && prev.riptide) {
+          // Undertow: the first Black only weakens a Riptide back to an ordinary
+          // swap. The trade stands; a second Black can then unwind it normally.
+          prev.riptide = false;
+          log(`${playerName(actor)} ${verb(actor, 'drop')} a ${sName} on the riptide — the undertow breaks, but the trade holds. It is an ordinary swap now.`, logClass(actor));
+          announce(`${sName} — the riptide is broken to a plain swap`, 'black', actor);
+          return prev.cards.slice();
+        }
+        prev.undone = true;
+        if (prev.color === 'red') {
+          const idx = prev.cards[0].stones.findIndex(s => s.color === 'red' && s.by === prev.actor);
+          if (idx >= 0) prev.cards[0].stones.splice(idx, 1);
+          log(`${playerName(actor)} ${verb(actor, 'drop')} a ${sName} — the phantom over ${describeCard(prev.cards[0])} gutters out.`, logClass(actor));
+          announce(`${sName} — the phantom is snuffed out`, 'black', actor);
+        } else if (prev.color === 'blue') {
+          // Reverse the trade. Stones travel with their cards.
+          swapCards(prev.give, prev.take);
+          prev.give.prov = null;
+          prev.take.prov = null;
+          log(`${playerName(actor)} ${verb(actor, 'drop')} a ${sName} on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, logClass(actor));
+          announce(`${sName} — the trade unwinds, stones and all`, 'black', actor);
+        } else if (prev.color === 'green') {
+          const gi = prev.cards[0].stones.findIndex(s => s.color === 'green' && s.by === prev.actor);
+          if (gi >= 0) prev.cards[0].stones.splice(gi, 1);
+          log(`${playerName(actor)} ${verb(actor, 'drop')} a ${sName} — the poison in ${describeCard(prev.cards[0])} is drawn out, its worth restored.`, logClass(actor));
+          announce(`${sName} — the poison is drawn out`, 'black', actor);
+        }
+        return prev.cards.slice();
+      };
+      const first = target.event;
+      ev.undid = first;
+      let cards = charge(first);
+      if (key === 'onyx') { // Double Disruption: a second charge on the next undoable event
+        const second = nextUndoableEvent(first.id);
+        if (second) { ev.undid2 = second; cards = cards.concat(charge(second)); }
       }
-      prev.undone = true;
-      ev.cards = prev.cards.slice();
-      ev.undid = prev;
-      if (prev.color === 'red') {
-        const idx = prev.cards[0].stones.findIndex(s => s.color === 'red' && s.by === prev.actor);
-        if (idx >= 0) prev.cards[0].stones.splice(idx, 1);
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the phantom over ${describeCard(prev.cards[0])} gutters out.`, logClass(actor));
-        announce('Black Stone — the phantom is snuffed out', 'black', actor);
-      } else if (prev.color === 'blue') {
-        // Reverse the trade. Stones travel with their cards.
-        swapCards(prev.give, prev.take);
-        prev.give.prov = null;
-        prev.take.prov = null;
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the trade — the swap unwinds, and every stone riding those cards travels home with them.`, logClass(actor));
-        announce('Black Stone — the trade unwinds, stones and all', 'black', actor);
-      } else if (prev.color === 'green') {
-        const gi = prev.cards[0].stones.findIndex(s => s.color === 'green' && s.by === prev.actor);
-        if (gi >= 0) prev.cards[0].stones.splice(gi, 1);
-        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone — the poison in ${describeCard(prev.cards[0])} is drawn out, its worth restored.`, logClass(actor));
-        announce('Black Stone — the poison is drawn out', 'black', actor);
-      }
+      ev.cards = cards;
       break;
     }
   }
@@ -1929,6 +1938,18 @@ function undoableEventFor(card) {
 
 function anyUndoable() {
   return G.players.flatMap(p => p.board).some(c => undoableEventFor(c));
+}
+
+// The most recent undoable event anywhere on the table, optionally skipping one
+// id (Onyx's second charge, so it can't re-hit the event it just touched).
+function nextUndoableEvent(excludeId) {
+  for (let i = G.events.length - 1; i >= 0; i--) {
+    const e = G.events[i];
+    if (e.id === excludeId || e.undone || e.color === 'black' || e.color === 'white') continue;
+    if (e.cards.some(isLocked)) continue;
+    return e;
+  }
+  return null;
 }
 
 function stoneHasValidTarget(color) {

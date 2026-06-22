@@ -127,7 +127,7 @@ M.startCircuit(); g = M._gauntlet();
 // every random event is an encounter, never the interlude (that's the Repose node)
 g.pouch = { red: 1, white: 1, blue: 1, black: 1 }; g.charms = [];
 for (let i = 0; i < 40; i++) assert(M.makeCircuitEvent().kind !== 'interlude', 'random events never roll the interlude');
-assert(M.variantForBase('red') === 'twinred' && M.upgradableStones(g).length === 3, 'upgradable stones are the held bases that have a variant');
+assert(M.variantForBase('red') === 'twinred' && M.upgradableStones(g).length === 4, 'upgradable stones are the held bases that have a variant');
 // cache: taking a card adds it to the deck
 g.curNode = { type: 'event', col: 1 }; const cdN = g.deck.length;
 g.event = { kind: 'cache', offer: [{ type: 'Coin', fx: null }, { type: 'Sword', fx: 'keen' }], cardIdx: 1 };
@@ -259,6 +259,20 @@ const blk2 = M.undoableEventFor(take);
 assert(blk2 === rEv, 'after downgrade the swap is an ordinary Blue, undoable again');
 M.applyStone(0, 'black', { event: blk2, card: take });
 assert(Gv.players[0].board[0] === give && rEv.undone === true, 'a second Black unwinds the downgraded swap');
+
+// Onyx Black (black variant): one stone undoes the last TWO effects
+assert(M.stoneBase('onyx') === 'black' && M.isVariant('onyx'), 'onyx is a black variant');
+Gv.events = [];
+const oc1 = mk(0, 'Coin'), oc2 = mk(0, 'Ferry'), oe1 = mk(1, 'Knife');
+Gv.players[0].board = [oc1, oc2]; Gv.players[1].board = [oe1];
+M.applyStone(0, 'red', { card: oc1 });             // event: a phantom on oc1
+M.applyStone(0, 'blue', { give: oc2, take: oe1 }); // event: a swap oc2 <-> oe1
+const hasRedStone = c => c.stones.some(s => s.color === 'red');
+assert(Gv.players[0].board.includes(oe1) && hasRedStone(oc1), 'setup: a phantom and a swap are both live');
+const onyxTarget = Gv.events[Gv.events.length - 1]; // the swap
+M.applyStone(0, 'onyx', { event: onyxTarget, card: oe1 });
+assert(!hasRedStone(oc1) && Gv.players[0].board.includes(oc2) && Gv.players[1].board.includes(oe1),
+  'an Onyx undoes BOTH the swap and the phantom in one stone');
 
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
