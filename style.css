@@ -1166,6 +1166,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cfx-keen      { border-color: #d7b25a; color: #f6e6b4; }
 .cfx-lodestone { border-color: #b58ad8; color: #ecdcf8; }
 .cfx-drain     { border-color: #c97a6a; color: #f5d4cb; }
+.cfx-sentinel  { border-color: #8fb98f; color: #d7ecd7; }
+.cfx-harmony   { border-color: #c9a050; color: #f0dca0; }
+.cfx-bulwark   { border-color: #9aa0b0; color: #e0e4ee; }
+.cfx-siphon    { border-color: #c97aa8; color: #f5d4ea; }
+.cfx-gleam     { border-color: #e0c46a; color: #f8ecb8; }
+.cfx-cantrip   { border-color: #6fb0a0; color: #cdeee5; }
 .board .cfx { font-size: 7px; top: 3px; right: 3px; padding: 0 4px; }
 body[data-compact="1"] .board .cfx { display: none; }
 /* Loadout effect key — the legend under the offered cards. */

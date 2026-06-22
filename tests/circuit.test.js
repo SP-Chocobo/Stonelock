@@ -162,6 +162,16 @@ M.seedRng(777); assert(sig(M.buildAct(1)) !== sig(mapA), 'a different seed build
 M.clearRng();
 for (const col of mapA.cols) for (const n of col) assert(n.lane >= 0 && n.lane < 3, 'every node has a lane for the tree layout');
 
+// --- card flow: cantrip draws on commit (conserved), hand-edit charms exist ---
+M.startCircuit(); g = M._gauntlet(); M.circuitEnterNode(g.map.cols[0][0]); G = M._state();
+const handBefore = G.players[0].hand.length;
+M._ai.EFFECTS.cantrip.onCommit(0); // simulate committing a Cantrip card
+assert(G.players[0].hand.length === handBefore + 1, 'Cantrip draws a card into hand on commit');
+const cps = g.piles[0];
+assert(cps.cardDraw.length + cps.cardDiscard.length + (cps.cardHand ? cps.cardHand.length : 0) === g.deck.length, 'a Cantrip draw keeps the deck conserved');
+assert(M._ai.EFFECTS.cantrip.aiKeep() > 0, 'the AI keeps a Cantrip (card advantage has value)');
+assert(M.CHARMS.mulligan.mulliganFirst && M.CHARMS.cycle.cycleEach && M.CHARMS.foresight.foresight === 2, 'Mulligan / Cycle / Foresight charms are registered');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');

@@ -1257,6 +1257,14 @@ function startHand() {
   }
   // Charm hooks: reset the per-hand board buff, then let hand-start charms set it.
   if (G.gauntlet) { GAUNTLET.handBuff = 0; charmFire('handStart', { handNum: G.handNum }); }
+  // Hand-edit charms (player only): Mulligan on a table's first hand, Cycle every
+  // hand. Insert a hand-edit step before the first commit.
+  if (G.gauntlet && G.players[0]) {
+    let editMax = 0;
+    if (G.handNum === 1 && charmVal('mulliganFirst')) editMax = G.players[0].hand.length;
+    else if (charmVal('cycleEach')) editMax = charmVal('cycleEach');
+    if (editMax > 0) G.queue.splice(1, 0, { t: 'handedit', who: 0, max: editMax });
+  }
   run();
 }
 
@@ -1329,6 +1337,7 @@ function stepNeedsHuman(step) {
     case 'thin': return isHuman(step.who);
     case 'place': return isHuman(step.who) && G.players[step.who].active.length > 0;
     case 'archcommit': return isHuman(step.seat) && G.players[step.seat].hand.length > 0;
+    case 'handedit': return isHuman(step.who) && step.max > 0 && G.players[step.who].hand.length > 0;
     default: return false;
   }
 }
@@ -1428,6 +1437,8 @@ function executeStep(step) {
       break;
     case 'beat':
       break;
+    case 'handedit':
+      break; // human-only (handled by promptHuman); AI keeps its hand
     case 'showdown':
       showdown();
       break;
@@ -1483,6 +1494,14 @@ function promptHuman(step) {
       UI.commitCard = null;
       setPrompt(`Place ${UI.commitLeft} card${UI.commitLeft === 1 ? '' : 's'} ${step.faceUp ? 'face-up' : 'face-down (veiled)'} — click a card in hand, then an empty slot of yours to commit it.`);
       break;
+    case 'handedit':
+      UI.mode = 'handedit';
+      UI.selected = [];
+      UI.needed = step.max;
+      setPrompt(step.max >= G.players[seat].hand.length
+        ? 'Mulligan — tap any cards to discard, then redraw the same number. Or keep your hand.'
+        : `Cycle — tap up to ${step.max} card${step.max === 1 ? '' : 's'} to swap, then redraw. Or keep your hand.`);
+      break;
   }
 }
 
@@ -1526,6 +1545,18 @@ function humanToggleCard(card) {
   if (i >= 0) UI.selected.splice(i, 1);
   else if (UI.selected.length < UI.needed) UI.selected.push(card);
   render();
+}
+
+function humanConfirmHandEdit() {
+  if (UI.mode !== 'handedit') return;
+  const me = G.viewer, picks = UI.selected.slice(), n = picks.length;
+  for (const card of picks) circuitDiscardHandCard(me, card);
+  for (let i = 0; i < n; i++) circuitDrawOne(me);
+  if (n) { log(`${playerName(me)} ${verb(me, 'swap')} ${n} card${n === 1 ? '' : 's'}.`, logClass(me)); SFX.play('card'); }
+  UI.selected = [];
+  UI.mode = 'idle';
+  if (G.queue[0] && G.queue[0].t === 'handedit') G.queue.shift();
+  run();
 }
 
 function humanConfirmDeploy() {
@@ -1947,6 +1978,11 @@ const EFFECTS = {
     self: (c, board) => board.some(o => o && o !== c && o.fx) ? 0 : 2,
     aiKeep: (c, ctx) => 1, // rewards a lean deck — the opposite of Harmony
   },
+  cantrip: {
+    label: 'Cantrip', blurb: 'When you commit it, draw a card — more to place later.',
+    onCommit: (who) => { const c = circuitDrawOne(who); if (c) { log(`${playerName(who)} ${verb(who, 'draw')} a card (Cantrip).`, logClass(who)); if (typeof document !== 'undefined') render(); } },
+    aiKeep: () => 0.6, // no board value, but card advantage is worth keeping
+  },
 };
 // UI/text consumers read label/blurb from the same registry (single source).
 const FX_INFO = EFFECTS;
@@ -1987,6 +2023,9 @@ const CHARMS = {
   bulwarkcharm: { label: 'Bulwark',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
   vigor:        { label: 'Vigor',             blurb: 'Start each table at full Standing.', on: { fightStart: g => { g.standing = g.maxStanding; } } },
   tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +2 score.', on: { handWon: g => { g.score += 2; } } },
+  mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
+  cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
+  foresight:    { label: 'Foresight',         blurb: 'See the next cards waiting in your draw pile (in the deck view).', foresight: 2 },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -2305,6 +2344,8 @@ function deployCards(who, cards, faceUp) {
     c.faceUp = faceUp;
     if (faceUp) c.known = c.known.map(() => true);
     p.board.push(c);
+    const e = EFFECTS[c.fx];
+    if (e && e.onCommit) e.onCommit(who, c); // Cantrip: draw a card for later placement
   }
 }
 
@@ -3727,7 +3768,7 @@ function renderHand() {
       <div class="cname">${card.type}</div>
       ${cfxHtml(card)}
       ${cvalHtml(card)}`;
-    if (UI.mode === 'pickCards') {
+    if (UI.mode === 'pickCards' || UI.mode === 'handedit') {
       el.classList.add('targetable');
       el.onclick = () => humanToggleCard(card);
     } else if (UI.mode === 'arch-commit') {
@@ -3767,7 +3808,7 @@ function renderTray() {
   const visible = !!items;
   tray.style.display = visible ? '' : 'none';
   $('handArea').classList.toggle('min', visible);
-  $('handArea').classList.toggle('focus', UI.mode === 'pickCards' || UI.mode === 'arch-commit');
+  $('handArea').classList.toggle('focus', UI.mode === 'pickCards' || UI.mode === 'arch-commit' || UI.mode === 'handedit');
   if (!visible) { stonesEl.innerHTML = ''; return; } // clear stale clickable stones
   stonesEl.innerHTML = '';
   const trayStone = (color, onClick) => {
@@ -3845,6 +3886,13 @@ function renderControls() {
     b.textContent = `Commit ${UI.selected.length}/${UI.needed}`;
     b.disabled = UI.selected.length !== UI.needed;
     b.onclick = humanConfirmDeploy;
+    bar.appendChild(b);
+  }
+  if (UI.mode === 'handedit') {
+    const b = document.createElement('button');
+    b.className = 'btn primary';
+    b.textContent = UI.selected.length ? `Discard & redraw ${UI.selected.length}` : 'Keep your hand';
+    b.onclick = humanConfirmHandEdit;
     bar.appendChild(b);
   }
   if (['target-own', 'target-blue-own', 'target-blue-opp', 'target-black'].includes(UI.mode)) {
@@ -5110,6 +5158,36 @@ function pileDrawStones(ps, n) {
   for (const s of ps.stoneHand) drawn[s]++;
   return drawn;
 }
+// Discard a card from hand back to the pile (Mulligan/Cycle): pull its spec out
+// of this hand's pile-hand and push it to the discard, and remove the object —
+// so it isn't double-discarded at hand's end and the deck stays conserved.
+function circuitDiscardHandCard(seat, card) {
+  const ps = GAUNTLET.piles && GAUNTLET.piles[seat]; if (!ps) return;
+  const p = G.players[seat];
+  const hi = p.hand.indexOf(card); if (hi >= 0) p.hand.splice(hi, 1);
+  const ci = G.cards.indexOf(card); if (ci >= 0) G.cards.splice(ci, 1);
+  if (ps.cardHand) { const si = ps.cardHand.findIndex(s => specType(s) === card.type && (specFx(s) || null) === (card.fx || null)); if (si >= 0) ps.cardHand.splice(si, 1); }
+  ps.cardDiscard.push(card.fx ? { type: card.type, fx: card.fx } : card.type);
+}
+// Draw a single card from a seat's pile straight into hand mid-hand (Cantrip /
+// Cycle). The spec joins this hand's pile-hand so it discards at hand's end —
+// the deck stays conserved. Returns the new card (or null if the pile is empty).
+function circuitDrawOne(seat) {
+  if (!G.gauntlet) return null;
+  const ps = GAUNTLET.piles && GAUNTLET.piles[seat];
+  if (!ps) return null;
+  const specs = drawPile(ps.cardDraw, ps.cardDiscard, 1);
+  if (!specs.length) return null;
+  const spec = specs[0];
+  const type = (spec && typeof spec === 'object') ? spec.type : spec;
+  const fx = (spec && typeof spec === 'object') ? spec.fx : null;
+  const nid = G.cards.reduce((m, c) => Math.max(m, c.id), -1) + 1;
+  const card = { id: nid, type, fx, owner: seat, origOwner: seat, zone: 'hand', faceUp: false, stones: [], prov: null, known: G.players.map((_, i) => i === seat) };
+  G.cards.push(card);
+  G.players[seat].hand.push(card);
+  if (ps.cardHand) ps.cardHand.push(spec);
+  return card;
+}
 
 // The overall difficulty depth of a node (act + column drive foe Standing/venue).
 function nodeTier(act, col) { return (act - 1) * CIRCUIT.actRows + col; }
@@ -5751,8 +5829,21 @@ function showDeckView(mode) {
   const status = `<div class="deckstatus">Standing <b>${g.standing}/${g.maxStanding}</b>` +
     (g.foeMax && g.curNode ? ` · ${g.opp || 'foe'} <b>${g.foeHp}/${g.foeMax}</b>` : '') +
     ` · Act <b>${g.act}</b> · <b>${g.coin || 0}</b> coin</div>`;
+  // Foresight (charm): reveal the next cards waiting on top of the draw pile.
+  const fsN = charmVal('foresight');
+  let foreHtml = '';
+  if (fsN && remaining && (you.cardDraw || []).length) {
+    const next = you.cardDraw.slice(-fsN).reverse(); // the pile pops from the end
+    foreHtml = `<div class="ldsection"><div class="ldhead">Foresight — next to draw</div><div class="ldcards deckcards">` +
+      next.map(s => { const t = (s && typeof s === 'object') ? s.type : s, fx = (s && typeof s === 'object') ? s.fx : null;
+        const v = fx === 'anchor' ? CIRCUIT_ANCHOR : (REGIONS.bar.values[t] != null ? REGIONS.bar.values[t] : 2);
+        const info = fx ? (FX_INFO[fx] || { label: fx }) : null;
+        return `<div class="card faceup loadcard"><div class="cval val-${v}">${v}</div>${info ? `<div class="cfx cfx-${fx}">${info.label}</div>` : ''}<div class="cicon icon-${t}"></div><div class="cname">${t}</div></div>`;
+      }).join('') + `</div></div>`;
+  }
   body.innerHTML =
     status +
+    foreHtml +
     `<div class="ldsection"><div class="ldhead">Cards — ${cMeta}</div><div class="ldcards deckcards">${cardHtml}</div></div>` +
     `<div class="ldsection"><div class="ldhead">Pouch — ${pMeta}</div><div class="deckstones">${stoneHtml}</div></div>` +
     charmHtml +
