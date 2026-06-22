@@ -1211,11 +1211,11 @@ body[data-compact="1"] .board .cfx { display: none; }
   position: relative; aspect-ratio: 9 / 4; max-height: 340px; border-radius: 12px; overflow: hidden; margin: 2px 0 14px;
   border: 1px solid var(--gold); box-shadow: 0 6px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4) inset;
   /* Top layer: a legibility veil under the caption. Middle: the art (drop a
-     file at assets/circuit-banner.jpg). Base: a painted gradient so it looks
+     file at assets/circuit-banner.png). Base: a painted gradient so it looks
      intentional even before the art exists. */
   background:
     linear-gradient(180deg, rgba(20,14,8,0) 45%, rgba(15,10,5,0.35) 72%, rgba(12,8,4,0.85)),
-    url('assets/circuit-banner.jpg?v=1') center/cover no-repeat,
+    url('assets/circuit-banner.png?v=1') center/cover no-repeat,
     radial-gradient(130% 130% at 50% 8%, #5a4222 0%, #2c2011 45%, #140d06 78%);
 }
 .circuithero::after { /* a faint vignette to seat the art in the card */
