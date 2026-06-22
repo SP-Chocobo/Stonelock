@@ -237,16 +237,16 @@ assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor') && !ai.isPosit
 
 /* ---------- the four new modifiers resolve their value correctly ---------- */
 // tavern: Bread/Coin/Road=3, Sword/Ferry=2, Quill/Crest/Chain=1.
-for (const k of ['keystone', 'gambit', 'contrast', 'ledger']) assert(ai.EFFECTS[k] && !ai.EFFECTS[k].viaCharm, `${k} is an offerable modifier`);
+for (const k of ['surge', 'gambit', 'contrast', 'ledger']) assert(ai.EFFECTS[k] && !ai.EFFECTS[k].viaCharm, `${k} is an offerable modifier`);
 
-// Keystone — +2 only in a centre slot.
+// Surge — +2 on a card the venue would otherwise value at 1; nothing on a high card.
 G = setup('tavern');
-G.players[0].board = [card('Sword', null, 0), card('Quill', 'keystone', 0), card('Sword', null, 0)];
+G.players[0].board = [card('Quill', 'surge', 0), card('Sword', null, 0), card('Bread', null, 0)]; // Quill=1
 M.applyCardEffects();
-assert(G.players[0].board[1].evalue === 1 + 2, 'Keystone reads +2 in the centre slot');
-G.players[0].board = [card('Quill', 'keystone', 0), card('Sword', null, 0), card('Sword', null, 0)];
+assert(G.players[0].board[0].evalue === 1 + 2, 'Surge lifts a value-1 card by +2');
+G.players[0].board = [card('Bread', 'surge', 0), card('Sword', null, 0), card('Coin', null, 0)]; // Bread=3
 M.applyCardEffects();
-assert(G.players[0].board[0].evalue === 1, 'Keystone reads nothing off-centre');
+assert(G.players[0].board[0].evalue === 3, 'Surge does nothing on a card already worth more than 1');
 
 // Gambit — +3 to itself, −1 to each neighbour.
 G.players[0].board = [card('Sword', null, 0), card('Quill', 'gambit', 0), card('Sword', null, 0)];
@@ -270,8 +270,9 @@ G.players[0].board = [card('Quill', 'ledger', 0), card('Coin', 'keen', 0), card(
 M.applyCardEffects();
 assert(G.players[0].board[0].evalue === 1, 'Ledger reads nothing with no plain cards beside it');
 
-// Positional classification picks up the new slot/spread effects.
-assert(ai.isPositionalFx('keystone') && ai.isPositionalFx('gambit'), 'Keystone (slot) and Gambit (spread) are positional');
-assert(!ai.isPositionalFx('contrast') && !ai.isPositionalFx('ledger'), 'Contrast and Ledger are position-agnostic');
+// Positional classification: Gambit (spread) is positional; the new self-only
+// effects are not.
+assert(ai.isPositionalFx('gambit'), 'Gambit (spread) is positional');
+assert(!ai.isPositionalFx('surge') && !ai.isPositionalFx('contrast') && !ai.isPositionalFx('ledger'), 'Surge, Contrast and Ledger are position-agnostic');
 
-console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain (with fog of war) + the new Keystone/Gambit/Contrast/Ledger, target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');
+console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain (with fog of war) + the new Surge/Gambit/Contrast/Ledger, target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');

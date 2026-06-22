@@ -2084,10 +2084,10 @@ const EFFECTS = {
     self: (c, board) => board.some(o => o && o !== c && o.fx) ? 0 : 2,
     aiKeep: (c, ctx) => 1, // rewards a lean deck — the opposite of Harmony
   },
-  keystone: {
-    label: 'Keystone', blurb: '+2 when placed in a centre slot of your board.',
-    slot: (c, i, board) => i === (board.length >> 1) ? 2 : 0,
-    aiKeep: () => 1.4, // the AI will seek the centre, so it reliably pays
+  surge: {
+    label: 'Surge', blurb: '+2 if it would otherwise be worth only 1 here — lifts a low card.',
+    self: (c) => (c.type != null && regionVal(c.type) === 1) ? 2 : 0,
+    aiKeep: (c) => (c && c.type != null && regionVal(c.type) === 1) ? 1.2 : 0.3, // pays on a low-tier card
   },
   gambit: {
     label: 'Gambit', blurb: '+3 to itself, but −1 to each card beside it — wants elbow room.',
