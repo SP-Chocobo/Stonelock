@@ -1284,10 +1284,13 @@ function startHand() {
   // Hand-edit charms (player only): Mulligan on a table's first hand, Cycle every
   // hand. Insert a hand-edit step before the first commit.
   if (G.gauntlet && G.players[0]) {
+    let ins = 1;
     let editMax = 0;
     if (G.handNum === 1 && charmVal('mulliganFirst')) editMax = G.players[0].hand.length;
     else if (charmVal('cycleEach')) editMax = charmVal('cycleEach');
-    if (editMax > 0) G.queue.splice(1, 0, { t: 'handedit', who: 0, max: editMax });
+    if (editMax > 0) { G.queue.splice(ins, 0, { t: 'handedit', who: 0, max: editMax }); ins++; }
+    // Foul Play: a chance to discard a card and force a random foe discard.
+    if (charmVal('disruptEach') && G.players[1] && G.players[1].hand.length) { G.queue.splice(ins, 0, { t: 'disrupt', who: 0 }); ins++; }
   }
   run();
 }
@@ -1363,6 +1366,7 @@ function stepNeedsHuman(step) {
     case 'place': return isHuman(step.who) && G.players[step.who].active.length > 0;
     case 'archcommit': return isHuman(step.seat) && G.players[step.seat].hand.length > 0;
     case 'handedit': return isHuman(step.who) && step.max > 0 && G.players[step.who].hand.length > 0;
+    case 'disrupt': return isHuman(step.who) && G.players[step.who].hand.length > 0 && G.players[1] && G.players[1].hand.length > 0;
     default: return false;
   }
 }
@@ -1463,7 +1467,8 @@ function executeStep(step) {
     case 'beat':
       break;
     case 'handedit':
-      break; // human-only (handled by promptHuman); AI keeps its hand
+    case 'disrupt':
+      break; // human-only (handled by promptHuman)
     case 'showdown':
       showdown();
       break;
@@ -1527,6 +1532,12 @@ function promptHuman(step) {
         ? 'Mulligan — tap any cards to discard, then redraw the same number. Or keep your hand.'
         : `Cycle — tap up to ${step.max} card${step.max === 1 ? '' : 's'} to swap, then redraw. Or keep your hand.`);
       break;
+    case 'disrupt':
+      UI.mode = 'disrupt';
+      UI.selected = [];
+      UI.needed = 1;
+      setPrompt('Foul Play — tap one card to discard and force a random foe discard. Or pass.');
+      break;
   }
 }
 
@@ -1581,6 +1592,27 @@ function humanConfirmHandEdit() {
   UI.selected = [];
   UI.mode = 'idle';
   if (G.queue[0] && G.queue[0].t === 'handedit') G.queue.shift();
+  run();
+}
+
+// Foul Play (charm): discard one chosen card to force the foe to drop one at
+// random from hand. Passing (no selection) spends nothing.
+function humanConfirmDisrupt() {
+  if (UI.mode !== 'disrupt') return;
+  const me = G.viewer, card = UI.selected[0];
+  if (card) {
+    circuitDiscardHandCard(me, card);
+    const foe = G.players[1];
+    if (foe && foe.hand.length) {
+      const victim = foe.hand[Math.floor(rnd() * foe.hand.length)];
+      circuitDiscardHandCard(1, victim);
+      log(`${playerName(me)} ${verb(me, 'play')} foul — discarding a card to make ${playerName(1)} drop one at random.`, logClass(me));
+      SFX.play('card');
+    }
+  }
+  UI.selected = [];
+  UI.mode = 'idle';
+  if (G.queue[0] && G.queue[0].t === 'disrupt') G.queue.shift();
   run();
 }
 
@@ -2105,6 +2137,7 @@ const CHARMS = {
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
   cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
   foresight:    { label: 'Foresight',         blurb: 'See the next cards waiting in your draw pile (in the deck view).', foresight: 2 },
+  foulplay:     { label: 'Foul Play',         blurb: 'At the start of each hand you may discard a card to make your opponent discard one at random.', disruptEach: 1 },
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place at a table, recover 1 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 1); log('Resonance — a stone rings true; you recover 1 Standing.', 'you'); updateCircuitHud(); } } } },
@@ -3862,7 +3895,7 @@ function renderHand() {
       <div class="cname">${card.type}</div>
       ${cfxHtml(card)}
       ${cvalHtml(card)}`;
-    if (UI.mode === 'pickCards' || UI.mode === 'handedit') {
+    if (UI.mode === 'pickCards' || UI.mode === 'handedit' || UI.mode === 'disrupt') {
       el.classList.add('targetable');
       el.onclick = () => humanToggleCard(card);
     } else if (UI.mode === 'arch-commit') {
@@ -3988,6 +4021,13 @@ function renderControls() {
     b.className = 'btn primary';
     b.textContent = UI.selected.length ? `Discard & redraw ${UI.selected.length}` : 'Keep your hand';
     b.onclick = humanConfirmHandEdit;
+    bar.appendChild(b);
+  }
+  if (UI.mode === 'disrupt') {
+    const b = document.createElement('button');
+    b.className = 'btn primary';
+    b.textContent = UI.selected.length ? 'Discard & disrupt' : 'Pass';
+    b.onclick = humanConfirmDisrupt;
     bar.appendChild(b);
   }
   if (['target-own', 'target-blue-own', 'target-blue-opp', 'target-black'].includes(UI.mode)) {
