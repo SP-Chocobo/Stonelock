@@ -2084,6 +2084,27 @@ const EFFECTS = {
     self: (c, board) => board.some(o => o && o !== c && o.fx) ? 0 : 2,
     aiKeep: (c, ctx) => 1, // rewards a lean deck — the opposite of Harmony
   },
+  keystone: {
+    label: 'Keystone', blurb: '+2 when placed in a centre slot of your board.',
+    slot: (c, i, board) => i === (board.length >> 1) ? 2 : 0,
+    aiKeep: () => 1.4, // the AI will seek the centre, so it reliably pays
+  },
+  gambit: {
+    label: 'Gambit', blurb: '+3 to itself, but −1 to each card beside it — wants elbow room.',
+    self: () => 3,
+    spread: (c, i, board) => { if (board[i - 1]) board[i - 1].evalue -= 1; if (board[i + 1]) board[i + 1].evalue -= 1; },
+    aiKeep: () => 1.1, // strong solo; the value pass already weighs the neighbour cost
+  },
+  contrast: {
+    label: 'Contrast', blurb: '+2 unless you field another card of its type — rewards a lone type.',
+    self: (c, board) => board.some(o => o && o !== c && o.type === c.type) ? 0 : 2,
+    aiKeep: (c, ctx) => ctx && ctx.hasTwin ? 0.2 : 1, // the mirror of Keen
+  },
+  ledger: {
+    label: 'Ledger', blurb: '+1 for each plain (no-effect) card you field (max +2).',
+    self: (c, board) => Math.min(2, board.filter(o => o && o !== c && !o.fx).length),
+    aiKeep: () => 0.9, // pays off in a mostly-plain deck — the opposite of Harmony
+  },
   cantrip: {
     label: 'Cantrip', blurb: 'When you commit it, draw a card — more to place later.',
     onCommit: (who) => { const c = circuitDrawOne(who); if (c) { log(`${playerName(who)} ${verb(who, 'draw')} a card (Cantrip).`, logClass(who)); if (typeof document !== 'undefined') render(); } },

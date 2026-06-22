@@ -235,4 +235,43 @@ assert(li === 0 || li === board.length - 1, `Sentinel is placed on an end slot (
 assert(ai.isPositionalFx('lodestone') && ai.isPositionalFx('drain') && ai.isPositionalFx('sentinel') && ai.isPositionalFx('bulwark') && ai.isPositionalFx('siphon'), 'Lodestone, Drain, Sentinel, Bulwark and Siphon are positional');
 assert(!ai.isPositionalFx('keen') && !ai.isPositionalFx('anchor') && !ai.isPositionalFx('harmony') && !ai.isPositionalFx('gleam'), 'Keen, Anchor, Harmony and Gleam are position-agnostic');
 
-console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain correctly (with fog of war), target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');
+/* ---------- the four new modifiers resolve their value correctly ---------- */
+// tavern: Bread/Coin/Road=3, Sword/Ferry=2, Quill/Crest/Chain=1.
+for (const k of ['keystone', 'gambit', 'contrast', 'ledger']) assert(ai.EFFECTS[k] && !ai.EFFECTS[k].viaCharm, `${k} is an offerable modifier`);
+
+// Keystone — +2 only in a centre slot.
+G = setup('tavern');
+G.players[0].board = [card('Sword', null, 0), card('Quill', 'keystone', 0), card('Sword', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[1].evalue === 1 + 2, 'Keystone reads +2 in the centre slot');
+G.players[0].board = [card('Quill', 'keystone', 0), card('Sword', null, 0), card('Sword', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === 1, 'Keystone reads nothing off-centre');
+
+// Gambit — +3 to itself, −1 to each neighbour.
+G.players[0].board = [card('Sword', null, 0), card('Quill', 'gambit', 0), card('Sword', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[1].evalue === 1 + 3, 'Gambit reads +3 on itself');
+assert(G.players[0].board[0].evalue === 2 - 1 && G.players[0].board[2].evalue === 2 - 1, 'Gambit shaves 1 off each neighbour');
+
+// Contrast — +2 unless a same-type card is also fielded (the mirror of Keen).
+G.players[0].board = [card('Quill', 'contrast', 0), card('Sword', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === 1 + 2, 'Contrast reads +2 when its type is unique');
+G.players[0].board = [card('Quill', 'contrast', 0), card('Quill', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === 1, 'Contrast reads nothing with a same-type twin');
+
+// Ledger — +1 per plain card fielded (capped 2).
+G.players[0].board = [card('Quill', 'ledger', 0), card('Sword', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === 1 + 2, 'Ledger reads +1 per plain card (capped 2)');
+G.players[0].board = [card('Quill', 'ledger', 0), card('Coin', 'keen', 0), card('Crest', 'anchor', 0)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === 1, 'Ledger reads nothing with no plain cards beside it');
+
+// Positional classification picks up the new slot/spread effects.
+assert(ai.isPositionalFx('keystone') && ai.isPositionalFx('gambit'), 'Keystone (slot) and Gambit (spread) are positional');
+assert(!ai.isPositionalFx('contrast') && !ai.isPositionalFx('ledger'), 'Contrast and Ledger are position-agnostic');
+
+console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain (with fog of war) + the new Keystone/Gambit/Contrast/Ledger, target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');
