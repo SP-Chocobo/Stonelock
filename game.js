@@ -5185,7 +5185,12 @@ function circuitMapScreen() {
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
   const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
+  // A scroll viewport with an inner track: the track is max-content and auto-
+  // margined, so it CENTERS when it fits but scrolls from the LEFT when it
+  // overflows (a portrait phone). Centering the flex directly would push the
+  // first column into unreachable overflow — the bug being fixed here.
   const grid = document.createElement('div'); grid.className = 'mapgrid';
+  const track = document.createElement('div'); track.className = 'maptrack';
   m.cols.forEach((col) => {
     const colEl = document.createElement('div'); colEl.className = 'mapcol';
     for (let lane = 0; lane < MAP_LANES; lane++) {            // fixed lanes → diagonal branches
@@ -5201,12 +5206,21 @@ function circuitMapScreen() {
       if (ok) b.onclick = () => circuitEnterNode(node);
       colEl.appendChild(b);
     }
-    grid.appendChild(colEl);
+    track.appendChild(colEl);
   });
+  grid.appendChild(track);
   body.appendChild(grid);
   $('circuitNext').style.display = 'none'; // navigation is by clicking a node
   $('circuitModal').classList.add('open');
-  requestAnimationFrame(() => drawMapEdges(grid, m)); // draw the branch lines once laid out
+  requestAnimationFrame(() => { drawMapEdges(track, m); ensureCurrentNodeVisible(grid, track); });
+}
+// On a narrow screen the map scrolls; bring the player's current position into
+// view so the next choices are on-screen without manual panning.
+function ensureCurrentNodeVisible(grid, track) {
+  const here = track.querySelector('.mapnode.here') || track.querySelector('.mapnode.reach');
+  if (!here || grid.scrollWidth <= grid.clientWidth) return;
+  const target = here.offsetLeft - grid.clientWidth / 2 + here.offsetWidth / 2;
+  grid.scrollLeft = Math.max(0, target);
 }
 // Draw the branch edges as an SVG overlay behind the nodes; the edges leaving
 // your current position (your live choices) are highlighted.
