@@ -161,6 +161,23 @@ assert(rg.standing === 5, 'Resonance does not heal before the third stone');
 M.CHARMS.resonance.on.stonePlaced(rg);
 assert(rg.standing === 6, 'Resonance heals 1 Standing on the third stone');
 
+// --- Wildcard: a hard-to-get relic that makes one card count as any type ---
+const wv = { Coin: 3, Sword: 2, Ferry: 1 };
+assert(M.bestSelection([{ type: 'Coin' }, { type: 'Sword' }, { type: 'Ferry', wild: true }], wv, {}).structure === 'pair',
+  'a Wildcard turns three singles into a Pair');
+const wtri = M.bestSelection([{ type: 'Coin' }, { type: 'Coin' }, { type: 'Sword', wild: true }], wv, {});
+assert(wtri.structure === 'triad' && wtri.raw === 3 + 3 + 2, 'a Wildcard completes a Triad and still scores its own face value');
+assert(M._ai.EFFECTS.wild && M._ai.EFFECTS.wild.viaCharm && M.CHARMS.wildcard && M.CHARMS.wildcard.bossOnly,
+  'wild is a charm-only effect and the Wildcard charm is boss-only');
+M.startCircuit(); g = M._gauntlet(); g.charms = [];
+assert(M.makeReward({ charm: true, charmCount: 3, boss: true }).charms.includes('wildcard'), 'a boss spoil offers the Wildcard');
+assert(!M.makeReward({ charm: true, charmCount: 3, boss: false }).charms.includes('wildcard'), 'non-boss spoils never offer the Wildcard');
+// a Wildcard falls inert when stolen (active only on its original owner's board)
+const wildOnOwn = M.bestSelection([{ type: 'Coin' }, { type: 'Sword' }, { type: 'Ferry', wild: true }], wv, {});
+const wildStolen = M.bestSelection([{ type: 'Coin' }, { type: 'Sword' }, { type: 'Ferry' }], wv, {}); // same board, wild inert
+assert(wildOnOwn.structure === 'pair' && wildStolen.structure === 'singles',
+  'a Wildcard makes a Pair on its owner board but is just a single when its wild is stripped (stolen)');
+
 // --- depleting decks conserve across reshuffles ---
 [g, G] = enterFirstFight();
 M.circuitResetPiles();

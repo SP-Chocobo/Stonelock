@@ -313,17 +313,22 @@ function bestSelection(cards, values, opts = {}) {
   const n = cards.length;
   const contrib = new Array(n).fill(0);
 
-  function structure(counts) {
+  // A Wildcard unit matches any type, so it folds onto the largest fixed group
+  // (or, if every selected unit is wild, forms its own group). With at most 3
+  // units selected, piling wilds on the biggest group is always optimal.
+  function structure(counts, wilds) {
     const c = Object.values(counts);
-    if (c.includes(3)) return 'triad';
-    if (c.includes(2)) return 'pair';
+    const maxFixed = c.length ? Math.max(...c) : 0;
+    const group = (c.length ? maxFixed : 0) + (wilds || 0);
+    if (group >= 3) return 'triad';
+    if (group >= 2) return 'pair';
     return 'singles';
   }
   const RANK = { triad: 2, pair: 1, singles: 0 };
 
   function evaluate() {
     const counts = {};
-    let raw = 0;
+    let raw = 0, wilds = 0;
     const picks = [];
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < contrib[i]; k++) {
@@ -332,25 +337,26 @@ function bestSelection(cards, values, opts = {}) {
         const cursed = cards[i].poisoned || (!!opts.cursed && t === opts.cursed); // scores nothing, builds nothing
         const effVal = (cards[i].evalue != null ? cards[i].evalue : values[t]); // modifier-aware value
         if (!cursed) {
-          counts[t] = (counts[t] || 0) + 1;
+          if (cards[i].wild) wilds++;                 // counts for structure as any type
+          else counts[t] = (counts[t] || 0) + 1;
           // Effect cards carry a pre-computed effective value (evalue); plain
           // cards fall back to the region's value table. Phantoms score no raw.
           if (k === 0) raw += effVal;
         }
         // `value` is what this unit actually contributed: its effective value
         // (0 for a phantom or a voided card), so the showdown can show modifiers.
-        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed, value: (cursed || k > 0) ? 0 : effVal });
+        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed, wild: !cursed && !!cards[i].wild, value: (cursed || k > 0) ? 0 : effVal });
       }
     }
-    const struct = structure(counts);
+    const struct = structure(counts, wilds);
     // Base structural bonus, plus any charm sweeteners passed in opts (Forger's
     // Seal on Pairs/Triads, Master Forger on Triads). 0 without those charms.
     const bonus = (struct === 'triad' ? 6 : struct === 'pair' ? 2 : 0)
       + (struct !== 'singles' ? (opts.bonusAdd || 0) : 0)
       + (struct === 'triad' ? (opts.triadAdd || 0) : 0);
     let penalty = 0;
-    if (opts.riverlock && !picks.some(p => (p.type === 'Road' || p.type === 'Ferry') && !p.cursed)) {
-      penalty = 2; // the Passage Requirement
+    if (opts.riverlock && !picks.some(p => !p.cursed && (p.wild || p.type === 'Road' || p.type === 'Ferry'))) {
+      penalty = 2; // the Passage Requirement (a Wildcard can stand in for the Road/Ferry)
     }
     const score = raw + bonus - penalty;
     if (!best || score > best.score ||
@@ -2051,6 +2057,11 @@ const EFFECTS = {
     onCommit: (who) => { const c = circuitDrawOne(who); if (c) { log(`${playerName(who)} ${verb(who, 'draw')} a card (Cantrip).`, logClass(who)); if (typeof document !== 'undefined') render(); } },
     aiKeep: () => 0.6, // no board value, but card advantage is worth keeping
   },
+  wild: {
+    label: 'Wildcard', blurb: 'Counts as ANY type for a Pair or Triad — but only on your side; a steal turns it inert. Granted by the Wildcard charm.',
+    wild: true, viaCharm: true,    // structural only; never rolled into the card-offer pool
+    aiKeep: () => 1.6,             // reliably completes a Pair or Triad
+  },
 };
 // UI/text consumers read label/blurb from the same registry (single source).
 const FX_INFO = EFFECTS;
@@ -2097,6 +2108,9 @@ const CHARMS = {
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place at a table, recover 1 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 1); log('Resonance — a stone rings true; you recover 1 Standing.', 'you'); updateCircuitHud(); } } } },
+  // The rarest relic — only ever offered after a boss. On gain you choose one
+  // of your cards to imbue (see the wild-imbue invariant in circuitAfterNode).
+  wildcard:     { label: 'Wildcard',          blurb: 'Choose one of your cards when taken — it counts as ANY type for a Pair or Triad. Falls inert if an opponent steals it.', bossOnly: 1 },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -2220,6 +2234,10 @@ function knownBoardFor(viewer, ofPlayer) {
       hasRed: hasRed(c),
       phantoms: redPhantoms(c), // Twin Red = 2 (stones are public, so this is known)
       poisoned: isPoisoned(c),
+      // A Wildcard's flexibility is a visible fx tell — known only when the
+      // card is seen (fog). It also falls inactive if STOLEN: the rider only
+      // works on its original owner's board (owner === origOwner).
+      wild: seen && c.fx === 'wild' && c.owner === c.origOwner,
       // The card's effective value (set by applyCardEffects) is only used when
       // the viewer can see the card; hidden cards stay at the flat estimate.
       evalue: seen && c.evalue != null ? c.evalue : null,
@@ -2240,7 +2258,7 @@ function estimate(ofPlayer, viewer) {
     // the value is visibly higher, so something must be lifting it. A HIDDEN
     // card's own value stays flat (knownBoardFor returns null), so the AI can't
     // see a face-down card's identity and beeline it.
-    return { type, hasRed: c.hasRed, phantoms: c.phantoms, poisoned: c.poisoned, evalue: c.evalue };
+    return { type, hasRed: c.hasRed, phantoms: c.phantoms, poisoned: c.poisoned, wild: c.wild, evalue: c.evalue };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
@@ -2690,7 +2708,7 @@ function showdown() {
 
   applyCardEffects();
   const sel = G.players.map((p, idx) => bestSelection(
-    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), phantoms: redPhantoms(c), poisoned: isPoisoned(c), evalue: c.evalue })),
+    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), phantoms: redPhantoms(c), poisoned: isPoisoned(c), wild: c.fx === 'wild' && c.owner === c.origOwner, evalue: c.evalue })),
     G.region.values,
     scoreOptsFor(idx)
   ));
@@ -4939,7 +4957,7 @@ const CIRCUIT_POUCHES = [
 // The effect-card pool, derived from the registry — a new EFFECTS entry is
 // offered in runs automatically. A run offers typed cards each carrying one fx
 // rider, so the two-card add is a real decision (value vs. effect).
-const CIRCUIT_FX = Object.keys(EFFECTS);
+const CIRCUIT_FX = Object.keys(EFFECTS).filter(k => !EFFECTS[k].viaCharm); // charm-only effects never appear on offered cards
 function circuitOfferCards(n) {
   const types = shuffle(TYPES.slice());
   const fxBag = shuffle(CIRCUIT_FX.slice());
@@ -5326,7 +5344,30 @@ function circuitAfterNode() {
     g.act++; g.map = buildAct(g.act);
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal); // a breather between acts
   }
+  // Owe a Wildcard imbue? (Took the charm but no card carries it — e.g. just
+  // gained it, or the imbued card was later thinned.) Pick before the map.
+  if (typeof document !== 'undefined' && charmHas('wildcard') && !g.deck.some(c => specFx(c) === 'wild')) { circuitWildImbueScreen(); return; }
   circuitMapScreen();
+}
+
+// On taking the Wildcard charm: choose one owned card to imbue (it then counts
+// as any type for a Pair/Triad). Re-offered if that card is ever removed.
+function circuitWildImbueScreen() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  if (g.wildPick === undefined) g.wildPick = null;
+  SFX.play('win');
+  const body = eventShell('A Wild Card', 'The Wildcard is yours. Choose one card to imbue — it will stand as ANY type for a Pair or Triad, every hand for the rest of the run.');
+  body.appendChild(eventCardPicker('Imbue which card?', i => g.wildPick === i, i => { g.wildPick = (g.wildPick === i ? null : i); circuitWildImbueScreen(); }));
+  eventReviewBtn(body);
+  const next = $('circuitNext'); next.style.display = '';
+  next.disabled = g.wildPick == null;
+  next.textContent = g.wildPick == null ? 'Choose a card' : 'Imbue it ›';
+  next.onclick = () => {
+    if (g.wildPick != null) { g.deck[g.wildPick] = { type: specType(g.deck[g.wildPick]), fx: 'wild' }; g.wildPick = null; }
+    circuitMapScreen();
+  };
+  $('circuitModal').classList.add('open');
 }
 
 // A node's foe Standing (for the map preview).
@@ -5469,7 +5510,7 @@ function circuitEnd() {
     g.coin += coinWon;
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances the map.
-    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2 });
+    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss' });
     g.reward.coin = coinWon; // shown explicitly on the spoils screen
     circuitRewardScreen();
   } else {
@@ -5482,10 +5523,16 @@ function circuitEnd() {
 
 // Node spoils: cards + stones always; a charm offer only when asked (elite/boss
 // rewards), so charms are gated to the harder nodes rather than every fight.
-function unownedCharmKeys() { const owned = playerCharms(); return Object.keys(CHARMS).filter(k => owned.indexOf(k) < 0); }
+// bossOnly charms (Wildcard) are kept out of the ordinary pool — shops, events,
+// and elite rewards never roll them; they appear only as a boss spoil.
+function unownedCharmKeys() { const owned = playerCharms(); return Object.keys(CHARMS).filter(k => owned.indexOf(k) < 0 && !CHARMS[k].bossOnly); }
 function makeReward(opts) {
   opts = opts || {};
   const charmOffer = opts.charm ? shuffle(unownedCharmKeys()).slice(0, opts.charmCount || CIRCUIT.rewardCharms || 2) : [];
+  // A boss spoil also dangles the rarest relics (Wildcard) among the choices.
+  if (opts.boss) for (const k of Object.keys(CHARMS)) {
+    if (CHARMS[k].bossOnly && !playerCharms().includes(k) && !charmOffer.includes(k)) charmOffer.push(k);
+  }
   charmOffer.forEach(markCharmSeen); // discovery: appearing in an offer reveals it in the compendium
   return {
     cards: circuitOfferCards(CIRCUIT.rewardCards),       // N effect cards (type + fx)

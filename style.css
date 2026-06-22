@@ -1175,6 +1175,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cfx-siphon    { border-color: #c97aa8; color: #f5d4ea; }
 .cfx-gleam     { border-color: #e0c46a; color: #f8ecb8; }
 .cfx-cantrip   { border-color: #6fb0a0; color: #cdeee5; }
+.cfx-wild      { border-color: #c98ae0; color: #eccdf5; background: rgba(60,30,70,0.35); }
 .board .cfx { font-size: 7px; top: 3px; right: 3px; padding: 0 4px; }
 body[data-compact="1"] .board .cfx { display: none; }
 /* Loadout effect key — the legend under the offered cards. */
