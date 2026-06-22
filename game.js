@@ -5309,7 +5309,7 @@ function nodeFoeCharms(type, act, foe) {
   return shuffle(pool.slice()).slice(0, n);
 }
 function mkNode(type, col, idx, act) {
-  const foe = (type === 'event' || type === 'shop' || type === 'repose') ? null : pickFoe();
+  const foe = (type === 'event' || type === 'shop' || type === 'repose') ? null : pickFoeFor(type, act);
   return { type, col, idx, foe, foeCharms: nodeFoeCharms(type, act, foe), done: false, edges: [] };
 }
 // Link column A → B with adjacency-biased edges: every A node gets ≥1 outgoing,
@@ -5403,8 +5403,47 @@ const CIRCUIT_BUILDS = {
   'The Deckhand': { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Sword', fx: 'lodestone' }], charms: ['loadedcoin', 'whetstone', 'forgerseal'] },
 };
 const CIRCUIT_DEFAULT_BUILD = { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [] };
+// Neutral foes — the anonymous toughs who fill the DUEL nodes. They carry no
+// signature relic and never headline an Elite/Boss; the named regulars do that.
+// Each still fields a themed build so duels read like the act they're in.
+const CIRCUIT_NEUTRALS = {
+  // Act I — the roads abroad (plain/road/river play)
+  'A Drifter':         { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Sword', fx: 'lodestone' }] },
+  'A Roadside Tough':  { pouch: { red: 2, white: 1, black: 1 },          fx: [{ type: 'Sword', fx: 'keen' }, { type: 'Bread', fx: 'keen' }] },
+  'A Ferry Hand':      { pouch: { blue: 2, black: 1, red: 1 },           fx: [{ type: 'Ferry', fx: 'lodestone' }, { type: 'Road', fx: 'drain' }] },
+  'A Toll Collector':  { pouch: { white: 2, black: 1, blue: 1 },         fx: [{ type: 'Road', fx: 'anchor' }, { type: 'Coin', fx: 'keen' }] },
+  'A Peddler':         { pouch: { red: 1, white: 1, blue: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Crest', fx: 'anchor' }] },
+  // Act II — the Phirra underbelly (blue/black tricks, theft, drain)
+  'A Cutpurse':        { pouch: { blue: 2, black: 1, red: 1 },           fx: [{ type: 'Quill', fx: 'drain' }, { type: 'Coin', fx: 'keen' }] },
+  'A Slum Bravo':      { pouch: { red: 2, black: 1, white: 1 },          fx: [{ type: 'Sword', fx: 'siphon' }, { type: 'Bread', fx: 'keen' }] },
+  'A Hall Tout':       { pouch: { blue: 1, white: 1, red: 1, black: 1 }, fx: [{ type: 'Coin', fx: 'keen' }, { type: 'Crest', fx: 'anchor' }] },
+  'A Smuggler':        { pouch: { blue: 2, black: 2 },                   fx: [{ type: 'Chain', fx: 'drain' }, { type: 'Quill', fx: 'siphon' }] },
+  'A Card Sharp':      { pouch: { white: 1, blue: 2, black: 1 },         fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Coin', fx: 'keen' }] },
+  // Act III — the high courts (white/anchor, statecraft)
+  'A Court Page':      { pouch: { white: 2, red: 1, black: 1 },          fx: [{ type: 'Crest', fx: 'anchor' }, { type: 'Chain', fx: 'lodestone' }] },
+  'A Bailiff':         { pouch: { white: 2, black: 1, blue: 1 },         fx: [{ type: 'Chain', fx: 'lodestone' }, { type: 'Crest', fx: 'anchor' }] },
+  'A Petitioner':      { pouch: { white: 1, red: 1, blue: 1, black: 1 }, fx: [{ type: 'Quill', fx: 'keen' }, { type: 'Coin', fx: 'anchor' }] },
+  "A Magistrate's Clerk": { pouch: { white: 2, red: 1, black: 1 },       fx: [{ type: 'Coin', fx: 'anchor' }, { type: 'Crest', fx: 'keen' }] },
+  "A Noble's Second":  { pouch: { blue: 1, white: 2, black: 1 },         fx: [{ type: 'Crest', fx: 'drain' }, { type: 'Chain', fx: 'anchor' }] },
+};
+// Per-act casts. Named regulars headline Elites/Bosses (and drop signatures);
+// neutral toughs fill the duels. The arc: the roads abroad → the Phirra
+// underbelly → the high courts.
+const CIRCUIT_ACT_FOES = {
+  1: { named: ['The Ferryman', 'The Wagoner', 'The Deckhand', 'The Old Hand'], neutral: ['A Drifter', 'A Roadside Tough', 'A Ferry Hand', 'A Toll Collector', 'A Peddler'] },
+  2: { named: ['The Miner', 'The Stranger', 'The Lady', 'The Tinker'], neutral: ['A Cutpurse', 'A Slum Bravo', 'A Hall Tout', 'A Smuggler', 'A Card Sharp'] },
+  3: { named: ['The Clerk', 'The Lady', 'The Old Hand', 'The Stranger'], neutral: ['A Court Page', 'A Bailiff', 'A Petitioner', "A Magistrate's Clerk", "A Noble's Second"] },
+};
+function actCast(act) { return CIRCUIT_ACT_FOES[act] || CIRCUIT_ACT_FOES[3]; }
+// A duel draws a neutral tough; an Elite/Boss draws a named regular — all from
+// the current act's cast, so the pool is hard-restricted by where you are.
+function pickFoeFor(type, act) {
+  const cast = actCast(act);
+  const pool = (type === 'duel') ? cast.neutral : cast.named;
+  return pool[Math.floor(rnd() * pool.length)];
+}
 function circuitBuildFor(name) {
-  const b = CIRCUIT_BUILDS[name] || CIRCUIT_DEFAULT_BUILD;
+  const b = CIRCUIT_BUILDS[name] || CIRCUIT_NEUTRALS[name] || CIRCUIT_DEFAULT_BUILD;
   return { pouch: Object.assign({}, b.pouch), deck: TYPES.slice().concat(b.fx || []) };
 }
 
@@ -6047,7 +6086,7 @@ function makeCircuitEvent() {
   if (kind === 'cache') ev.offer = circuitOfferCards(3);
   else if (kind === 'swap') ev.gain = STONE_KEYS[Math.floor(rnd() * STONE_KEYS.length)];
   else if (kind === 'gamble') ev.gain = shuffle(unownedCharmKeys())[0];
-  else if (kind === 'ambush') { ev.foe = pickFoe(); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
+  else if (kind === 'ambush') { ev.foe = pickFoeFor('duel', g.act); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
   else if (kind === 'gold') ev.gold = 10 + Math.floor(rnd() * 6); // a 10–15 coin windfall
   else if (kind === 'blood') { ev.step = 0; ev.spentHp = 0; ev.gotGold = 0; }
   else if (kind === 'pact') ev.cut = Math.round(g.maxStanding * 0.3); // permanent max-Standing cost

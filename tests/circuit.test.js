@@ -384,6 +384,18 @@ M.applyCardEffects();
 assert(G.players[0].board[0].evalue === M.REGIONS.bar.values.Coin + 2 && G.players[0].board[1].evalue === M.REGIONS.bar.values.Sword,
   "Highwayman's Cut reads +2 on a stolen card only");
 
+// --- act-scoped foe pools: neutral toughs fill duels, named regulars headline ---
+for (const act of [1, 2, 3]) {
+  M.seedRng(900 + act);
+  const flat = M.buildAct(act).cols.flat();
+  for (const n of flat) {
+    if (n.type === 'duel') assert(/^A /.test(n.foe), `act ${act} duel uses a neutral foe (got ${n.foe})`);
+    if (n.type === 'elite' || n.type === 'boss') assert(/^The /.test(n.foe), `act ${act} elite/boss uses a named regular (got ${n.foe})`);
+    if (n.foe) assert(M.circuitBuildFor(n.foe).pouch && M.circuitBuildFor(n.foe).deck.length, `${n.foe} resolves a build`);
+  }
+}
+M.clearRng();
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
