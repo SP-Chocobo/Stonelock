@@ -68,7 +68,9 @@ const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 // Circuit. It carries the base's resolution category (targeting, persona, UI
 // colour) plus an override. Circuit-only; the base game never sees them.
 const STONE_VARIANTS = {
-  twinred: { base: 'red', name: 'Twin Red', power: 'Double Duplication', desc: 'Places TWO phantoms onto your card — enough to stand as a whole Triad on its own.' },
+  twinred:  { base: 'red',   name: 'Twin Red',     power: 'Double Duplication',  desc: 'Places TWO phantoms onto your card — enough to stand as a whole Triad on its own.' },
+  deadbolt: { base: 'white', name: 'Deadbolt White', power: 'Double Lock',       desc: 'Locks your card AND an adjacent one — two cards shielded by a single stone.' },
+  riptide:  { base: 'blue',  name: 'Riptide Blue', power: 'Undertow Exchange',     desc: 'Swaps a card like Blue, but the pull is strong: a Black Stone only weakens it back to an ordinary swap. It takes a SECOND Black to actually unwind the trade.' },
 };
 function isVariant(key) { return !!STONE_VARIANTS[key]; }
 function stoneBase(key) { return STONE_VARIANTS[key] ? STONE_VARIANTS[key].base : key; }
@@ -327,13 +329,16 @@ function bestSelection(cards, values, opts = {}) {
         const t = cards[i].type;
         // A poisoned card behaves exactly like a cursed one: no value, no structure.
         const cursed = cards[i].poisoned || (!!opts.cursed && t === opts.cursed); // scores nothing, builds nothing
+        const effVal = (cards[i].evalue != null ? cards[i].evalue : values[t]); // modifier-aware value
         if (!cursed) {
           counts[t] = (counts[t] || 0) + 1;
           // Effect cards carry a pre-computed effective value (evalue); plain
           // cards fall back to the region's value table. Phantoms score no raw.
-          if (k === 0) raw += (cards[i].evalue != null ? cards[i].evalue : values[t]);
+          if (k === 0) raw += effVal;
         }
-        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed });
+        // `value` is what this unit actually contributed: its effective value
+        // (0 for a phantom or a voided card), so the showdown can show modifiers.
+        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed, value: (cursed || k > 0) ? 0 : effVal });
       }
     }
     const struct = structure(counts);
@@ -1662,9 +1667,10 @@ function humanCancelStone() {
 
 function humanDiscardStone() {
   const me = G.viewer;
+  const sName = getStone(UI.pendingStone).name;
   consumeActive(me, UI.pendingStone);
-  log(`${playerName(me)} ${verb(me, 'set')} a ${STONES[UI.pendingStone].name} down without effect. It passes.`, 'you');
-  announce(`${playerName(me)} ${verb(me, 'set')} a ${STONES[UI.pendingStone].name} down without effect`, UI.pendingStone, me);
+  log(`${playerName(me)} ${verb(me, 'set')} a ${sName} down without effect. It passes.`, 'you');
+  announce(`${playerName(me)} ${verb(me, 'set')} a ${sName} down without effect`, stoneBase(UI.pendingStone), me);
   UI.pendingStone = null;
   finishHumanStep();
 }
@@ -1698,15 +1704,15 @@ function humanTargetCard(card) {
   } else if (UI.mode === 'target-blue-opp') {
     const legal = G.open ? card.owner !== UI.blueOwn.owner : isOpponent(me, card.owner);
     if (!legal || card.zone !== 'board' || isLocked(card)) return;
-    consumeActive(me, 'blue');
-    applyStone(me, 'blue', { give: UI.blueOwn, take: card });
+    consumeActive(me, color);
+    applyStone(me, color, { give: UI.blueOwn, take: card });
     UI.pendingStone = null; UI.blueOwn = null;
     finishHumanStep();
   } else if (UI.mode === 'target-black') {
     const ev = undoableEventFor(card);
     if (!ev) return;
-    consumeActive(me, 'black');
-    applyStone(me, 'black', { event: ev, card });
+    consumeActive(me, color);
+    applyStone(me, color, { event: ev, card });
     UI.pendingStone = null;
     finishHumanStep();
   }
@@ -1807,12 +1813,25 @@ function applyStone(actor, key, target) {
   SFX.play(color === 'black' ? 'undo' : 'stone');
   const ev = { id: G.events.length, color, actor, undone: false };
   switch (color) {
-    case 'white':
+    case 'white': {
       target.card.stones.push({ color: 'white', by: actor });
       ev.cards = [target.card];
-      log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a ${sName}. Untouchable now.`, logClass(actor));
-      announce(`${sName} — ${describeCard(target.card)} is locked`, 'white', actor);
+      if (key === 'deadbolt') {
+        // Double Lock: shield one adjacent card on the same board as well.
+        const owner = G.players[target.card.owner];
+        const idx = owner.board.indexOf(target.card);
+        const adj = [owner.board[idx - 1], owner.board[idx + 1]].find(c => c && !isLocked(c));
+        if (adj) { adj.stones.push({ color: 'white', by: actor }); ev.cards.push(adj); }
+      }
+      if (ev.cards.length > 1) {
+        log(`${playerName(actor)} ${verb(actor, 'set')} a ${sName} — ${describeCard(ev.cards[0])} and ${describeCard(ev.cards[1])} are both sealed. Untouchable now.`, logClass(actor));
+        announce(`${sName} — two cards locked`, 'white', actor);
+      } else {
+        log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a ${sName}. Untouchable now.`, logClass(actor));
+        announce(`${sName} — ${describeCard(target.card)} is locked`, 'white', actor);
+      }
       break;
+    }
     case 'red':
       target.card.stones.push({ color: 'red', by: actor, twin: key === 'twinred' });
       ev.cards = [target.card];
@@ -1831,6 +1850,7 @@ function applyStone(actor, key, target) {
       swapCards(give, take);
       ev.cards = [give, take];
       ev.give = give; ev.take = take;
+      if (key === 'riptide') ev.riptide = true; // sticky: first Black only downgrades it
       give.prov = { by: actor, partnerId: take.id };
       take.prov = { by: actor, partnerId: give.id };
       log(`${playerName(actor)} ${verb(actor, 'drop')} a Blue Stone — ${giveDesc} trades places with ${takeDesc}. Whatever was hidden stays hidden.`, logClass(actor));
@@ -1846,6 +1866,16 @@ function applyStone(actor, key, target) {
     }
     case 'black': {
       const prev = target.event;
+      if (prev.color === 'blue' && prev.riptide) {
+        // Undertow: the first Black only weakens a Riptide back to an ordinary
+        // swap. The trade stands; a second Black can then unwind it normally.
+        prev.riptide = false;
+        ev.cards = prev.cards.slice();
+        ev.undid = prev;
+        log(`${playerName(actor)} ${verb(actor, 'drop')} a Black Stone on the riptide — the undertow breaks, but the trade holds. It is an ordinary swap now.`, logClass(actor));
+        announce('Black Stone — the riptide is broken to a plain swap', 'black', actor);
+        break;
+      }
       prev.undone = true;
       ev.cards = prev.cards.slice();
       ev.undid = prev;
@@ -2508,7 +2538,9 @@ function aiBestBlackTarget(who) {
     seen.add(ev.id);
     // Take the better of the measured swing and the structural denial,
     // so an enemy red is worth answering even when its card is veiled.
-    const delta = Math.max(swingIfUndone(ev, who), denialValue(ev, who));
+    // A Riptide's first Black only downgrades it (no swing this turn), so
+    // the AI won't squander a Black on it.
+    const delta = ev.riptide ? 0 : Math.max(swingIfUndone(ev, who), denialValue(ev, who));
     if (!best || delta > best.delta) best = { event: ev, delta };
   }
   return best;
@@ -3993,7 +4025,7 @@ function showShowdownModal(d, review) {
       <div class="pickcard${p.phantom ? ' phantom' : ''}${p.cursed ? ' cursedpick' : ''}" ${p.phantom ? 'title="Phantom — counts for the bonus, scores no points"' : p.cursed ? 'title="Cursed — voided this hand"' : ''}>
         <div class="cicon icon-${p.type}"></div>
         <div class="cname">${p.type}${p.phantom ? ' ✧' : ''}</div>
-        <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+regionVal(p.type)}">${p.phantom ? '✧' : p.cursed ? '0' : regionVal(p.type)}</div>
+        <div class="cval ${(p.phantom||p.cursed)?'val-0':'val-'+p.value}">${p.phantom ? '✧' : p.cursed ? '0' : p.value}</div>
       </div>`).join('');
     const caption = ents.length === G.players.length ? '' : `<div class="membername">${playerName(i)}</div>`;
     return `${caption}<div class="pickrow">${picksHtml}</div>
@@ -6117,7 +6149,7 @@ if (typeof window !== 'undefined') {
     circuitRecords, markCharmSeen, charmSeen, recordCircuitRun,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
-    humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm,
+    humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm, applyStone,
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,

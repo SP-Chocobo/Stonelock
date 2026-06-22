@@ -192,6 +192,47 @@ const draw = []; const ps2 = g.piles[0];
 for (let i = 0; i < 30 && ps2.stoneDraw.length; i++) draw.push(ps2.stoneDraw.pop());
 assert(draw.includes('twinred'), 'a Twin Red in the pouch is drawn like any stone');
 
+// --- stone variants: Deadbolt White (double lock) + Riptide Blue (downgrade) ---
+assert(M.stoneBase('deadbolt') === 'white' && M.isVariant('deadbolt'), 'deadbolt is a white variant');
+assert(M.stoneBase('riptide') === 'blue' && M.isVariant('riptide'), 'riptide is a blue variant');
+assert(M.getStone('deadbolt').name === 'Deadbolt White' && M.getStone('riptide').name === 'Riptide Blue', 'a variant carries its own name over the base colour');
+// the shop offers a variant upgrade for every base colour you hold
+M.startCircuit(); g = M._gauntlet();
+g.pouch = { white: 1, blue: 1 }; g.coin = 40; g.shop = M.makeShop();
+assert(g.shop.upgrades.some(u => u.variant === 'deadbolt') && g.shop.upgrades.some(u => u.variant === 'riptide'),
+  'the shop offers Deadbolt/Riptide upgrades for held White/Blue');
+
+// drive applyStone on a live board to exercise the resolution overrides
+M.newGame({ mode: 'duel', humans: [], companyNames: ['You', 'The Stranger'], deal: 'small', target: 999, gauntlet: true });
+const Gv = M._state();
+const mk = (owner, type) => { const c = { id: 9000 + Gv.cards.length, type, fx: null, owner, origOwner: owner, zone: 'board', faceUp: true, stones: [], prov: null, known: [true, true] }; Gv.cards.push(c); return c; };
+
+// Deadbolt locks the target AND one adjacent card with a single stone
+Gv.events = [];
+Gv.players[0].board = [mk(0, 'Coin'), mk(0, 'Ferry'), mk(0, 'Knife')];
+const dbTarget = Gv.players[0].board[1];
+M.applyStone(0, 'deadbolt', { card: dbTarget });
+assert(M.isLocked(dbTarget) && Gv.players[0].board.filter(c => M.isLocked(c)).length === 2,
+  'a Deadbolt locks the target and one adjacent card');
+
+// Riptide: a swap whose first Black only downgrades it, second Black unwinds it
+Gv.events = [];
+const give = mk(0, 'Coin'), take = mk(1, 'Knife');
+Gv.players[0].board = [give]; Gv.players[1].board = [take];
+M.applyStone(0, 'riptide', { give, take });
+const rEv = Gv.events[Gv.events.length - 1];
+assert(rEv.riptide === true, 'a Riptide swap is marked sticky');
+assert(Gv.players[0].board[0] === take && Gv.players[1].board[0] === give, 'a Riptide performs the swap like Blue');
+const blk1 = M.undoableEventFor(take);
+assert(blk1 === rEv, 'the Riptide swap is a valid Black target');
+M.applyStone(0, 'black', { event: blk1, card: take });
+assert(Gv.players[0].board[0] === take && rEv.riptide === false && rEv.undone === false,
+  'the first Black only downgrades the Riptide — the trade still stands');
+const blk2 = M.undoableEventFor(take);
+assert(blk2 === rEv, 'after downgrade the swap is an ordinary Blue, undoable again');
+M.applyStone(0, 'black', { event: blk2, card: take });
+assert(Gv.players[0].board[0] === give && rEv.undone === true, 'a second Black unwinds the downgraded swap');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
