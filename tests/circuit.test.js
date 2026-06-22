@@ -190,7 +190,10 @@ assert(g.piles[1], 'the foe also has a depleting pile set');
 
 // --- the shop: spend coin on cards / stones / charms / thin ---
 M.startCircuit(); g = M._gauntlet();
-assert(g.map.cols[M.CIRCUIT.actRows - 2][0].type === 'shop', 'a shop sits before each act boss');
+assert(g.map.cols[M.CIRCUIT.actRows - 2][0].type === 'repose', 'a Repose breather sits before each act boss');
+assert(g.map.cols.flat().filter(n => n.type === 'shop').length >= 2, 'each act scatters at least two shops through the branches');
+assert(g.map.cols.slice(0, 2).flat().every(n => n.type !== 'shop' && n.type !== 'elite'), 'no shop or elite in the first two columns');
+assert(g.map.cols.flat().filter(n => n.type === 'repose').length >= 3, 'Reposes are scattered through the act, not just at the end');
 g.coin = 40; g.shop = M.makeShop();
 const sh = g.shop;
 assert(sh.cards.length === 3 && sh.stones.length === 2, 'the shop stocks cards and stones');

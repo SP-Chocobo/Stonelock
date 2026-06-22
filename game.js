@@ -4975,7 +4975,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 8, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
+  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5179,7 +5179,10 @@ function circuitBegin() {
 /* ---- The run map: each act is a few columns of nodes you path through to a
    boss. Node types: duel / elite (tougher + foe charms) / event (the interlude)
    / boss (act-ender). Finite acts bound the run (and the snowball). ---- */
-function rollNodeType() { const r = rnd(); if (r < 0.20) return 'elite'; if (r < 0.46) return 'event'; if (r < 0.64) return 'repose'; return 'duel'; }
+// Shops and a baseline of Reposes are placed deliberately in buildAct, so the
+// random roll keeps Reposes rare (they'd otherwise flood the map) and leans on
+// duels/elites/events for the bulk of the branches.
+function rollNodeType(noElite) { const r = rnd(); if (r < 0.22) return noElite ? 'duel' : 'elite'; if (r < 0.50) return 'event'; if (r < 0.58) return 'repose'; return 'duel'; }
 function pickFoe() { return BOT_POOL[Math.floor(rnd() * BOT_POOL.length)]; }
 // Elites/bosses carry persona-appropriate charms; earlier acts carry none.
 function nodeFoeCharms(type, act, foe) {
@@ -5224,14 +5227,32 @@ function buildAct(act) {
   const N = CIRCUIT.actRows, cols = [];
   for (let c = 0; c < N; c++) {
     let arr;
-    if (c === N - 1) arr = [mkNode('boss', c, 0, act)];        // the act boss
-    else if (c === N - 2) arr = [mkNode('shop', c, 0, act)];   // a shop before the boss
-    else if (c === 0) arr = [mkNode('duel', c, 0, act)];       // a safe opener
-    else { const count = 2 + (rnd() < 0.5 ? 1 : 0); arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(), c, i, act)); }
+    if (c === N - 1) arr = [mkNode('boss', c, 0, act)];          // the act boss
+    else if (c === N - 2) arr = [mkNode('repose', c, 0, act)];   // a breather before the boss
+    else if (c === 0) arr = [mkNode('duel', c, 0, act)];         // a safe opener
+    else {
+      const count = 2 + (rnd() < 0.5 ? 1 : 0);
+      const noElite = c === 1;                                   // no elites in the first two nodes
+      arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(noElite), c, i, act));
+    }
     arr.forEach((n, i) => { n.lane = laneFor(arr.length, i); });
     cols.push(arr);
-    if (c === N - 1) break;
   }
+  // Deliberately scatter the key nodes so every act reliably has them, each in
+  // its own column (spread out). Shops never sit in the first two columns, the
+  // pre-boss Repose, or the boss; guaranteed Reposes may start a column earlier.
+  // (Random rolls can still add more Reposes on top of these.)
+  const placed = new Set();
+  const placeOne = (type, lo, hi) => {
+    const cands = []; for (let c = lo; c <= hi; c++) if (!placed.has(c)) cands.push(c);
+    if (!cands.length) return;
+    const c = cands[Math.floor(rnd() * cands.length)]; placed.add(c);
+    const idx = Math.floor(rnd() * cols[c].length);
+    cols[c][idx] = mkNode(type, c, idx, act);
+    cols[c][idx].lane = laneFor(cols[c].length, idx);
+  };
+  placeOne('shop', 2, N - 3); placeOne('shop', 2, N - 3);
+  placeOne('repose', 1, N - 3); placeOne('repose', 1, N - 3);
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
@@ -5879,7 +5900,7 @@ function makeCircuitEvent() {
   const g = GAUNTLET;
   // Random encounters only — never the interlude (that now lives on its own
   // Repose node, rolled into the map explicitly).
-  const kinds = ['cache', 'cache', 'ambush', 'ambush', 'gold', 'blood'];
+  const kinds = ['cache', 'cache', 'ambush', 'ambush', 'gold', 'blood', 'merchant'];
   if (upgradableStones(g).length) kinds.push('whetstone');
   if (pouchTotal(g.pouch) > 1) kinds.push('swap');
   if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
@@ -5931,6 +5952,7 @@ function circuitEventScreen() {
     case 'ambush': return renderAmbushEvent(g);
     case 'gold': return renderGoldEvent(g);
     case 'blood': return renderBloodEvent(g);
+    case 'merchant': g.event = null; g.shop = makeShop(); return circuitShopScreen(); // a wandering Fence
     default: return renderInterludeEvent(g);
   }
 }
