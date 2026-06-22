@@ -29,19 +29,26 @@ direction, via existing registry hooks (no new systems).
 
 ---
 
+## Shipped (boss relics) — signature drops by persona
+
+Each act boss reveals its persona at the table, so beating it offers **a choice
+of three relics: its signature, a random charm, or a Wildcard** (pick one).
+Signatures are boss-only and only offered by their own persona, so they're rare
+and create a run narrative ("I beat the Ferryman, I got River King's Toll").
+- **River King's Toll** (Ferryman) — Road & Ferry count as the same type for Pairs/Triads.
+- **Motherlode** (Miner) — each Red phantom you field scores +1.
+- **Iron Verdict** (Clerk) — your first card committed each hand begins Locked.
+- **Sovereign's Favor** (Lady) — your locked cards read +2 (pairs with Iron Verdict / White / Deadbolt — a lock build).
+
+Remaining personas (Stranger, Tinker, Deckhand, Old Hand, Wagoner) have no
+signature yet — easy to add (one charm entry + a hook). Veilwalker (Stranger,
+"reveal a veiled enemy card") was deferred: it needs a mid-hand reveal *after*
+the opponent commits face-down, not a handStart hook.
+
 ## Backlog (prioritized) — bigger moments
 
-### 1. Signature boss relics (highest moment-per-effort)
-Boss-only drops (a themed pool like Wildcard, since the act boss is a *random*
-regular — not tied to a fixed persona unless we fix boss identities). Each needs
-a bespoke hook:
-- **River King's Toll** — Road/Ferry count as *both* types for Pairs/Triads. (structural, like a targeted Wild)
-- **Iron Verdict** — your first committed card each hand begins Locked. (deploy hook)
-- **Veilwalker** — once per hand, reveal a veiled enemy card. (active ability + UI)
-- **Apothecary's Mercy** — keep a Green Stone you'd otherwise spend. (stone economy)
-
-*Decision needed:* themed boss-pool vs. fixing act bosses to named personas so
-"the Ferryman relic" is literal.
+### 1. Act themes (NEXT — locked in)
+See section below.
 
 ### 2. Cursed relics needing a scoring lever
 - **Fractured Seal** — Pairs pay +3, Triads score 0 (go wide). Needs `pairAdd` +

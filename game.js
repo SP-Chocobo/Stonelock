@@ -336,16 +336,23 @@ function bestSelection(cards, values, opts = {}) {
         // A poisoned card behaves exactly like a cursed one: no value, no structure.
         const cursed = cards[i].poisoned || (!!opts.cursed && t === opts.cursed); // scores nothing, builds nothing
         const effVal = (cards[i].evalue != null ? cards[i].evalue : values[t]); // modifier-aware value
+        // Boss relics: River King's Toll folds Road/Ferry into one structural
+        // type; Motherlode gives a Red phantom raw value.
+        const ct = (opts.foldTypes && opts.foldTypes[t]) || t;
+        const phVal = opts.phantomValue || 0;
         if (!cursed) {
           if (cards[i].wild) wilds++;                 // counts for structure as any type
-          else counts[t] = (counts[t] || 0) + 1;
+          else counts[ct] = (counts[ct] || 0) + 1;
           // Effect cards carry a pre-computed effective value (evalue); plain
-          // cards fall back to the region's value table. Phantoms score no raw.
+          // cards fall back to the region's value table. A phantom scores no raw
+          // unless Motherlode (phantomValue) is in play.
           if (k === 0) raw += effVal;
+          else raw += phVal;
         }
-        // `value` is what this unit actually contributed: its effective value
-        // (0 for a phantom or a voided card), so the showdown can show modifiers.
-        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed, wild: !cursed && !!cards[i].wild, value: (cursed || k > 0) ? 0 : effVal });
+        // `value` is what this unit actually contributed (0 for a voided card; a
+        // phantom's value is 0, or phantomValue under Motherlode), so the
+        // showdown can show modifiers.
+        picks.push({ type: t, phantom: k > 0, cardIdx: i, cursed, wild: !cursed && !!cards[i].wild, value: cursed ? 0 : (k > 0 ? phVal : effVal) });
       }
     }
     const struct = structure(counts, wilds);
@@ -389,7 +396,12 @@ function variantOpts() {
 // sweeteners (seat 0 in the Circuit). No-op for everyone else.
 function scoreOptsFor(seat) {
   const o = variantOpts();
-  if (G.gauntlet && charmsOf(seat).length) { o.bonusAdd = charmValSeat('bonusAdd', seat); o.triadAdd = charmValSeat('triadAdd', seat); }
+  if (G.gauntlet && charmsOf(seat).length) {
+    o.bonusAdd = charmValSeat('bonusAdd', seat);
+    o.triadAdd = charmValSeat('triadAdd', seat);
+    o.phantomValue = charmValSeat('phantomValue', seat);                 // Motherlode (boss relic)
+    if (charmsOf(seat).includes('riverking')) o.foldTypes = { Road: 'RoadFerry', Ferry: 'RoadFerry' }; // River King's Toll
+  }
   return o;
 }
 
@@ -2195,6 +2207,11 @@ const CHARMS = {
   // The rarest relic — only ever offered after a boss. On gain you choose one
   // of your cards to imbue (see the wild-imbue invariant in circuitAfterNode).
   wildcard:     { label: 'Wildcard',          blurb: 'Choose one of your cards when taken — it counts as ANY type for a Pair or Triad. Falls inert if an opponent steals it.', bossOnly: 1 },
+  // ── Signature boss relics — dropped only by the persona who carries them. ──
+  riverking:    { label: "River King's Toll",  blurb: 'Road and Ferry count as the SAME type for your Pairs and Triads.', bossOnly: 1, persona: 'The Ferryman' },
+  motherlode:   { label: 'Motherlode',         blurb: 'Each Red phantom you field scores +1 (phantoms are no longer worthless).', bossOnly: 1, persona: 'The Miner', phantomValue: 1 },
+  ironverdict:  { label: 'Iron Verdict',       blurb: 'The first card you commit each hand begins Locked.', bossOnly: 1, persona: 'The Clerk' },
+  sovereign:    { label: "Sovereign's Favor",  blurb: 'Your locked cards read +2.', bossOnly: 1, persona: 'The Lady', cardBonus: (c) => isLocked(c) ? 2 : 0 },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -2512,6 +2529,7 @@ function aiChooseDeploy(who, count, faceUp) {
 
 function deployCards(who, cards, faceUp) {
   const p = G.players[who];
+  const wasEmpty = p.board.length === 0; // the first commit of the hand
   for (const c of cards) {
     p.hand.splice(p.hand.indexOf(c), 1);
     c.zone = 'board';
@@ -2520,6 +2538,10 @@ function deployCards(who, cards, faceUp) {
     p.board.push(c);
     const e = EFFECTS[c.fx];
     if (e && e.onCommit) e.onCommit(who, c); // Cantrip: draw a card for later placement
+  }
+  // Iron Verdict (boss relic): the first card you commit each hand starts Locked.
+  if (G.gauntlet && wasEmpty && cards.length && charmsOf(who).includes('ironverdict') && !isLocked(cards[0])) {
+    cards[0].stones.push({ color: 'white', by: who });
   }
 }
 
@@ -5663,7 +5685,7 @@ function circuitEnd() {
     g.coin += coinWon;
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances the map.
-    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss' });
+    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
     g.reward.coin = coinWon; // shown explicitly on the spoils screen
     circuitRewardScreen();
   } else {
@@ -5679,12 +5701,24 @@ function circuitEnd() {
 // bossOnly charms (Wildcard) are kept out of the ordinary pool — shops, events,
 // and elite rewards never roll them; they appear only as a boss spoil.
 function unownedCharmKeys() { const owned = playerCharms(); return Object.keys(CHARMS).filter(k => owned.indexOf(k) < 0 && !CHARMS[k].bossOnly); }
+// The signature relic a given persona drops (only as their boss).
+function signatureRelicFor(foe) { return Object.keys(CHARMS).find(k => CHARMS[k].persona === foe) || null; }
 function makeReward(opts) {
   opts = opts || {};
-  const charmOffer = opts.charm ? shuffle(unownedCharmKeys()).slice(0, opts.charmCount || CIRCUIT.rewardCharms || 2) : [];
-  // A boss spoil also dangles the rarest relics (Wildcard) among the choices.
-  if (opts.boss) for (const k of Object.keys(CHARMS)) {
-    if (CHARMS[k].bossOnly && !playerCharms().includes(k) && !charmOffer.includes(k)) charmOffer.push(k);
+  let charmOffer = [];
+  if (opts.charm && opts.boss) {
+    // A boss offers a CHOICE of three: its own signature relic, a random charm,
+    // and a Wildcard (pick one). Owned/absent slots fall back to more randoms.
+    const owned = new Set(playerCharms());
+    const sig = signatureRelicFor(opts.foe);
+    if (sig && !owned.has(sig)) charmOffer.push(sig);
+    const rand1 = shuffle(unownedCharmKeys().filter(k => !charmOffer.includes(k)))[0];
+    if (rand1) charmOffer.push(rand1);
+    if (!owned.has('wildcard') && !charmOffer.includes('wildcard')) charmOffer.push('wildcard');
+    const fill = shuffle(unownedCharmKeys().filter(k => !charmOffer.includes(k)));
+    while (charmOffer.length < 3 && fill.length) charmOffer.push(fill.shift());
+  } else if (opts.charm) {
+    charmOffer = shuffle(unownedCharmKeys()).slice(0, opts.charmCount || CIRCUIT.rewardCharms || 2);
   }
   charmOffer.forEach(markCharmSeen); // discovery: appearing in an offer reveals it in the compendium
   return {

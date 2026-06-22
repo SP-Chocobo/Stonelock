@@ -332,6 +332,34 @@ assert(M._ai.EFFECTS.runesmith.self() === 0, 'Runesmith reads nothing with no up
 assert(M.CHARMS.laststand && M.CHARMS.laststand.on.handStart, 'Last Stand is registered (a comeback charm)');
 assert(M.CHARMS.reckless && M.CHARMS.reckless.dmgReduce === -1 && M.CHARMS.reckless.on.handStart, 'Reckless Wager is registered (board +1, more damage taken)');
 
+// --- signature boss relics ---
+// the four are boss-only and persona-tagged
+const sigs = { riverking: 'The Ferryman', motherlode: 'The Miner', ironverdict: 'The Clerk', sovereign: 'The Lady' };
+for (const k in sigs) assert(M.CHARMS[k] && M.CHARMS[k].bossOnly && M.CHARMS[k].persona === sigs[k], `${k} is a boss-only relic for ${sigs[k]}`);
+// River King's Toll folds Road/Ferry into one structural type
+const rkv = { Road: 2, Ferry: 2, Coin: 3 };
+assert(M.bestSelection([{ type: 'Road' }, { type: 'Ferry' }, { type: 'Coin' }], rkv, { foldTypes: { Road: 'RF', Ferry: 'RF' } }).structure === 'pair'
+  && M.bestSelection([{ type: 'Road' }, { type: 'Ferry' }, { type: 'Coin' }], rkv, {}).structure === 'singles',
+  "River King's Toll makes Road+Ferry a Pair");
+// Motherlode gives each Red phantom +1
+const mlb = [{ type: 'Coin', phantoms: 1 }, { type: 'Sword' }, { type: 'Quill' }], mlv = { Coin: 3, Sword: 2, Quill: 1 };
+assert(M.bestSelection(mlb, mlv, { phantomValue: 1 }).score === M.bestSelection(mlb, mlv, {}).score + 1, 'Motherlode scores +1 per Red phantom');
+// a boss offers exactly its signature + a random + Wildcard (pick one)
+M.startCircuit(); g = M._gauntlet(); g.charms = [];
+const bossR = M.makeReward({ charm: true, boss: true, foe: 'The Ferryman' });
+assert(bossR.charms.length === 3 && bossR.charms.includes('riverking') && bossR.charms.includes('wildcard'),
+  'a Ferryman boss offers its signature relic, a random charm, and a Wildcard');
+const bossR2 = M.makeReward({ charm: true, boss: true, foe: 'The Deckhand' }); // no signature
+assert(bossR2.charms.includes('wildcard') && !bossR2.charms.some(k => M.CHARMS[k].persona),
+  'a boss with no signature still offers Wildcard plus randoms');
+// Sovereign's Favor reads +2 on a locked card
+[g, G] = enterFirstFight(); g.charms = ['sovereign'];
+const sfCard = (type, locked) => ({ type, fx: null, owner: 0, origOwner: 0, faceUp: true, known: [true, true], zone: 'board', poisoned: false, stones: locked ? [{ color: 'white', by: 0 }] : [] });
+G.players[0].board = [sfCard('Coin', true), sfCard('Sword', false), sfCard('Quill', false)];
+M.applyCardEffects();
+assert(G.players[0].board[0].evalue === M.REGIONS.bar.values.Coin + 2 && G.players[0].board[1].evalue === M.REGIONS.bar.values.Sword,
+  "Sovereign's Favor reads +2 on a locked card only");
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
