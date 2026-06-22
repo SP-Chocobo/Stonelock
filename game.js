@@ -5027,24 +5027,46 @@ function startCircuit(seed) {
 function circuitIntro() {
   if (typeof document === 'undefined') return;
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
-  $('circuitStats').className = 'victoryunlocks';
-  $('circuitTitle').textContent = 'The Circuit';
-  $('circuitText').textContent = 'A run of three acts — outfit a stone pouch and a deck, then choose your path through each act to its boss. Win fights for coin and spoils, draft charms, upgrade stones, and spend at The Fence as you climb. Seeded: the same seed always plays the same run.';
-  const stats = $('circuitStats'); stats.innerHTML = '';
+  // The hero carries the title/tagline; the modal's own h2/p are cleared (the
+  // empty <p> collapses via CSS) so the banner reads as the front of the card.
+  $('circuitTitle').textContent = '';
+  $('circuitText').textContent = '';
   const rec = circuitRecords(), nCharms = Object.keys(CHARMS).length, seen = Object.keys(rec.seen).length;
-  const line = document.createElement('div'); line.className = 'unlockitem';
-  line.innerHTML = `Best: <b>${rec.best.tables}</b> node${rec.best.tables === 1 ? '' : 's'} · <b>${rec.best.score}</b> score · charms found <b>${seen}/${nCharms}</b>`;
-  stats.appendChild(line);
-  const seedline = document.createElement('div'); seedline.className = 'unlockitem';
   const isDaily = (circuitSeed >>> 0) === dailySeed();
-  seedline.innerHTML = `Seed: <b>${circuitSeed >>> 0}</b>${isDaily ? ' · today’s daily' : ''} <span class="seedhint">— same seed, same run; share it to race a friend</span>`;
+  const stats = $('circuitStats'); stats.className = 'circuitintro'; stats.innerHTML = '';
+
+  // Hero banner — art (assets/circuit-banner) over a painted gradient fallback.
+  const hero = document.createElement('div'); hero.className = 'circuithero';
+  hero.innerHTML = `<div class="circuithero-cap">` +
+    `<div class="circuithero-kicker">A seeded roguelike run</div>` +
+    `<div class="circuithero-title">The Circuit</div>` +
+    `<div class="circuithero-tag">Three acts, one pouch — the long road to each boss.</div></div>`;
+  stats.appendChild(hero);
+
+  const lede = document.createElement('div'); lede.className = 'circuitlede';
+  lede.textContent = 'Outfit a stone pouch and a deck, then pick your path through each act. Win fights for coin and spoils, draft charms, upgrade stones, and spend at The Fence as you climb.';
+  stats.appendChild(lede);
+
+  // Best-results strip.
+  const led = document.createElement('div'); led.className = 'circuitledger';
+  led.innerHTML =
+    `<div class="cl-stat"><span class="cl-big">${rec.best.tables}</span><span class="cl-lab">best nodes</span></div>` +
+    `<div class="cl-stat"><span class="cl-big">${rec.best.score}</span><span class="cl-lab">best score</span></div>` +
+    `<div class="cl-stat"><span class="cl-big">${seen}/${nCharms}</span><span class="cl-lab">charms found</span></div>`;
+  stats.appendChild(led);
+
+  // Seed line + controls.
+  const seedline = document.createElement('div'); seedline.className = 'circuitseedline';
+  seedline.innerHTML = `Seed <b>${circuitSeed >>> 0}</b>${isDaily ? ' <span class="seedtag">today’s daily</span>' : ''} <span class="seedhint">— same seed, same run; share it to race a friend</span>`;
   stats.appendChild(seedline);
+
   const btns = document.createElement('div'); btns.className = 'introbtns';
-  const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
-  const rand = document.createElement('button'); rand.className = 'btn recordsbtn'; rand.textContent = 'New random seed'; rand.onclick = () => startCircuit();
-  const daily = document.createElement('button'); daily.className = 'btn recordsbtn' + (isDaily ? ' on' : ''); daily.textContent = "Today's daily run"; daily.onclick = () => startCircuit(dailySeed());
-  btns.appendChild(rb); btns.appendChild(rand); btns.appendChild(daily);
+  const rand = document.createElement('button'); rand.className = 'btn recordsbtn'; rand.textContent = '↻ New random seed'; rand.onclick = () => startCircuit();
+  const daily = document.createElement('button'); daily.className = 'btn recordsbtn' + (isDaily ? ' on' : ''); daily.textContent = '☀ Today’s daily'; daily.onclick = () => startCircuit(dailySeed());
+  const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = '📖 Records'; rb.onclick = showCircuitRecords;
+  btns.appendChild(rand); btns.appendChild(daily); btns.appendChild(rb);
   stats.appendChild(btns);
+
   // Custom / shared seed entry — play a specific run without leaving the screen.
   const seedRow = document.createElement('div'); seedRow.className = 'introseed';
   const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'numeric'; inp.className = 'seedinput'; inp.placeholder = 'enter a seed…'; inp.value = String(circuitSeed >>> 0);
@@ -5054,6 +5076,7 @@ function circuitIntro() {
   inp.onkeydown = e => { if (e.key === 'Enter') playTyped(); };
   seedRow.appendChild(inp); seedRow.appendChild(go);
   stats.appendChild(seedRow);
+
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
   $('circuitModal').classList.add('open');

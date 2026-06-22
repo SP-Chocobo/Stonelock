@@ -1204,6 +1204,41 @@ body[data-compact="1"] .board .cfx { display: none; }
 .charmrow-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 12.5px; }
 .charmrow-b { font-size: 11.5px; color: var(--parchment); margin-top: 2px; }
 /* Records & compendium. */
+/* The Circuit intro — hero banner, stats strip, seed controls. */
+#circuitText:empty { display: none; }
+.circuitintro { text-align: center; }
+.circuithero {
+  position: relative; height: 168px; border-radius: 12px; overflow: hidden; margin: 2px 0 14px;
+  border: 1px solid var(--gold); box-shadow: 0 6px 22px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4) inset;
+  /* Top layer: a legibility veil. Middle: the art (drop a file here). Base: a
+     painted gradient so it looks intentional even before the art exists. */
+  background:
+    linear-gradient(180deg, rgba(20,14,8,0.05) 30%, rgba(20,14,8,0.55) 70%, rgba(15,10,5,0.92)),
+    url('assets/circuit-banner.jpg?v=1') center/cover no-repeat,
+    radial-gradient(130% 130% at 50% 8%, #5a4222 0%, #2c2011 45%, #140d06 78%);
+}
+.circuithero::after { /* a faint vignette to seat the art in the card */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: 0 0 60px rgba(0,0,0,0.5) inset; border-radius: 12px;
+}
+.circuithero-cap { position: absolute; left: 18px; right: 18px; bottom: 12px; text-align: left; z-index: 1; }
+.circuithero-kicker { font-family: 'Cinzel', Georgia, serif; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); opacity: 0.85; }
+.circuithero-title { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 34px; line-height: 1.05; color: #f4e6c0; text-shadow: 0 2px 10px rgba(0,0,0,0.8); margin: 2px 0; }
+.circuithero-tag { font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: 14px; color: var(--parchment); text-shadow: 0 1px 6px rgba(0,0,0,0.8); }
+.circuitlede { font-family: 'Alegreya', Georgia, serif; font-size: 14px; line-height: 1.45; color: var(--parchment-dim); max-width: 600px; margin: 0 auto 14px; }
+.circuitledger { display: flex; justify-content: center; gap: 30px; padding: 12px 18px; margin: 0 auto 12px; max-width: 460px;
+  background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 10px; }
+.cl-stat { display: flex; flex-direction: column; align-items: center; }
+.cl-big { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 24px; color: var(--gold-bright); line-height: 1; }
+.cl-lab { font-size: 11px; color: var(--parchment-dim); letter-spacing: 0.04em; margin-top: 4px; }
+.circuitseedline { font-size: 13px; color: var(--parchment-dim); margin: 2px 0 8px; }
+.circuitseedline b { color: var(--gold); font-family: 'Cinzel', Georgia, serif; }
+.seedtag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #1d160f; background: var(--gold); border-radius: 5px; padding: 1px 6px; font-weight: 700; }
+@media (max-width: 640px) {
+  .circuithero { height: 132px; }
+  .circuithero-title { font-size: 26px; }
+  .circuitledger { gap: 18px; }
+}
 .recordsbtn { margin-top: 10px; }
 .recordsbtn.on { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; color: var(--gold-bright); }
 .introbtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
