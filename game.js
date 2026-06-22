@@ -1690,6 +1690,10 @@ function humanChooseStone(color) {
         ? 'Black Stone (Disruption) — click a slot to undo the last stone queued on it.'
         : 'Black Stone (Disruption) — click a card to undo the last stone effect upon it.');
       break;
+    case 'green':
+      UI.mode = 'target-green';
+      setPrompt(`${sName} (Poison) — click an opponent’s unlocked card to poison it to nothing. Only a White lock can shield it.`);
+      break;
   }
   render();
   autoScrollToPrompt();
@@ -1752,6 +1756,12 @@ function humanTargetCard(card) {
     if (!ev) return;
     consumeActive(me, color);
     applyStone(me, color, { event: ev, card });
+    UI.pendingStone = null;
+    finishHumanStep();
+  } else if (UI.mode === 'target-green') {
+    if ((!isOpponent(me, card.owner) && !G.open) || card.zone !== 'board' || isLocked(card)) return;
+    consumeActive(me, color);
+    applyStone(me, color, { card });
     UI.pendingStone = null;
     finishHumanStep();
   }
@@ -2006,6 +2016,7 @@ function stoneHasValidTarget(color) {
       if (G.open) return anyCards.length > 1 && new Set(anyCards.map(c => c.owner)).size > 1;
       return mine.length > 0 && theirs.length > 0;
     case 'black': return anyUndoable();
+    case 'green': return G.open ? anyCards.length > 0 : theirs.length > 0;
   }
   return false;
 }
@@ -2679,9 +2690,15 @@ function aiPlace(who) {
         else options.push({ key, color, value: 0, fizzle: true });
         break;
       }
+      case 'green': { // poison the foe's richest unlocked card (a placeable Apothecary cut)
+        const foes = opponentsOf(who).flatMap(o => G.players[o].board).filter(c => !isLocked(c));
+        if (foes.length) { const t = foes.slice().sort((a, b) => effVal(b) - effVal(a))[0]; options.push({ key, color, value: effVal(t) + bump, target: t }); }
+        else options.push({ key, color, value: -1, fizzle: true });
+        break;
+      }
     }
   }
-  for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice (by base)
+  for (const o of options) o.value *= (personaOf(who)[o.color] || 1); // habits color the choice (by base; green has no persona weight)
   options.sort((a, b) => b.value - a.value);
   const chosen = fumbles(who) ? options[Math.floor(rnd() * options.length)] : options[0];
   consumeActive(who, chosen.key);
@@ -2693,6 +2710,7 @@ function aiPlace(who) {
   switch (chosen.color) {
     case 'white':
     case 'red':
+    case 'green':
       applyStone(who, chosen.key, { card: chosen.target });
       break;
     case 'blue':
@@ -5948,6 +5966,9 @@ function makeCircuitEvent() {
   if (upgradableStones(g).length) kinds.push('whetstone');
   if (pouchTotal(g.pouch) > 1) kinds.push('swap');
   if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
+  // The Dark Pact is rare and self-limiting: only when your Standing pool is
+  // still healthy, and behind a coin flip on top of being one kind among many.
+  if (g.maxStanding >= 15 && rnd() < 0.5) kinds.push('pact');
   const kind = kinds[Math.floor(rnd() * kinds.length)];
   const ev = { kind, choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null, giveCharm: null };
   if (kind === 'cache') ev.offer = circuitOfferCards(3);
@@ -5956,6 +5977,7 @@ function makeCircuitEvent() {
   else if (kind === 'ambush') { ev.foe = pickFoe(); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
   else if (kind === 'gold') ev.gold = 10 + Math.floor(rnd() * 6); // a 10–15 coin windfall
   else if (kind === 'blood') { ev.step = 0; ev.spentHp = 0; ev.gotGold = 0; }
+  else if (kind === 'pact') ev.cut = Math.round(g.maxStanding * 0.3); // permanent max-Standing cost
   return ev;
 }
 
@@ -5996,6 +6018,7 @@ function circuitEventScreen() {
     case 'ambush': return renderAmbushEvent(g);
     case 'gold': return renderGoldEvent(g);
     case 'blood': return renderBloodEvent(g);
+    case 'pact': return renderPactEvent(g);
     case 'merchant': g.event = null; g.shop = makeShop(); return circuitShopScreen(); // a wandering Fence
     default: return renderInterludeEvent(g);
   }
@@ -6210,6 +6233,37 @@ function renderBloodEvent(g) {
   walk.innerHTML = `<div class="eventopt-l">${ev.step ? 'Bind the wound & go' : 'Walk away'}</div><div class="eventopt-n">${ev.step ? `Keep your ${ev.gotGold} coin and move on.` : 'Take nothing; lose nothing.'}</div>`;
   walk.onclick = circuitTakeEventAndAdvance;
   orow.appendChild(bleed); orow.appendChild(walk);
+  sec.appendChild(orow); body.appendChild(sec);
+  eventReviewBtn(body);
+  $('circuitNext').style.display = 'none'; // the choices above drive it
+  $('circuitModal').classList.add('open');
+}
+
+// The Dark Pact: permanently sacrifice ~30% of your max Standing for a Green
+// Stone — the Apothecary's poison, now yours to place. Refusable.
+function renderPactEvent(g) {
+  const ev = g.event;
+  SFX.play('sting');
+  const newMax = g.maxStanding - ev.cut;
+  const body = eventShell('A Dark Pact', `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin. A hooded apothecary offers a trade in flesh: give up some of your endurance, for good, and carry a Green Stone — the poison that cuts a card to nothing.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  const cluster = `<span class="stonedot green big" style="display:inline-block;vertical-align:middle"></span>`;
+  sec.innerHTML = `<div class="ldnote" style="text-align:center">${cluster} <b>+1 Green Stone</b> — poison an opponent's unlocked card to nothing (a White lock shields it).</div>`;
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  const accept = document.createElement('button');
+  accept.className = 'eventopt' + (newMax >= 4 ? '' : ' disabled'); accept.disabled = newMax < 4;
+  accept.innerHTML = `<div class="eventopt-l">Seal the pact</div><div class="eventopt-n">Max Standing −${ev.cut} forever (to ${newMax}) · gain a Green Stone</div>`;
+  accept.onclick = () => {
+    g.maxStanding = newMax;
+    g.standing = Math.min(g.standing, g.maxStanding);
+    g.pouch = Object.assign({}, g.pouch, { green: (g.pouch.green || 0) + 1 });
+    g.event = null; circuitAfterNode();
+  };
+  const refuse = document.createElement('button');
+  refuse.className = 'eventopt';
+  refuse.innerHTML = `<div class="eventopt-l">Refuse</div><div class="eventopt-n">Keep your endurance whole; walk on.</div>`;
+  refuse.onclick = () => { g.event = null; circuitAfterNode(); };
+  orow.appendChild(accept); orow.appendChild(refuse);
   sec.appendChild(orow); body.appendChild(sec);
   eventReviewBtn(body);
   $('circuitNext').style.display = 'none'; // the choices above drive it

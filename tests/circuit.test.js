@@ -307,6 +307,22 @@ M.applyStone(0, 'onyx', { event: onyxTarget, card: oe1 });
 assert(!hasRedStone(oc1) && Gv.players[0].board.includes(oc2) && Gv.players[1].board.includes(oe1),
   'an Onyx undoes BOTH the swap and the phantom in one stone');
 
+// --- the Dark Pact's Green Stone: a placeable player poison ---
+Gv.events = [];
+const myCoin = mk(0, 'Coin'), foeBread = mk(1, 'Bread');
+Gv.players[0].board = [myCoin]; Gv.players[1].board = [foeBread];
+M.applyStone(0, 'green', { card: foeBread });
+assert(foeBread.stones.some(s => s.color === 'green'), 'a player Green Stone poisons the targeted foe card');
+// a poisoned card scores nothing in the selection
+const poisonScore = M.bestSelection([{ type: 'Bread', poisoned: true }, { type: 'Coin' }, { type: 'Sword' }], { Bread: 3, Coin: 3, Sword: 2 }, {});
+assert(!poisonScore.picks.some(p => p.type === 'Bread' && p.value > 0), 'a poisoned card contributes no value');
+// a Green Stone in the pouch draws like any other (the Pact's reward is usable)
+M.startCircuit(); g = M._gauntlet();
+g.pouch = { green: 1, red: 1, white: 1, blue: 1 }; M.circuitResetPiles();
+const gdraw = []; const gps = g.piles[0];
+for (let i = 0; i < 30 && gps.stoneDraw.length; i++) gdraw.push(gps.stoneDraw.pop());
+assert(gdraw.includes('green'), 'a Green Stone in the pouch draws like any stone');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
