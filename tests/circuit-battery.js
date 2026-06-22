@@ -54,6 +54,7 @@ function autoReward(g) {
 }
 function autoShop(g) {
   const s = g.shop; if (!s) return;
+  if (s.upgrades && s.upgrades.length && g.coin >= s.upgrades[0].price) M.circuitShopBuy('upgrade', 0); // exercise variants
   if (s.charms.length && g.coin >= s.charms[0].price) M.circuitShopBuy('charm', 0);
   if (s.cards.length && g.coin >= s.cards[0].price) M.circuitShopBuy('card', 0);
   if (g.standing < g.maxStanding * 0.6 && g.coin >= s.healPrice) M.circuitShopBuy('heal');

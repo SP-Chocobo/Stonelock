@@ -639,6 +639,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .traycol { display: flex; flex-direction: column; gap: 12px; }
 .stone.big { width: 48px; height: 48px; border-width: 3px; }
 .stone.big.targetable:hover { transform: scale(1.14); }
+/* Variant stones (upgraded) — a bright ring + glint to mark them apart. */
+.stone.variant { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 8px rgba(232,196,119,0.6); }
+.stonedot.variant { box-shadow: 0 0 0 2px var(--gold-bright); position: relative; }
 
 /* ---------- Cards ---------- */
 

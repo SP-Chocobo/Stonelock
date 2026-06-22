@@ -63,6 +63,18 @@ const STONES = {
 
 const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 
+// Stone variants (the pouch's upgrade track — its answer to effect cards). A
+// variant is a stronger version of a base colour, acquired/upgraded in the
+// Circuit. It carries the base's resolution category (targeting, persona, UI
+// colour) plus an override. Circuit-only; the base game never sees them.
+const STONE_VARIANTS = {
+  twinred: { base: 'red', name: 'Twin Red', power: 'Double Duplication', desc: 'Places TWO phantoms onto your card — enough to stand as a whole Triad on its own.' },
+};
+function isVariant(key) { return !!STONE_VARIANTS[key]; }
+function stoneBase(key) { return STONE_VARIANTS[key] ? STONE_VARIANTS[key].base : key; }
+function getStone(key) { const v = STONE_VARIANTS[key]; return v ? Object.assign({}, STONES[v.base], v) : (STONES[key] || STONES.red); }
+const ALL_STONE_KEYS = STONE_KEYS.concat(Object.keys(STONE_VARIANTS));
+
 const AI_ROSTER = ['The Stranger', 'The Ferryman', 'The Clerk'];
 const PARTNER_NAME = 'The Old Hand';
 
@@ -344,7 +356,7 @@ function bestSelection(cards, values, opts = {}) {
   function dfs(i, used) {
     if (used === 3) { evaluate(); return; }
     if (i === n) return;
-    const maxHere = cards[i].hasRed ? 2 : 1;
+    const maxHere = 1 + (cards[i].phantoms != null ? cards[i].phantoms : (cards[i].hasRed ? 1 : 0)); // Twin Red fields two phantoms
     for (let c = 0; c <= maxHere && used + c <= 3; c++) {
       contrib[i] = c;
       dfs(i + 1, used + c);
@@ -966,7 +978,7 @@ function startHand() {
       // Pre-armed stones (no telegraph): the gauntlet variant & precedence use
       // one-of-each colours; the Circuit arms the actual drawn pouch as a
       // multiset (so a drawn pair of the same colour is both placeable).
-      active: (G.gauntlet && !isStoneFirst()) ? STONE_KEYS.flatMap(c => Array(pool[c] || 0).fill(c))
+      active: (G.gauntlet && !isStoneFirst()) ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(c)) // base colours + variant keys
         : (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
     });
@@ -1270,6 +1282,7 @@ function startHand() {
 
 function isLocked(card) { return card.stones.some(s => s.color === 'white'); }
 function hasRed(card) { return card.stones.some(s => s.color === 'red'); }
+function redPhantoms(card) { return card.stones.reduce((n, s) => n + (s.color === 'red' ? (s.twin ? 2 : 1) : 0), 0); }
 // Green Stone (the Apothecary's poison): the card scores nothing and joins no
 // Pair or Triad — and since it zeroes the whole card, any Red phantom on it
 // dies with it (green overrides red).
@@ -1600,25 +1613,26 @@ function humanThin(index) {
 
 function humanChooseStone(color) {
   if (UI.mode !== 'placeChoose' || !G.players[G.viewer].active.includes(color)) return;
-  UI.pendingStone = color;
+  UI.pendingStone = color;             // may be a variant key; applyStone resolves it
   UI.blueOwn = null;
   UI.blueSlot = null;
+  const sName = getStone(color).name, base = stoneBase(color);
   // The Archivist queues stones onto empty SLOTS (positions), not cards.
   if (G.archivist) {
-    if (color === 'blue') { UI.mode = 'arch-slot-blue-a'; setPrompt('Blue Stone (Exchange) — click the first SLOT of the swap (any layout).'); }
-    else if (color === 'black') { UI.mode = 'arch-slot'; setPrompt(archReverse() ? 'Black Stone (Disruption) — reverse order: click ANY slot; it catches a Red/Blue placed onto it later.' : 'Black Stone (Disruption) — click a SLOT carrying a queued Red/Blue to undo its last.'); }
-    else { UI.mode = 'arch-slot'; setPrompt(`${STONES[color].name} (${STONES[color].power}) — click a SLOT to queue it on (any layout).`); }
+    if (base === 'blue') { UI.mode = 'arch-slot-blue-a'; setPrompt(`${sName} (Exchange) — click the first SLOT of the swap (any layout).`); }
+    else if (base === 'black') { UI.mode = 'arch-slot'; setPrompt(archReverse() ? `${sName} (Disruption) — reverse order: click ANY slot; it catches a Red/Blue placed onto it later.` : `${sName} (Disruption) — click a SLOT carrying a queued Red/Blue to undo its last.`); }
+    else { UI.mode = 'arch-slot'; setPrompt(`${sName} (${getStone(color).power}) — click a SLOT to queue it on (any layout).`); }
     render(); autoScrollToPrompt();
     return;
   }
-  switch (color) {
+  switch (base) {
     case 'white':
       UI.mode = 'target-own';
-      setPrompt(`White Stone (Lock) — click a card of yours${G.mode === 'teams' ? ' or your partner’s' : ''} to protect it.`);
+      setPrompt(`${sName} (Lock) — click a card of yours${G.mode === 'teams' ? ' or your partner’s' : ''} to protect it.`);
       break;
     case 'red':
       UI.mode = 'target-own';
-      setPrompt('Red Stone (Duplication) — click one of your cards to place a phantom duplicate.');
+      setPrompt(`${sName} (Duplication) — click one of your cards to place ${color === 'twinred' ? 'two phantoms' : 'a phantom duplicate'}.`);
       break;
     case 'blue':
       UI.mode = 'target-blue-own';
@@ -1664,9 +1678,9 @@ function humanTargetCard(card) {
   const me = G.viewer;
   const color = UI.pendingStone;
   if (UI.mode === 'target-own') {
-    if (color === 'white') {
+    if (stoneBase(color) === 'white') {
       if (!validWhiteTarget(card)) return;
-    } else { // red
+    } else { // red (or Twin Red)
       if ((card.owner !== me && !G.open) || card.zone !== 'board' || isLocked(card) || hasRed(card)) return;
     }
     consumeActive(me, color);
@@ -1787,21 +1801,23 @@ function describeCard(card) {
 
 function verb(actor, base) { return playerName(actor) === 'You' ? base : base + 's'; }
 
-function applyStone(actor, color, target) {
+function applyStone(actor, key, target) {
+  const color = stoneBase(key);            // a variant resolves by its base colour
+  const sName = getStone(key).name;        // but logs/labels read the variant name
   SFX.play(color === 'black' ? 'undo' : 'stone');
   const ev = { id: G.events.length, color, actor, undone: false };
   switch (color) {
     case 'white':
       target.card.stones.push({ color: 'white', by: actor });
       ev.cards = [target.card];
-      log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a White Stone. Untouchable now.`, logClass(actor));
-      announce(`White Stone — ${describeCard(target.card)} is locked`, 'white', actor);
+      log(`${playerName(actor)} ${verb(actor, 'lock')} ${describeCard(target.card)} under a ${sName}. Untouchable now.`, logClass(actor));
+      announce(`${sName} — ${describeCard(target.card)} is locked`, 'white', actor);
       break;
     case 'red':
-      target.card.stones.push({ color: 'red', by: actor });
+      target.card.stones.push({ color: 'red', by: actor, twin: key === 'twinred' });
       ev.cards = [target.card];
-      log(`${playerName(actor)} ${verb(actor, 'drop')} a Red Stone on ${describeCard(target.card)} — a phantom duplicate shimmers over it.`, logClass(actor));
-      announce(`Red Stone — a phantom rises over ${describeCard(target.card)}`, 'red', actor);
+      log(`${playerName(actor)} ${verb(actor, 'drop')} a ${sName} on ${describeCard(target.card)} — ${key === 'twinred' ? 'two phantoms shimmer' : 'a phantom duplicate shimmers'} over it.`, logClass(actor));
+      announce(`${sName} — ${key === 'twinred' ? 'two phantoms rise' : 'a phantom rises'} over ${describeCard(target.card)}`, 'red', actor);
       break;
     case 'green':
       target.card.stones.push({ color: 'green', by: actor });
@@ -2147,6 +2163,7 @@ function knownBoardFor(viewer, ofPlayer) {
     return {
       type: seen ? c.type : null,
       hasRed: hasRed(c),
+      phantoms: redPhantoms(c), // Twin Red = 2 (stones are public, so this is known)
       poisoned: isPoisoned(c),
       // The card's effective value (set by applyCardEffects) is only used when
       // the viewer can see the card; hidden cards stay at the flat estimate.
@@ -2168,7 +2185,7 @@ function estimate(ofPlayer, viewer) {
     // the value is visibly higher, so something must be lifting it. A HIDDEN
     // card's own value stays flat (knownBoardFor returns null), so the AI can't
     // see a face-down card's identity and beeline it.
-    return { type, hasRed: c.hasRed, poisoned: c.poisoned, evalue: c.evalue };
+    return { type, hasRed: c.hasRed, phantoms: c.phantoms, poisoned: c.poisoned, evalue: c.evalue };
   });
   if (!cards.length) return 0;
   // The Magistrate's worth is its two best hands, so it plays for both.
@@ -2500,58 +2517,60 @@ function aiBestBlackTarget(who) {
 function aiPlace(who) {
   const p = G.players[who];
   const options = [];
-  for (const color of new Set(p.active)) {
+  for (const key of new Set(p.active)) {            // key may be a base colour or a variant
+    const color = stoneBase(key);
+    const bump = isVariant(key) ? 0.5 : 0;          // variants are upgrades — slightly preferred
     switch (color) {
       case 'white': {
         applyCardEffects();
         const candidates = [who, ...alliesOf(who)].flatMap(i => G.players[i].board).filter(c => !isLocked(c));
-        if (!candidates.length) { options.push({ color, value: -1, fizzle: true }); break; }
+        if (!candidates.length) { options.push({ key, color, value: -1, fizzle: true }); break; }
         const threatened = opponentsOf(who).some(o => G.players[o].active.includes('blue'));
         const target = candidates.slice().sort((a, b) =>
           (effVal(b) + (hasRed(b) ? 3 : 0)) - (effVal(a) + (hasRed(a) ? 3 : 0)))[0];
         const value = (effVal(target) + (hasRed(target) ? 3 : 0)) * (threatened ? 1 : 0.35);
-        options.push({ color, value, target });
+        options.push({ key, color, value: value + bump, target });
         break;
       }
       case 'red': {
         const best = aiBestRedTarget(who);
-        if (best) options.push({ color, value: best.delta + 0.3, target: best.card });
-        else options.push({ color, value: -1, fizzle: true });
+        if (best) options.push({ key, color, value: best.delta + 0.3 + bump, target: best.card });
+        else options.push({ key, color, value: -1, fizzle: true });
         break;
       }
       case 'blue': {
         const best = aiBestBlueTarget(who);
-        if (best && best.delta > 0) options.push({ color, value: best.delta, swap: best });
-        else options.push({ color, value: 0, fizzle: true });
+        if (best && best.delta > 0) options.push({ key, color, value: best.delta + bump, swap: best });
+        else options.push({ key, color, value: 0, fizzle: true });
         break;
       }
       case 'black': {
         const best = aiBestBlackTarget(who);
-        if (best && best.delta > 1) options.push({ color, value: best.delta, undo: best.event });
-        else options.push({ color, value: 0, fizzle: true });
+        if (best && best.delta > 1) options.push({ key, color, value: best.delta + bump, undo: best.event });
+        else options.push({ key, color, value: 0, fizzle: true });
         break;
       }
     }
   }
-  for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice
+  for (const o of options) o.value *= personaOf(who)[o.color]; // habits color the choice (by base)
   options.sort((a, b) => b.value - a.value);
   const chosen = fumbles(who) ? options[Math.floor(rnd() * options.length)] : options[0];
-  consumeActive(who, chosen.color);
+  consumeActive(who, chosen.key);
   if (chosen.fizzle) {
-    log(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect. It passes.`, 'ai');
-    announce(`${playerName(who)} sets a ${STONES[chosen.color].name} down without effect`, chosen.color, who);
+    log(`${playerName(who)} sets a ${getStone(chosen.key).name} down without effect. It passes.`, 'ai');
+    announce(`${playerName(who)} sets a ${getStone(chosen.key).name} down without effect`, chosen.color, who);
     return;
   }
   switch (chosen.color) {
     case 'white':
     case 'red':
-      applyStone(who, chosen.color, { card: chosen.target });
+      applyStone(who, chosen.key, { card: chosen.target });
       break;
     case 'blue':
-      applyStone(who, 'blue', { give: chosen.swap.give, take: chosen.swap.take });
+      applyStone(who, chosen.key, { give: chosen.swap.give, take: chosen.swap.take });
       break;
     case 'black':
-      applyStone(who, 'black', { event: chosen.undo });
+      applyStone(who, chosen.key, { event: chosen.undo });
       break;
   }
 }
@@ -2614,7 +2633,7 @@ function showdown() {
 
   applyCardEffects();
   const sel = G.players.map((p, idx) => bestSelection(
-    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c), evalue: c.evalue })),
+    p.board.map(c => ({ type: c.type, hasRed: hasRed(c), phantoms: redPhantoms(c), poisoned: isPoisoned(c), evalue: c.evalue })),
     G.region.values,
     scoreOptsFor(idx)
   ));
@@ -3811,10 +3830,11 @@ function renderTray() {
   $('handArea').classList.toggle('focus', UI.mode === 'pickCards' || UI.mode === 'arch-commit' || UI.mode === 'handedit');
   if (!visible) { stonesEl.innerHTML = ''; return; } // clear stale clickable stones
   stonesEl.innerHTML = '';
-  const trayStone = (color, onClick) => {
+  const trayStone = (key, onClick) => {
     const s = document.createElement('div');
-    s.className = `stone big ${color} targetable`;
-    s.title = `${STONES[color].name} — ${STONES[color].power}: ${STONES[color].desc}`;
+    const st = getStone(key); // variant keys resolve to their base colour + label
+    s.className = `stone big ${stoneBase(key)} targetable${isVariant(key) ? ' variant' : ''}`;
+    s.title = `${st.name} — ${st.power}: ${st.desc}`;
     s.onclick = onClick;
     return s;
   };
@@ -4842,7 +4862,7 @@ const CIRCUIT = {
   // The run map: a few acts, each a short branching path of columns to a boss.
   acts: 3, actRows: 6, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
-  shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6,
+  shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
   // Academy = no telegraph/thin) arrive deeper in as escalation.
   venues: ['tavern', 'docks', 'slums', 'hall', 'court', 'academy'],
@@ -5119,7 +5139,7 @@ function circuitBuildFor(name) {
    cycle hand to hand. ---- */
 function makePileSet(deck, pouch) {
   const stoneDraw = [];
-  for (const c of STONE_KEYS) for (let i = 0; i < ((pouch && pouch[c]) || 0); i++) stoneDraw.push(c);
+  for (const c of Object.keys(pouch || {})) for (let i = 0; i < (pouch[c] || 0); i++) stoneDraw.push(c); // includes variant keys
   return {
     deck: deck || [], pouch: pouch || {},
     cardDraw: shuffle((deck || []).slice()), cardDiscard: [], cardHand: null,
@@ -5154,8 +5174,8 @@ function pileDrawCards(ps, n) {
 function pileDrawStones(ps, n) {
   if (ps.stoneHand) for (const s of ps.stoneHand) ps.stoneDiscard.push(s);
   ps.stoneHand = drawPile(ps.stoneDraw, ps.stoneDiscard, n);
-  const drawn = { red: 0, white: 0, blue: 0, black: 0 };
-  for (const s of ps.stoneHand) drawn[s]++;
+  const drawn = {}; // keyed by stone key (base colour or variant)
+  for (const s of ps.stoneHand) drawn[s] = (drawn[s] || 0) + 1;
   return drawn;
 }
 // Discard a card from hand back to the pile (Mulligan/Cycle): pull its spec out
@@ -5514,10 +5534,15 @@ function circuitTakeRewardAndAdvance() {
 function makeShop() {
   const charmKeys = shuffle(unownedCharmKeys()).slice(0, 2);
   charmKeys.forEach(markCharmSeen); // seen in a shop counts for the compendium
+  // Upgrades: variants whose base colour you actually hold in the pouch.
+  const upgrades = Object.keys(STONE_VARIANTS)
+    .filter(v => (GAUNTLET.pouch[STONE_VARIANTS[v].base] || 0) > 0)
+    .slice(0, 2).map(v => ({ variant: v, base: STONE_VARIANTS[v].base, price: CIRCUIT.shopUpgrade }));
   return {
     cards: circuitOfferCards(3).map(c => ({ type: c.type, fx: c.fx, price: CIRCUIT.shopCard })),
     stones: shuffle(STONE_KEYS.slice()).slice(0, 2).map(c => ({ color: c, price: CIRCUIT.shopStone })),
     charms: charmKeys.map(k => ({ key: k, price: CIRCUIT.shopCharm })),
+    upgrades,
     thinPrice: CIRCUIT.shopThin, healPrice: CIRCUIT.shopHeal,
     sold: {}, thinning: false,
   };
@@ -5527,6 +5552,7 @@ function circuitShopBuy(kind, idx) {
   if (kind === 'card') { const it = s.cards[idx]; if (s.sold['c' + idx] || g.coin < it.price) return; g.coin -= it.price; g.deck = g.deck.concat([{ type: it.type, fx: it.fx }]); s.sold['c' + idx] = true; }
   else if (kind === 'stone') { const it = s.stones[idx]; if (s.sold['s' + idx] || g.coin < it.price) return; g.coin -= it.price; g.pouch = Object.assign({}, g.pouch, { [it.color]: (g.pouch[it.color] || 0) + 1 }); s.sold['s' + idx] = true; }
   else if (kind === 'charm') { const it = s.charms[idx]; if (s.sold['m' + idx] || g.coin < it.price) return; g.coin -= it.price; g.charms = (g.charms || []).concat([it.key]); const add = CHARMS[it.key] && CHARMS[it.key].maxStandingAdd; if (add) { g.maxStanding += add; g.standing += add; } s.sold['m' + idx] = true; }
+  else if (kind === 'upgrade') { const it = s.upgrades[idx]; if (s.sold['u' + idx] || g.coin < it.price || (g.pouch[it.base] || 0) <= 0) return; g.coin -= it.price; g.pouch = Object.assign({}, g.pouch, { [it.base]: g.pouch[it.base] - 1, [it.variant]: (g.pouch[it.variant] || 0) + 1 }); s.sold['u' + idx] = true; }
   else if (kind === 'heal') { if (g.coin < s.healPrice || g.standing >= g.maxStanding) return; g.coin -= s.healPrice; g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.shopHealAmt); }
   circuitShopScreen();
 }
@@ -5573,6 +5599,14 @@ function circuitShopScreen() {
     const b = document.createElement('button'); b.className = 'shopbtn charm' + (sold ? ' sold' : (can(it.price) ? '' : ' cantafford'));
     b.title = ch.blurb; b.innerHTML = `★ ${ch.label} <b>${sold ? 'sold' : it.price + 'c'}</b>`;
     b.disabled = sold || !can(it.price); b.onclick = () => circuitShopBuy('charm', i); urow.appendChild(b);
+  });
+  // upgrades: turn a base stone you hold into its variant
+  (s.upgrades || []).forEach((it, i) => {
+    const sold = s.sold['u' + i], have = (g.pouch[it.base] || 0) > 0;
+    const b = document.createElement('button'); b.className = 'shopbtn charm' + (sold || !have ? ' sold' : (can(it.price) ? '' : ' cantafford'));
+    b.title = `${getStone(it.variant).name} — ${getStone(it.variant).desc}`;
+    b.innerHTML = `⇪ ${getStone(it.variant).name} <b>${sold ? 'done' : !have ? '—' : it.price + 'c'}</b>`;
+    b.disabled = sold || !have || !can(it.price); b.onclick = () => circuitShopBuy('upgrade', i); urow.appendChild(b);
   });
   // heal
   const hb = document.createElement('button'); const healOff = g.standing >= g.maxStanding;
@@ -5806,9 +5840,9 @@ function showDeckView(mode) {
       `<span class="deckcount">×${grp.n}</span></div>`;
   }).join('') || '<div class="ldnote">No cards left to draw — the discard reshuffles next.</div>';
 
-  const sc = { red: 0, white: 0, blue: 0, black: 0 }; for (const s of stoneList) sc[s]++;
-  const stoneHtml = STONE_KEYS.filter(c => sc[c]).map(c =>
-    `<span class="deckstone"><span class="stonedot ${c}" title="${STONES[c].name}"></span>×${sc[c]}</span>`).join('')
+  const sc = {}; for (const s of stoneList) sc[s] = (sc[s] || 0) + 1; // by stone key (base + variants)
+  const stoneHtml = Object.keys(sc).filter(c => sc[c]).map(c =>
+    `<span class="deckstone"><span class="stonedot ${stoneBase(c)}${isVariant(c) ? ' variant' : ''}" title="${getStone(c).name}"></span>×${sc[c]}${isVariant(c) ? ' <b>' + getStone(c).name + '</b>' : ''}</span>`).join('')
     || '<div class="ldnote">No stones left to draw — the discard reshuffles next.</div>';
 
   const cTotal = g.deck ? g.deck.length : 0;
@@ -6079,7 +6113,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', boot);
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    bestSelection, REGIONS, TYPES, STONES, CIRCUIT, CHARMS,
+    bestSelection, REGIONS, TYPES, STONES, CIRCUIT, CHARMS, STONE_VARIANTS, stoneBase, getStone, isVariant,
     circuitRecords, markCharmSeen, charmSeen, recordCircuitRun,
     newGame, nextHand,
     humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,

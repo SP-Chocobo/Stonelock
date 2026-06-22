@@ -172,6 +172,26 @@ assert(cps.cardDraw.length + cps.cardDiscard.length + (cps.cardHand ? cps.cardHa
 assert(M._ai.EFFECTS.cantrip.aiKeep() > 0, 'the AI keeps a Cantrip (card advantage has value)');
 assert(M.CHARMS.mulligan.mulliganFirst && M.CHARMS.cycle.cycleEach && M.CHARMS.foresight.foresight === 2, 'Mulligan / Cycle / Foresight charms are registered');
 
+// --- stone variants: Twin Red (draw, score, shop upgrade) ---
+assert(M.stoneBase('twinred') === 'red' && M.isVariant('twinred') && !M.isVariant('red'), 'twinred is a red variant');
+// Twin Red gives two phantoms — a card can stand as a Triad alone
+const triadAlone = M.bestSelection([{ type: 'Coin', hasRed: true, phantoms: 2 }], { Coin: 3 }, {});
+assert(triadAlone.structure === 'triad', 'a Twin Red card (2 phantoms) forms a Triad on its own');
+// shop upgrade converts a base Red into Twin Red
+M.startCircuit(); g = M._gauntlet();
+g.pouch = { red: 2, white: 1, blue: 1 }; g.coin = 40;
+g.shop = M.makeShop();
+const upIdx = g.shop.upgrades.findIndex(u => u.variant === 'twinred');
+assert(upIdx >= 0, 'the shop offers a Twin Red upgrade when you hold a Red');
+M.circuitShopBuy('upgrade', upIdx);
+assert((g.pouch.red || 0) === 1 && (g.pouch.twinred || 0) === 1 && g.coin === 40 - M.CIRCUIT.shopUpgrade, 'upgrading turns a Red into a Twin Red for coin');
+// a variant in the pouch draws into the working set
+g.pouch = { twinred: 1, white: 1, blue: 1, black: 1 };
+M.circuitResetPiles();
+const draw = []; const ps2 = g.piles[0];
+for (let i = 0; i < 30 && ps2.stoneDraw.length; i++) draw.push(ps2.stoneDraw.pop());
+assert(draw.includes('twinred'), 'a Twin Red in the pouch is drawn like any stone');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');
