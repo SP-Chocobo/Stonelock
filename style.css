@@ -1179,6 +1179,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .cfx-gambit    { border-color: #d08a4e; color: #f6d8b4; }
 .cfx-contrast  { border-color: #88a0c0; color: #d8e4f4; }
 .cfx-ledger    { border-color: #a8b06a; color: #e8edc4; }
+.cfx-echo      { border-color: #7fb0c0; color: #d4ecf4; }
+.cfx-contraband{ border-color: #b07a4e; color: #f0d2b4; }
+.cfx-runesmith { border-color: #9a8ac0; color: #e0d4f4; }
 .cfx-wild      { border-color: #c98ae0; color: #eccdf5; background: rgba(60,30,70,0.35); }
 .board .cfx { font-size: 7px; top: 3px; right: 3px; padding: 0 4px; }
 body[data-compact="1"] .board .cfx { display: none; }

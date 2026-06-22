@@ -323,6 +323,15 @@ const gdraw = []; const gps = g.piles[0];
 for (let i = 0; i < 30 && gps.stoneDraw.length; i++) gdraw.push(gps.stoneDraw.pop());
 assert(gdraw.includes('green'), 'a Green Stone in the pouch draws like any stone');
 
+// --- build-around modifier Runesmith + transformational charms ---
+[g, G] = enterFirstFight(); // a live gauntlet match (G.gauntlet) so Runesmith can read the pouch
+g.pouch = { twinred: 2, deadbolt: 1, red: 1 };
+assert(M._ai.EFFECTS.runesmith.self() === 3, 'Runesmith reads +1 per upgraded stone in the pouch (capped 3)');
+g.pouch = { red: 1, white: 1, blue: 1 };
+assert(M._ai.EFFECTS.runesmith.self() === 0, 'Runesmith reads nothing with no upgraded stones');
+assert(M.CHARMS.laststand && M.CHARMS.laststand.on.handStart, 'Last Stand is registered (a comeback charm)');
+assert(M.CHARMS.reckless && M.CHARMS.reckless.dmgReduce === -1 && M.CHARMS.reckless.on.handStart, 'Reckless Wager is registered (board +1, more damage taken)');
+
 // --- records: seen flag + run banking ---
 M.markCharmSeen('whetstone');
 assert(M.charmSeen('whetstone') === true, 'an offered charm is recorded as seen');

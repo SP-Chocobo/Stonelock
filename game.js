@@ -2116,6 +2116,23 @@ const EFFECTS = {
     self: (c, board) => Math.min(2, board.filter(o => o && o !== c && !o.fx).length),
     aiKeep: () => 0.9, // pays off in a mostly-plain deck — the opposite of Harmony
   },
+  // ── Build-around modifiers (draft a deck AROUND these, not just +value) ──
+  echo: {
+    label: 'Echo', blurb: '+2 while it carries a Red phantom — built to be duplicated.',
+    self: (c) => (c.stones && c.stones.some(s => s.color === 'red')) ? 2 : 0,
+    aiKeep: () => 0.6, // pays only with a Red investment
+  },
+  contraband: {
+    label: 'Contraband', blurb: '+3 in the Slums, worth nothing in the Court, its usual value elsewhere.',
+    base: (c) => (G.variant === 'precedence') ? 0 : (c.type != null ? regionVal(c.type) : UNKNOWN_VAL),
+    self: () => (G.variant === 'slumlock') ? 3 : 0,
+    aiKeep: () => (G.variant === 'slumlock') ? 1.4 : (G.variant === 'precedence' ? 0 : 0.4),
+  },
+  runesmith: {
+    label: 'Runesmith', blurb: '+1 for each upgraded stone in your pouch (max +3) — rewards the variant track.',
+    self: () => { if (!G.gauntlet || typeof GAUNTLET === 'undefined') return 0; const p = GAUNTLET.pouch || {}; return Math.min(3, Object.keys(p).filter(isVariant).reduce((s, k) => s + (p[k] || 0), 0)); },
+    aiKeep: () => 0.7,
+  },
   cantrip: {
     label: 'Cantrip', blurb: 'When you commit it, draw a card — more to place later.',
     onCommit: (who) => { const c = circuitDrawOne(who); if (c) { log(`${playerName(who)} ${verb(who, 'draw')} a card (Cantrip).`, logClass(who)); if (typeof document !== 'undefined') render(); } },
@@ -2170,6 +2187,8 @@ const CHARMS = {
   cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
   foresight:    { label: 'Foresight',         blurb: 'See the next cards waiting in your draw pile (in the deck view).', foresight: 2 },
   foulplay:     { label: 'Foul Play',         blurb: 'At the start of each hand you may discard a card to make your opponent discard one at random.', disruptEach: 1 },
+  laststand:    { label: 'Last Stand',        blurb: 'While at 5 Standing or less, your whole board reads +1.', on: { handStart: (g) => { if (g.standing <= 5) g.handBuff = (g.handBuff || 0) + 1; } } },
+  reckless:     { label: 'Reckless Wager',    blurb: 'Your board reads +1 every hand — but you take 1 more Standing from a lost hand.', dmgReduce: -1, on: { handStart: (g) => { g.handBuff = (g.handBuff || 0) + 1; } } },
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place at a table, recover 1 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 1); log('Resonance — a stone rings true; you recover 1 Standing.', 'you'); updateCircuitHud(); } } } },

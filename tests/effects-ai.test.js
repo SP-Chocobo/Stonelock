@@ -275,4 +275,29 @@ assert(G.players[0].board[0].evalue === 1, 'Ledger reads nothing with no plain c
 assert(ai.isPositionalFx('gambit'), 'Gambit (spread) is positional');
 assert(!ai.isPositionalFx('surge') && !ai.isPositionalFx('contrast') && !ai.isPositionalFx('ledger'), 'Surge, Contrast and Ledger are position-agnostic');
 
+/* ---------- build-around modifiers ---------- */
+for (const k of ['echo', 'contraband', 'runesmith']) assert(ai.EFFECTS[k] && !ai.EFFECTS[k].viaCharm, `${k} is an offerable modifier`);
+
+// Echo — +2 only while it carries a Red phantom.
+G = setup('tavern');
+const echoCard = card('Coin', 'echo', 0);
+G.players[0].board = [echoCard, card('Sword', null, 0), card('Quill', null, 0)];
+M.applyCardEffects();
+assert(echoCard.evalue === 3, 'Echo reads its base value with no Red on it');
+echoCard.stones = [{ color: 'red', by: 0 }];
+M.applyCardEffects();
+assert(echoCard.evalue === 3 + 2, 'Echo reads +2 while carrying a Red phantom');
+
+// Contraband — +3 in the Slums, nothing in the Court.
+G = setup('slums');
+const cbSlum = card('Quill', 'contraband', 0); // Quill base 1
+G.players[0].board = [cbSlum, card('Sword', null, 0), card('Bread', null, 0)];
+M.applyCardEffects();
+assert(cbSlum.evalue === 1 + 3, 'Contraband reads +3 in the Slums');
+G = setup('court');
+const cbCourt = card('Crest', 'contraband', 0); // Crest is high in the Court, but Contraband voids it
+G.players[0].board = [cbCourt, card('Chain', null, 0), card('Quill', null, 0)];
+M.applyCardEffects();
+assert(cbCourt.evalue === 0, 'Contraband reads 0 in the Court');
+
 console.log('OK effects-ai: bots assess Anchor/Keen/Lodestone/Drain (with fog of war) + the new Surge/Gambit/Contrast/Ledger, target & keep them by effective value, place positional effects well, and layer per-bot persona priorities on top.');
