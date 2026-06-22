@@ -4920,6 +4920,7 @@ function circuitOfferCards(n) {
   const fxBag = shuffle(CIRCUIT_FX.slice());
   const out = [];
   for (let i = 0; i < n; i++) out.push({ type: types[i % types.length], fx: fxBag[i % fxBag.length] });
+  out.forEach(c => { if (c.fx) markCharmSeen('fx:' + c.fx); }); // discovery: an offered modifier is revealed in the compendium
   return out;
 }
 let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
@@ -4969,6 +4970,8 @@ function circuitIntro() {
 function showCircuitRecords() {
   if (typeof document === 'undefined') return;
   const rec = circuitRecords();
+  const revealAll = alphaUnlock(); // the alpha lock lays the whole archive bare
+  const shown = k => revealAll || !!rec.seen[k];
   const all = Object.keys(CHARMS), seen = all.filter(k => rec.seen[k]).length;
   let html = `<div class="ldsection"><div class="ldhead">Best results</div><div class="recbest">` +
     `<div><span class="recbig">${rec.best.tables}</span><span class="reclab">tables cleared</span></div>` +
@@ -4980,11 +4983,20 @@ function showCircuitRecords() {
     ? `<div class="rechist">` + rec.runs.map(r => `<div class="recrow"><span class="recrow-t">${r.won ? '★ ' : ''}${r.tables} node${r.tables === 1 ? '' : 's'}</span><span class="recrow-s">${r.score} pts</span><span class="recrow-f">${r.won ? 'conquered the Circuit' : 'fell to ' + (r.foe || '—')}${r.seed != null ? ' · seed ' + (r.seed >>> 0) : ''}</span></div>`).join('') + `</div>`
     : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
   html += `</div>`;
-  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${seen}/${all.length}</div><div class="compendium">` +
-    all.map(k => { const c = CHARMS[k]; return rec.seen[k]
-      ? `<div class="compcard"><div class="compcard-h">${c.label}</div><div class="compcard-b">${c.blurb}</div></div>`
-      : `<div class="compcard locked"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — meet it in a run to reveal it.</div></div>`;
-    }).join('') + `</div></div>`;
+  const lockedCard = `<div class="compcard locked"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — meet it in a run to reveal it.</div></div>`;
+  const compSection = (head, keys, info) => {
+    const got = keys.filter(k => shown(k.seenKey)).length;
+    return `<div class="ldsection"><div class="ldhead">${head} — ${got}/${keys.length}</div><div class="compendium">` +
+      keys.map(k => shown(k.seenKey)
+        ? `<div class="compcard"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div>`
+        : lockedCard).join('') + `</div></div>`;
+  };
+  // Charms (relics)
+  html += compSection('Charm compendium', all.map(k => ({ key: k, seenKey: k })), k => ({ h: CHARMS[k.key].label, b: CHARMS[k.key].blurb }));
+  // Modifiers (effect-card riders)
+  html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
+  // Stone variants (the pouch upgrade track)
+  html += compSection('Stone variants', Object.keys(STONE_VARIANTS).map(k => ({ key: k, seenKey: 'var:' + k })), k => ({ h: `${STONE_VARIANTS[k.key].name} — ${STONE_VARIANTS[k.key].power}`, b: STONE_VARIANTS[k.key].desc }));
   $('recordsBody').innerHTML = html;
   $('recordsClose').onclick = () => closeModal('recordsModal');
   $('recordsModal').classList.add('open');
@@ -5570,6 +5582,7 @@ function makeShop() {
   const upgrades = Object.keys(STONE_VARIANTS)
     .filter(v => (GAUNTLET.pouch[STONE_VARIANTS[v].base] || 0) > 0)
     .slice(0, 2).map(v => ({ variant: v, base: STONE_VARIANTS[v].base, price: CIRCUIT.shopUpgrade }));
+  upgrades.forEach(u => markCharmSeen('var:' + u.variant)); // an offered variant is revealed in the compendium
   return {
     cards: circuitOfferCards(3).map(c => ({ type: c.type, fx: c.fx, price: CIRCUIT.shopCard })),
     stones: shuffle(STONE_KEYS.slice()).slice(0, 2).map(c => ({ color: c, price: CIRCUIT.shopStone })),
