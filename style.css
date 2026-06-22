@@ -1205,7 +1205,13 @@ body[data-compact="1"] .board .cfx { display: none; }
 .charmrow-b { font-size: 11.5px; color: var(--parchment); margin-top: 2px; }
 /* Records & compendium. */
 .recordsbtn { margin-top: 10px; }
+.recordsbtn.on { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; color: var(--gold-bright); }
 .introbtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.introseed { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.seedinput { font-family: 'Cinzel', Georgia, serif; font-size: 13px; width: 130px; padding: 6px 9px; color: var(--parchment);
+  background: rgba(20,14,8,0.7); border: 1px solid var(--gold-dim); border-radius: 8px; text-align: center; }
+.seedinput:focus { outline: none; border-color: var(--gold-bright); }
+.seedhint { font-size: 11px; color: var(--parchment-dim); font-style: italic; }
 .recbest { display: flex; gap: 22px; justify-content: center; margin-top: 4px; }
 .recbest > div { display: flex; flex-direction: column; align-items: center; }
 .recbig { font-family: 'Cinzel', Georgia, serif; font-size: 26px; font-weight: 700; color: var(--gold-bright); }

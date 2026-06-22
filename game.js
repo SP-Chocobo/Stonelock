@@ -5036,13 +5036,24 @@ function circuitIntro() {
   line.innerHTML = `Best: <b>${rec.best.tables}</b> node${rec.best.tables === 1 ? '' : 's'} · <b>${rec.best.score}</b> score · charms found <b>${seen}/${nCharms}</b>`;
   stats.appendChild(line);
   const seedline = document.createElement('div'); seedline.className = 'unlockitem';
-  seedline.innerHTML = `Seed: <b>${circuitSeed >>> 0}</b>`;
+  const isDaily = (circuitSeed >>> 0) === dailySeed();
+  seedline.innerHTML = `Seed: <b>${circuitSeed >>> 0}</b>${isDaily ? ' · today’s daily' : ''} <span class="seedhint">— same seed, same run; share it to race a friend</span>`;
   stats.appendChild(seedline);
   const btns = document.createElement('div'); btns.className = 'introbtns';
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
-  const daily = document.createElement('button'); daily.className = 'btn recordsbtn'; daily.textContent = "Today's daily run"; daily.onclick = () => startCircuit(dailySeed());
-  btns.appendChild(rb); btns.appendChild(daily);
+  const rand = document.createElement('button'); rand.className = 'btn recordsbtn'; rand.textContent = 'New random seed'; rand.onclick = () => startCircuit();
+  const daily = document.createElement('button'); daily.className = 'btn recordsbtn' + (isDaily ? ' on' : ''); daily.textContent = "Today's daily run"; daily.onclick = () => startCircuit(dailySeed());
+  btns.appendChild(rb); btns.appendChild(rand); btns.appendChild(daily);
   stats.appendChild(btns);
+  // Custom / shared seed entry — play a specific run without leaving the screen.
+  const seedRow = document.createElement('div'); seedRow.className = 'introseed';
+  const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'numeric'; inp.className = 'seedinput'; inp.placeholder = 'enter a seed…'; inp.value = String(circuitSeed >>> 0);
+  const go = document.createElement('button'); go.className = 'btn recordsbtn'; go.textContent = 'Play this seed';
+  const playTyped = () => { const v = parseInt(inp.value, 10); if (!isNaN(v)) startCircuit(v >>> 0); };
+  go.onclick = playTyped;
+  inp.onkeydown = e => { if (e.key === 'Enter') playTyped(); };
+  seedRow.appendChild(inp); seedRow.appendChild(go);
+  stats.appendChild(seedRow);
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
   $('circuitModal').classList.add('open');

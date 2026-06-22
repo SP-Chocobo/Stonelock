@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=204">
+<link rel="stylesheet" href="style.css?v=205">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=204" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=204" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=205" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=205" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=204" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=204" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=205" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=205" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -407,6 +407,31 @@
       <li><b>The Academy Gauntlet</b> — common values, but a different game: <b>no telegraphing and no thinning</b>. Every player holds one of each stone and must place all four, one per round, in serpentine turn order (deal order, then reversed, and so on). The cards are a fixed canvas — it's a drill in pure interaction.</li>
     </ul>
 
+    <h3>The Circuit</h3>
+    <p>A seeded roguelike run, reached from the title. You set out with a small <b>deck</b> of cards
+    and a <b>pouch</b> of stones — both depleting draw piles that reshuffle when they run dry — and
+    cross <b>three acts</b>, each a branching <b>map</b> of nodes you pick a path through to an act
+    boss. Beat all three to conquer the Circuit.</p>
+    <p>Fights are a two-sided war of attrition rather than a points race: each hand you win presses
+    the opponent's <b>Standing</b> down, each hand you lose presses yours. Empty their Standing to
+    clear the table; lose all of yours and the run ends. You don't learn who you face, or how hard,
+    until you sit down — the map shows only a node's <b>kind</b>:</p>
+    <ul>
+      <li><b>Duel / Elite / Boss</b> — fights. Elites and bosses carry charms and hit harder.</li>
+      <li><b>Repose</b> — rest and refit: heal, thin a card or a stone, or move a modifier.</li>
+      <li><b>Encounter</b> — a random event: a card cache, a stone upgrade, a crooked trade, the
+      pawnbroker, an ambush, a windfall, or the blood price (bleed Standing for coin).</li>
+      <li><b>The Fence</b> (shop) — spend the coin you win on cards, stones, charm relics, stone
+      upgrades, a heal, or a one-off thin.</li>
+    </ul>
+    <p><b>Charms</b> are run-long relics drafted from spoils, shops, and events. <b>Stone variants</b>
+    upgrade a base stone — Twin Red (two phantoms), Deadbolt White (locks two cards), Riptide Blue
+    (a sticky swap a single Black only downgrades), Onyx Black (undoes the last two effects). The
+    rarest relic, <b>Wildcard</b>, imbues one of your cards to count as any type for a Pair or
+    Triad — though it falls inert if an opponent steals it. The run is <b>seeded</b>: the same seed
+    always plays the same run, so you can replay a daily or share one to race a friend. Your best
+    runs and everything you've discovered are kept in the <b>Records &amp; Compendium</b>.</p>
+
     <div class="modalbtns"><button id="rulesClose" class="btn primary">Back to the table</button></div>
   </div>
 </div>
@@ -420,6 +445,6 @@
   </div>
 </div>
 
-<script src="game.js?v=204"></script>
+<script src="game.js?v=205"></script>
 </body>
 </html>
