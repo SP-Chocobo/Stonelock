@@ -1330,6 +1330,22 @@ body[data-compact="1"] .board .cfx { display: none; }
 .puzzlecard.targetable { cursor: pointer; outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .puzzlecard.targetable:hover { transform: translateY(-2px); }
 .puzzlepreview .ldnote { font-style: italic; color: #cde; }
+/* Act cinematic — a panning clip (assets/acts/actN.webm|mp4) over a painted
+   gradient fallback, with the act name and tagline. */
+.actintro { text-align: center; }
+.actscene { position: relative; width: 100%; aspect-ratio: 12 / 5; max-height: 360px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--gold); box-shadow: 0 6px 22px rgba(0,0,0,0.55); margin: 2px auto 6px; }
+.actscene.act1 { background: radial-gradient(130% 130% at 50% 10%, #3f4a2a 0%, #2a2c18 45%, #14110a 80%); }
+.actscene.act2 { background: radial-gradient(130% 130% at 50% 10%, #5a3322 0%, #34201a 45%, #140d0a 80%); }
+.actscene.act3 { background: radial-gradient(130% 130% at 50% 10%, #5a4a22 0%, #34301a 45%, #14120a 80%); }
+.actvid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.actscene::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(15,10,5,0) 45%, rgba(13,9,4,0.85)); }
+.actscene-cap { position: absolute; left: 20px; right: 20px; bottom: 14px; text-align: left; z-index: 1; }
+.actscene-kick { font-family: 'Cinzel', Georgia, serif; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); opacity: 0.9; }
+.actscene-title { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 32px; line-height: 1.05; color: #f4e6c0; text-shadow: 0 2px 10px rgba(0,0,0,0.85); margin: 2px 0; }
+.actscene-tag { font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: 14px; color: var(--parchment); text-shadow: 0 1px 6px rgba(0,0,0,0.85); }
+@media (max-width: 640px) { .actscene-title { font-size: 24px; } }
 /* The shop (The Fence). */
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }

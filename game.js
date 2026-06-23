@@ -5289,7 +5289,7 @@ function circuitBegin() {
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
   GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed };
   GAUNTLET.map = buildAct(1);
-  circuitMapScreen();
+  circuitActIntro(1, circuitToMap); // open the run on the Act I cinematic
 }
 
 /* ---- The run map: each act is a few columns of nodes you path through to a
@@ -5593,11 +5593,43 @@ function circuitAfterNode() {
     g.act++; g.map = buildAct(g.act);
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal); // a breather between acts
     g.secondWindUsed = false; // Second Wind recharges each act
+    circuitActIntro(g.act, circuitToMap); return; // cinematic open on the new act
   }
-  // Owe a Wildcard imbue? (Took the charm but no card carries it — e.g. just
-  // gained it, or the imbued card was later thinned.) Pick before the map.
+  circuitToMap();
+}
+// Show the map — but settle a Wildcard imbue first if one is owed.
+function circuitToMap() {
+  const g = GAUNTLET;
   if (typeof document !== 'undefined' && charmHas('wildcard') && !g.deck.some(c => specFx(c) === 'wild')) { circuitWildImbueScreen(); return; }
   circuitMapScreen();
+}
+// The act cinematic — a short panning clip over the act's region (art slot at
+// assets/acts/actN.{webm,mp4}) with a painted-gradient fallback, the act name,
+// and its tagline. Headless calls straight through.
+const CIRCUIT_ACTS = {
+  1: { name: 'The Roads Abroad', tag: 'Frontier taverns and the river crossing — the long road in.' },
+  2: { name: 'The Phirra Underbelly', tag: 'The city’s slums and gambling halls. Mind your purse, and your stones.' },
+  3: { name: 'The High Courts', tag: 'The Court of Precedence — statecraft values, and masters who do not lose.' },
+};
+function circuitActIntro(act, then) {
+  if (typeof document === 'undefined') { if (then) then(); return; }
+  const info = CIRCUIT_ACTS[act] || CIRCUIT_ACTS[3];
+  const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
+  $('circuitTitle').textContent = ''; $('circuitText').textContent = '';
+  const body = $('circuitStats'); body.className = 'actintro'; body.innerHTML = '';
+  const scene = document.createElement('div'); scene.className = 'actscene act' + act;
+  scene.innerHTML =
+    `<video class="actvid" autoplay muted loop playsinline preload="auto">` +
+      `<source src="assets/acts/act${act}.webm?v=1" type="video/webm">` +
+      `<source src="assets/acts/act${act}.mp4?v=1" type="video/mp4">` +
+    `</video>` +
+    `<div class="actscene-cap"><div class="actscene-kick">Act ${act} of ${CIRCUIT.acts}</div>` +
+    `<div class="actscene-title">${info.name}</div><div class="actscene-tag">${info.tag}</div></div>`;
+  body.appendChild(scene);
+  const next = $('circuitNext'); next.style.display = '';
+  next.disabled = false; next.textContent = act === 1 ? 'Set out ›' : 'Press on ›';
+  next.onclick = () => { if (then) then(); };
+  $('circuitModal').classList.add('open');
 }
 
 // On taking the Wildcard charm: choose one owned card to imbue (it then counts
@@ -5641,7 +5673,7 @@ function circuitMapScreen() {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET, m = g.map;
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
-  $('circuitTitle').textContent = `The Circuit — Act ${g.act} of ${CIRCUIT.acts}`;
+  $('circuitTitle').textContent = `Act ${g.act} — ${(CIRCUIT_ACTS[g.act] || CIRCUIT_ACTS[3]).name}`;
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
   const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
