@@ -398,6 +398,22 @@ for (const act of [1, 2, 3]) {
   assert(M.buildAct(act).cols.slice(0, 2).flat().every(n => n.type !== 'puzzle'), `no puzzle in act ${act}'s first two columns`);
 }
 M.clearRng();
+// structure rules: no path chains two of the same safe stop; shops kept apart
+for (let act = 1; act <= 3; act++) {
+  for (let s = 0; s < 30; s++) {
+    M.seedRng(s * 13 + act);
+    const cols = M.buildAct(act).cols;
+    for (let c = 1; c < cols.length; c++) cols[c].forEach((node, k) => {
+      if (node.type !== 'repose' && node.type !== 'shop') return;
+      assert(!cols[c - 1].some(p => p.type === node.type && (p.edges || []).includes(k)),
+        `act ${act}: no ${node.type}->${node.type} reachable back to back`);
+    });
+    const shopCols = []; cols.forEach((col, ci) => col.forEach(n => { if (n.type === 'shop') shopCols.push(ci); }));
+    for (let i = 0; i < shopCols.length; i++) for (let j = i + 1; j < shopCols.length; j++)
+      assert(Math.abs(shopCols[i] - shopCols[j]) >= 2, `act ${act}: shops kept >=2 columns apart`);
+  }
+}
+M.clearRng();
 // Academy-safety: a base-stones puzzle is re-usable; a variant-stone one is Circuit-only
 assert(!M.puzzleAcademySafe(M.PUZZLES.wayfarer), 'a Twin Red puzzle is Circuit-only (not Academy-safe)');
 assert(M.puzzleAcademySafe({ stones: ['red', 'blue', 'white'] }), 'a base-stones puzzle is Academy-safe');

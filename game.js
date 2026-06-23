@@ -5362,23 +5362,45 @@ function buildAct(act) {
     arr.forEach((n, i) => { n.lane = laneFor(arr.length, i); });
     cols.push(arr);
   }
-  // Deliberately scatter the key nodes so every act reliably has them, each in
-  // its own column (spread out). Shops never sit in the first two columns, the
-  // pre-boss Repose, or the boss; guaranteed Reposes may start a column earlier.
-  // (Random rolls can still add more Reposes on top of these.)
-  const placed = new Set();
-  const placeOne = (type, lo, hi) => {
-    const cands = []; for (let c = lo; c <= hi; c++) if (!placed.has(c)) cands.push(c);
-    if (!cands.length) return;
+  // Deliberately scatter the key nodes so every act reliably has them. Shops
+  // never sit in the first two columns, the pre-boss Repose, or the boss; the
+  // two shops are kept ≥2 columns apart so a path can't chain them.
+  const placed = new Set(), shopCols = [];
+  const placeOne = (type, lo, hi, avoid) => {
+    const cands = [];
+    for (let c = lo; c <= hi; c++) {
+      if (placed.has(c)) continue;
+      if (avoid && avoid.some(x => Math.abs(x - c) < 2)) continue; // keep a column's gap from `avoid`
+      cands.push(c);
+    }
+    if (!cands.length) return null;
     const c = cands[Math.floor(rnd() * cands.length)]; placed.add(c);
     const idx = Math.floor(rnd() * cols[c].length);
     cols[c][idx] = mkNode(type, c, idx, act);
     cols[c][idx].lane = laneFor(cols[c].length, idx);
+    return c;
   };
-  placeOne('shop', 2, N - 3); placeOne('shop', 2, N - 3);
-  for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3); // Act I gets more breathers
+  const s1 = placeOne('shop', 2, N - 3); if (s1 != null) shopCols.push(s1);
+  const s2 = placeOne('shop', 2, N - 3, shopCols); if (s2 != null) shopCols.push(s2); // 2nd shop ≥2 cols off the 1st
+  for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3);
   if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
+  // Structure rule: no path may offer two of the SAME safe stop (Repose/Shop)
+  // back to back. If a safe node is reachable from a same-type node in the
+  // previous column, demote it to a duel — random rolls and tight placements
+  // can't produce a repose→repose / shop→shop chain.
+  const demote = n => { n.type = 'duel'; n.foe = pickFoeFor('duel', act); n.foeCharms = []; n.puzzle = undefined; }; // in place — keeps edges
+  for (let c = 1; c < cols.length; c++) {
+    cols[c].forEach((node, k) => {
+      if (node.type !== 'repose' && node.type !== 'shop') return;
+      const preds = cols[c - 1].filter(p => p.type === node.type && (p.edges || []).includes(k));
+      if (!preds.length) return;
+      // The pre-boss column is a protected breather: demote the chaining
+      // predecessor instead, so the breather always stands.
+      if (c === cols.length - 2 && node.type === 'repose') preds.forEach(demote);
+      else demote(node);
+    });
+  }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
 // The nodes you may enter next: the entry column when nowhere yet, else the
@@ -5463,7 +5485,7 @@ function actVenues(act) { return CIRCUIT_ACT_VENUES[act] || CIRCUIT_ACT_VENUES[3
 // Elites), Act II squeezes (more Elites, fewer Reposes), Act III leans on
 // strange Encounters. (Foe Standing already ramps across acts via the tier.)
 function actTuning(act) {
-  if (act === 1) return { elite: 0.12, event: 0.26, repose: 0.18, reposes: 2 };
+  if (act === 1) return { elite: 0.12, event: 0.28, repose: 0.10, reposes: 2 };
   if (act === 2) return { elite: 0.28, event: 0.24, repose: 0.06, reposes: 1 };
   return { elite: 0.24, event: 0.34, repose: 0.06, reposes: 1 }; // act 3+
 }
