@@ -5746,10 +5746,21 @@ function circuitMapScreen() {
   });
   grid.appendChild(track);
   body.appendChild(grid);
-  // Legend — icons map by kind (the nodes themselves are icon-only).
-  const legend = document.createElement('div'); legend.className = 'maplegend';
-  legend.innerHTML = MAP_NODE_ORDER.map(t => `<span class="maplegend-i mapnode-${t}">${MAP_NODE_ICON[t]}</span><span class="maplegend-n">${MAP_NODE_NAME[t]}</span>`).join('');
-  body.appendChild(legend);
+  // Legend — tucked into a press-to-reveal popup (nodes themselves are icon-only).
+  const lwrap = document.createElement('div'); lwrap.className = 'maplegendwrap';
+  const lbtn = document.createElement('button'); lbtn.className = 'btn maplegendbtn'; lbtn.textContent = '◇ Legend';
+  const pop = document.createElement('div'); pop.className = 'maplegendpop'; pop.style.display = 'none';
+  pop.innerHTML = `<button class="maplegendclose" title="Close">×</button>` +
+    MAP_NODE_ORDER.map(t => `<span class="maplegend-i mapnode-${t}">${MAP_NODE_ICON[t]}</span><span class="maplegend-n">${MAP_NODE_NAME[t]}</span>`).join('');
+  const closePop = () => { pop.style.display = 'none'; document.removeEventListener('click', offClick); };
+  const offClick = e => { if (!lwrap.contains(e.target)) closePop(); };
+  lbtn.onclick = e => {
+    e.stopPropagation();
+    if (pop.style.display === 'none') { pop.style.display = ''; setTimeout(() => document.addEventListener('click', offClick), 0); }
+    else closePop();
+  };
+  pop.querySelector('.maplegendclose').onclick = closePop;
+  lwrap.appendChild(lbtn); lwrap.appendChild(pop); body.appendChild(lwrap);
   $('circuitNext').style.display = 'none'; // navigation is by clicking a node
   $('circuitModal').classList.add('open');
   requestAnimationFrame(() => { drawMapEdges(track, m); ensureCurrentNodeVisible(grid, track); });
