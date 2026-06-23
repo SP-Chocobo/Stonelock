@@ -5696,14 +5696,19 @@ function nodeFoeMax(node) {
   if (node.type === 'boss') m = Math.round(m * CIRCUIT.bossHpMult);
   return m;
 }
-function mapNodeHtml(node) {
-  // The road ahead reads only by KIND — who waits at a fight and how hard they
-  // hit stays unknown until you're across the table from them.
-  const names = { duel: 'Duel', elite: 'Elite', event: 'Encounter', repose: 'Repose', boss: 'Boss', shop: 'Shop', puzzle: 'Puzzle' };
-  const sub = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', event: 'who knows what', repose: 'rest & refit', shop: 'spend your coin', puzzle: 'a tailored riddle' };
-  const icon = { duel: '⚔', elite: '★', boss: '☠', event: '?', repose: '✦', shop: '⛃', puzzle: '◆' };
-  const subEl = `<div class="mapnode-f">${sub[node.type] || ''}</div>`;
-  return `<div class="mapnode-i">${icon[node.type] || ''}</div><div class="mapnode-t">${names[node.type]}</div>${subEl}`;
+// The road ahead reads only by KIND (icon), with a legend + hover tip naming it —
+// who waits at a fight and how hard stays unknown until you're at the table.
+const MAP_NODE_ORDER = ['duel', 'elite', 'boss', 'repose', 'shop', 'event', 'puzzle'];
+const MAP_NODE_NAME = { duel: 'Duel', elite: 'Elite', boss: 'Boss', repose: 'Repose', shop: 'Shop', event: 'Encounter', puzzle: 'Puzzle' };
+const MAP_NODE_SUB = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', repose: 'rest & refit', shop: 'spend your coin', event: 'who knows what', puzzle: 'a tailored riddle' };
+const MAP_NODE_ICON = { duel: '⚔', elite: '★', boss: '☠', repose: '✦', shop: '⛃', event: '?', puzzle: '◆' };
+function mapNodeHtml(node) { return `<div class="mapnode-i">${MAP_NODE_ICON[node.type] || ''}</div>`; }
+// A single fixed-position tooltip (so the scrolling map can't clip it).
+function mapTipEl() { let t = document.getElementById('maptip'); if (!t) { t = document.createElement('div'); t.id = 'maptip'; t.className = 'maptip'; document.body.appendChild(t); } return t; }
+function wireMapTip(btn, node) {
+  const show = () => { const t = mapTipEl(); t.innerHTML = `<div class="maptip-h mapnode-${node.type}">${MAP_NODE_NAME[node.type]}</div><div class="maptip-b">${MAP_NODE_SUB[node.type] || ''}</div>`; const r = btn.getBoundingClientRect(); t.style.left = (r.left + r.width / 2) + 'px'; t.style.top = (r.top - 6) + 'px'; t.classList.add('show'); };
+  btn.addEventListener('mouseenter', show);
+  btn.addEventListener('mouseleave', () => mapTipEl().classList.remove('show'));
 }
 // The act map — pick a node in the current column to advance toward the boss.
 function circuitMapScreen() {
@@ -5713,6 +5718,7 @@ function circuitMapScreen() {
   $('circuitTitle').textContent = `Act ${g.act} — ${(CIRCUIT_ACTS[g.act] || CIRCUIT_ACTS[3]).name}`;
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
+  const tip0 = document.getElementById('maptip'); if (tip0) tip0.classList.remove('show'); // clear any stale hover tip
   const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
   // A scroll viewport with an inner track: the track is max-content and auto-
   // margined, so it CENTERS when it fits but scrolls from the LEFT when it
@@ -5732,6 +5738,7 @@ function circuitMapScreen() {
       b.dataset.col = node.col; b.dataset.idx = node.idx;
       b.disabled = !ok;
       b.innerHTML = mapNodeHtml(node);
+      wireMapTip(b, node); // styled hover tooltip names the node
       if (ok) b.onclick = () => circuitEnterNode(node);
       colEl.appendChild(b);
     }
@@ -5739,6 +5746,10 @@ function circuitMapScreen() {
   });
   grid.appendChild(track);
   body.appendChild(grid);
+  // Legend — icons map by kind (the nodes themselves are icon-only).
+  const legend = document.createElement('div'); legend.className = 'maplegend';
+  legend.innerHTML = MAP_NODE_ORDER.map(t => `<span class="maplegend-i mapnode-${t}">${MAP_NODE_ICON[t]}</span><span class="maplegend-n">${MAP_NODE_NAME[t]}</span>`).join('');
+  body.appendChild(legend);
   $('circuitNext').style.display = 'none'; // navigation is by clicking a node
   $('circuitModal').classList.add('open');
   requestAnimationFrame(() => { drawMapEdges(track, m); ensureCurrentNodeVisible(grid, track); });
