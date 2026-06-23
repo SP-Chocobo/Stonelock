@@ -220,7 +220,7 @@ const sig = m => m.cols.map(col => col.map(n => n.type + (n.foe || '') + n.edges
 assert(sig(mapA) === sig(mapB), 'the same seed builds the same act');
 M.seedRng(777); assert(sig(M.buildAct(1)) !== sig(mapA), 'a different seed builds a different act');
 M.clearRng();
-for (const col of mapA.cols) for (const n of col) assert(n.lane >= 0 && n.lane < 3, 'every node has a lane for the tree layout');
+for (const col of mapA.cols) for (const n of col) assert(n.lane >= 0 && n.lane < 5, 'every node has a lane for the tree layout');
 
 // --- card flow: cantrip draws on commit (conserved), hand-edit charms exist ---
 M.startCircuit(); g = M._gauntlet(); M.circuitEnterNode(g.map.cols[0][0]); G = M._state();

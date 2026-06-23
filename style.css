@@ -1280,17 +1280,17 @@ body[data-compact="1"] .board .cfx { display: none; }
    LEFT when it overflows (so the first node is always reachable on a phone). */
 .mapgrid { overflow-x: auto; overflow-y: hidden; width: 100%; padding: 4px 0; -webkit-overflow-scrolling: touch; }
 .maptrack { position: relative; display: flex; gap: 26px; width: max-content; margin: 0 auto; align-items: stretch; }
-.mapcol { display: grid; grid-template-rows: repeat(3, 1fr); gap: 20px; min-width: 116px; align-items: center; }
+.mapcol { display: grid; grid-template-rows: repeat(5, 1fr); gap: 12px; min-width: 116px; align-items: center; }
 @media (max-width: 720px) {
   .maptrack { gap: 18px; }
-  .mapcol { min-width: 92px; gap: 14px; }
+  .mapcol { min-width: 92px; gap: 9px; }
   .mapnode { padding: 6px 5px; }
   .mapnode-t { font-size: 11px; }
   .mapnode-f { font-size: 10px; }
   .mapnode-hp { font-size: 9px; }
-  .mapslot { min-height: 50px; }
+  .mapslot { min-height: 40px; }
 }
-.mapslot { min-height: 64px; } /* keeps empty lanes spaced so branches read as paths */
+.mapslot { min-height: 52px; } /* keeps empty lanes spaced so branches read as paths */
 .mapnode:not(.reach):not(.here):not(.done) { opacity: 0.5; } /* unreachable-this-step nodes recede */
 .mapnode.here { border-color: var(--gold-bright); box-shadow: 0 0 0 2px var(--gold-bright) inset; opacity: 1; }
 .mapedges { z-index: 0; }

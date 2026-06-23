@@ -5065,7 +5065,7 @@ function renderRaidSetup() {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 8, foeStep: 0.8, drawStones: 3,
+  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
   acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
@@ -5341,11 +5341,11 @@ function linkColumns(A, B) {
   }
   A.forEach(n => n.edges.sort((x, y) => x - y));
 }
-const MAP_LANES = 3; // vertical slots — nodes sit in lanes so paths visibly branch
+const MAP_LANES = 5; // vertical slots — nodes sit in lanes so paths visibly interweave
+// Spread `count` nodes evenly across the lanes (a lone node rides the middle).
 function laneFor(count, i) {
-  if (count >= MAP_LANES) return i;
-  if (count === 1) return 1;          // a lone node rides the middle lane
-  return i === 0 ? 0 : MAP_LANES - 1; // two nodes hug the top and bottom lanes
+  if (count <= 1) return Math.floor(MAP_LANES / 2);
+  return Math.round(i * (MAP_LANES - 1) / (count - 1));
 }
 function buildAct(act) {
   const N = CIRCUIT.actRows, cols = [];
@@ -5355,7 +5355,7 @@ function buildAct(act) {
     else if (c === N - 2) arr = [mkNode('repose', c, 0, act)];   // a breather before the boss
     else if (c === 0) arr = [mkNode('duel', c, 0, act)];         // a safe opener
     else {
-      const count = 2 + (rnd() < 0.5 ? 1 : 0);
+      const count = 3 + (rnd() < 0.5 ? 1 : 0);                   // 3–4 nodes per column → interweaving lanes
       const noElite = c === 1;                                   // no elites in the first two nodes
       arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(noElite, act), c, i, act));
     }

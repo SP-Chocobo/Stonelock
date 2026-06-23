@@ -38,10 +38,16 @@ function playFight() {
   while (!G.over && guard++ < 30000) { if (!G.queue.length) M.nextHand(); else M._run(); }
   return guard < 30000;
 }
-// A cautious-but-reasonable path: heal at an event when hurt, otherwise prefer a
-// plain duel over an elite, taking elites (for charms) when healthy.
+// A cautious-but-reasonable path: when hurt, steer to a Repose to heal (or a
+// Shop/Encounter as a fallback) and avoid Elites; otherwise prefer a plain duel
+// over an elite, taking elites (for charms) when healthy.
 function chooseNode(g, col) {
-  if (g.standing < g.maxStanding * 0.45) { const ev = col.find(n => n.type === 'event'); if (ev) return ev; }
+  const hurt = g.standing < g.maxStanding * 0.5;
+  if (hurt) {
+    const repose = col.find(n => n.type === 'repose'); if (repose) return repose;
+    const safe = col.find(n => n.type === 'shop' || n.type === 'event'); if (safe) return safe;
+    const duel = col.find(n => n.type === 'duel'); if (duel) return duel; // a plain fight beats an elite when low
+  }
   const duel = col.find(n => n.type === 'duel'); if (duel && g.standing < g.maxStanding * 0.7) return duel;
   return col[Math.floor(Math.random() * col.length)];
 }
