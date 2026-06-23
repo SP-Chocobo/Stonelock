@@ -5385,20 +5385,35 @@ function buildAct(act) {
   for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3);
   if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
-  // Structure rule: no path may offer two of the SAME safe stop (Repose/Shop)
-  // back to back. If a safe node is reachable from a same-type node in the
-  // previous column, demote it to a duel — random rolls and tight placements
-  // can't produce a repose→repose / shop→shop chain.
+  // Structure rules (edge-aware, after linking). A "rest" is a Repose/Shop; a
+  // "fight" is Duel/Elite/Boss; everything else (Encounter/Puzzle) is non-fight.
+  const isFight = t => t === 'duel' || t === 'elite' || t === 'boss';
+  const isRest = t => t === 'repose' || t === 'shop';
+  const lastCol = cols.length - 1;
   const demote = n => { n.type = 'duel'; n.foe = pickFoeFor('duel', act); n.foeCharms = []; n.puzzle = undefined; }; // in place — keeps edges
+  // Rule 1 — no two rest stops back to back on any path (kills repose→shop→repose at its source).
   for (let c = 1; c < cols.length; c++) {
     cols[c].forEach((node, k) => {
-      if (node.type !== 'repose' && node.type !== 'shop') return;
-      const preds = cols[c - 1].filter(p => p.type === node.type && (p.edges || []).includes(k));
-      if (!preds.length) return;
-      // The pre-boss column is a protected breather: demote the chaining
-      // predecessor instead, so the breather always stands.
-      if (c === cols.length - 2 && node.type === 'repose') preds.forEach(demote);
+      if (!isRest(node.type)) return;
+      const restPreds = cols[c - 1].filter(p => isRest(p.type) && (p.edges || []).includes(k));
+      if (!restPreds.length) return;
+      if (c === lastCol - 1 && node.type === 'repose') restPreds.forEach(demote); // protect the pre-boss breather
       else demote(node);
+    });
+  }
+  // Rule 2 — no path may chain 4 non-fight nodes (cap a run at 3; demote the 4th).
+  const run = cols.map(col => col.map(() => 0));
+  for (let c = 0; c < cols.length; c++) {
+    cols[c].forEach((node, k) => {
+      if (isFight(node.type)) { run[c][k] = 0; return; }
+      const preds = c === 0 ? [] : cols[c - 1].map((p, pi) => ({ p, pi })).filter(o => (o.p.edges || []).includes(k));
+      const inRun = () => preds.length ? Math.max(...preds.map(o => run[c - 1][o.pi])) : 0;
+      if (inRun() + 1 > 3) {
+        if (c === lastCol - 1 && node.type === 'repose') {
+          while (preds.length && inRun() + 1 > 3) { const w = preds.reduce((a, b) => run[c - 1][b.pi] > run[c - 1][a.pi] ? b : a); demote(w.p); run[c - 1][w.pi] = 0; }
+        } else { demote(node); run[c][k] = 0; return; }
+      }
+      run[c][k] = inRun() + 1;
     });
   }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)

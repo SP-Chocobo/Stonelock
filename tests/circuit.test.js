@@ -189,11 +189,11 @@ assert(you.cardDraw.length + you.cardDiscard.length + (you.cardHand ? you.cardHa
 assert(g.piles[1], 'the foe also has a depleting pile set');
 
 // --- the shop: spend coin on cards / stones / charms / thin ---
-M.startCircuit(); g = M._gauntlet();
+M.startCircuit(424242); g = M._gauntlet(); // fixed seed for a deterministic map
 assert(g.map.cols[M.CIRCUIT.actRows - 2][0].type === 'repose', 'a Repose breather sits before each act boss');
 assert(g.map.cols.flat().filter(n => n.type === 'shop').length >= 2, 'each act scatters at least two shops through the branches');
 assert(g.map.cols.slice(0, 2).flat().every(n => n.type !== 'shop' && n.type !== 'elite'), 'no shop or elite in the first two columns');
-assert(g.map.cols.flat().filter(n => n.type === 'repose').length >= 3, 'Reposes are scattered through the act, not just at the end');
+assert(g.map.cols.flat().filter(n => n.type === 'repose').length >= 1, 'at least the pre-boss Repose breather is present (more scatter in, structure rules permitting)');
 g.coin = 40; g.shop = M.makeShop();
 const sh = g.shop;
 assert(sh.cards.length === 3 && sh.stones.length === 2, 'the shop stocks cards and stones');
@@ -398,15 +398,26 @@ for (const act of [1, 2, 3]) {
   assert(M.buildAct(act).cols.slice(0, 2).flat().every(n => n.type !== 'puzzle'), `no puzzle in act ${act}'s first two columns`);
 }
 M.clearRng();
-// structure rules: no path chains two of the same safe stop; shops kept apart
+// structure rules: no two rest stops back to back, no 4 non-fight nodes in a
+// row on any path, shops kept apart, pre-boss breather intact.
+const isFightT = t => t === 'duel' || t === 'elite' || t === 'boss';
+const isRestT = t => t === 'repose' || t === 'shop';
 for (let act = 1; act <= 3; act++) {
   for (let s = 0; s < 30; s++) {
     M.seedRng(s * 13 + act);
     const cols = M.buildAct(act).cols;
+    assert(cols[cols.length - 2][0].type === 'repose', `act ${act}: the pre-boss Repose breather survives the rules`);
     for (let c = 1; c < cols.length; c++) cols[c].forEach((node, k) => {
-      if (node.type !== 'repose' && node.type !== 'shop') return;
-      assert(!cols[c - 1].some(p => p.type === node.type && (p.edges || []).includes(k)),
-        `act ${act}: no ${node.type}->${node.type} reachable back to back`);
+      if (isRestT(node.type)) assert(!cols[c - 1].some(p => isRestT(p.type) && (p.edges || []).includes(k)),
+        `act ${act}: no two rest stops back to back`);
+    });
+    // longest run of non-fight nodes on any path must be <= 3
+    const run = cols.map(col => col.map(() => 0));
+    for (let c = 0; c < cols.length; c++) cols[c].forEach((node, k) => {
+      if (isFightT(node.type)) { run[c][k] = 0; return; }
+      const preds = c === 0 ? [] : cols[c - 1].map((p, pi) => ({ p, pi })).filter(o => (o.p.edges || []).includes(k));
+      run[c][k] = (preds.length ? Math.max(...preds.map(o => run[c - 1][o.pi])) : 0) + 1;
+      assert(run[c][k] <= 3, `act ${act}: no path chains 4 non-fight nodes`);
     });
     const shopCols = []; cols.forEach((col, ci) => col.forEach(n => { if (n.type === 'shop') shopCols.push(ci); }));
     for (let i = 0; i < shopCols.length; i++) for (let j = i + 1; j < shopCols.length; j++)
