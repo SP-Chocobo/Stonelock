@@ -22,7 +22,7 @@ function setupFight(g, node) {
   g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
   g.opp = node.foe;
   const tier = (g.act - 1) * C.actRows + node.col;
-  g.venue = C.venues[tier % C.venues.length];
+  const vp = M.actVenues(g.act); g.venue = vp[node.col % vp.length]; // act-scoped venues
   let max = C.foeBase + tier * C.foeStep;
   if (node.type === 'elite') max = Math.round(max * C.eliteHpMult);
   if (node.type === 'boss') max = Math.round(max * C.bossHpMult);

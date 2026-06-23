@@ -5298,7 +5298,13 @@ function circuitBegin() {
 // Shops and a baseline of Reposes are placed deliberately in buildAct, so the
 // random roll keeps Reposes rare (they'd otherwise flood the map) and leans on
 // duels/elites/events for the bulk of the branches.
-function rollNodeType(noElite) { const r = rnd(); if (r < 0.22) return noElite ? 'duel' : 'elite'; if (r < 0.50) return 'event'; if (r < 0.58) return 'repose'; return 'duel'; }
+function rollNodeType(noElite, act) {
+  const t = actTuning(act || 1), r = rnd();
+  if (r < t.elite) return noElite ? 'duel' : 'elite';
+  if (r < t.elite + t.event) return 'event';
+  if (r < t.elite + t.event + t.repose) return 'repose';
+  return 'duel';
+}
 function pickFoe() { return BOT_POOL[Math.floor(rnd() * BOT_POOL.length)]; }
 // Elites/bosses carry persona-appropriate charms; earlier acts carry none.
 function nodeFoeCharms(type, act, foe) {
@@ -5351,7 +5357,7 @@ function buildAct(act) {
     else {
       const count = 2 + (rnd() < 0.5 ? 1 : 0);
       const noElite = c === 1;                                   // no elites in the first two nodes
-      arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(noElite), c, i, act));
+      arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(noElite, act), c, i, act));
     }
     arr.forEach((n, i) => { n.lane = laneFor(arr.length, i); });
     cols.push(arr);
@@ -5370,7 +5376,7 @@ function buildAct(act) {
     cols[c][idx].lane = laneFor(cols[c].length, idx);
   };
   placeOne('shop', 2, N - 3); placeOne('shop', 2, N - 3);
-  placeOne('repose', 1, N - 3); placeOne('repose', 1, N - 3);
+  for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3); // Act I gets more breathers
   if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
@@ -5448,6 +5454,18 @@ function pickFoeFor(type, act) {
 function circuitBuildFor(name) {
   const b = CIRCUIT_BUILDS[name] || CIRCUIT_NEUTRALS[name] || CIRCUIT_DEFAULT_BUILD;
   return { pouch: Object.assign({}, b.pouch), deck: TYPES.slice().concat(b.fx || []) };
+}
+// Venues are scoped to each act's region: the roads abroad (Tavern / Docks) →
+// the Phirra underbelly (Slums / Hall) → the high courts (Court of Precedence).
+const CIRCUIT_ACT_VENUES = { 1: ['tavern', 'tavern', 'docks'], 2: ['slums', 'slums', 'hall'], 3: ['court'] };
+function actVenues(act) { return CIRCUIT_ACT_VENUES[act] || CIRCUIT_ACT_VENUES[3]; }
+// Each act also tunes its own texture: Act I is gentler (more Reposes, fewer
+// Elites), Act II squeezes (more Elites, fewer Reposes), Act III leans on
+// strange Encounters. (Foe Standing already ramps across acts via the tier.)
+function actTuning(act) {
+  if (act === 1) return { elite: 0.12, event: 0.26, repose: 0.18, reposes: 2 };
+  if (act === 2) return { elite: 0.28, event: 0.24, repose: 0.06, reposes: 1 };
+  return { elite: 0.24, event: 0.34, repose: 0.06, reposes: 1 }; // act 3+
 }
 
 /* ---- Depleting decks: both the card deck and the stone pouch are draw piles
@@ -5546,7 +5564,7 @@ function circuitSetupFight(node) {
   charmFire('fightStart');
   g.opp = node.foe;
   const tier = nodeTier(g.act, node.col);
-  g.venue = CIRCUIT.venues[tier % CIRCUIT.venues.length];
+  const vp = actVenues(g.act); g.venue = vp[node.col % vp.length]; // venues are scoped to the act's region
   let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
   if (node.type === 'elite') max = Math.round(max * CIRCUIT.eliteHpMult);
   if (node.type === 'boss') max = Math.round(max * CIRCUIT.bossHpMult);
@@ -7033,7 +7051,7 @@ if (typeof window !== 'undefined') {
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
-    PUZZLES, solvePuzzle, puzzleAcademySafe,
+    PUZZLES, solvePuzzle, puzzleAcademySafe, actVenues, actCast,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

@@ -402,6 +402,20 @@ M.clearRng();
 assert(!M.puzzleAcademySafe(M.PUZZLES.wayfarer), 'a Twin Red puzzle is Circuit-only (not Academy-safe)');
 assert(M.puzzleAcademySafe({ stones: ['red', 'blue', 'white'] }), 'a base-stones puzzle is Academy-safe');
 
+// --- per-act venues + tuning (the act themes) ---
+assert(M.actVenues(1).every(v => ['tavern', 'docks'].includes(v)) && M.actVenues(2).every(v => ['slums', 'hall'].includes(v)) && M.actVenues(3).join(',') === 'court',
+  'venues are act-scoped: roads (tavern/docks) → underbelly (slums/hall) → court');
+let rA1 = 0, rA2 = 0, eA1 = 0, eA2 = 0;
+for (let s = 0; s < 40; s++) {
+  M.seedRng(s); const a1 = M.buildAct(1).cols.flat();
+  M.seedRng(s); const a2 = M.buildAct(2).cols.flat();
+  rA1 += a1.filter(n => n.type === 'repose').length; rA2 += a2.filter(n => n.type === 'repose').length;
+  eA1 += a1.filter(n => n.type === 'elite').length; eA2 += a2.filter(n => n.type === 'elite').length;
+}
+assert(rA1 > rA2, 'Act I scatters more Reposes than Act II (gentler)');
+assert(eA2 > eA1, 'Act II fields more Elites than Act I (the squeeze)');
+M.clearRng();
+
 // --- act-scoped foe pools: neutral toughs fill duels, named regulars headline ---
 for (const act of [1, 2, 3]) {
   M.seedRng(900 + act);
