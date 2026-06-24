@@ -463,4 +463,43 @@ const rec = M.circuitRecords();
 assert(rec.runs[0].tables === 9 && rec.runs[0].won === true, 'a finished run banks into history');
 assert(rec.best.tables >= 9 && rec.best.score >= 200, 'best results update');
 
-console.log('OK circuit: act map, node fights, Standing/clear/ground-out, acts→victory, foe charms, effect/charm scoring, depleting decks, spoils, events, records.');
+// --- 2v1 co-op (An Old Rival): recruit, draft, three-seat table, sides, clear ---
+M.seedRng(73);
+M.startCircuit();
+let cg = M._gauntlet();
+// A bested act boss joins the bench.
+cg.act = 1; cg.curNode = { type: 'boss', col: 8, idx: 0, foe: 'The Ferryman' };
+M.circuitAfterNode();
+assert((cg.allies || []).includes('The Ferryman'), 'a cleared boss is recorded as a recruitable ally');
+assert(cg.act === 2, 'clearing the act boss advances the act');
+// The next Encounter in a later act becomes the rival reunion.
+cg.allyOffered = false;
+const ev = M.makeCircuitEvent();
+assert(ev.kind === 'rival' && ev.ally === 'The Ferryman' && /^The /.test(ev.foe) && ev.foe !== ev.ally, 'the rival event offers the ally vs a distinct named foe');
+// Draft pool is 20 cards.
+const pool = M.circuitAllyDraftPool();
+assert(pool.length === 20, 'the ally draft pool is 20 cards');
+// Build the ally loadout the way the screen would, then sit the table.
+cg.deck = M.TYPES.slice(); cg.pouch = { red: 1, white: 1, blue: 1, black: 1 };
+cg.standing = cg.maxStanding;
+const allyDeck = []; for (const t of M.TYPES) { allyDeck.push(t); allyDeck.push(t); } for (let i = 0; i < 8; i++) allyDeck.push(pool[i]);
+cg.allyDeck = allyDeck; cg.allyPouch = { red: 3, white: 3, blue: 2, black: 2 };
+const node = { type: 'event', col: 3, idx: 0, coop: true, foe: ev.foe };
+cg.curNode = node;
+M.circuitSetupCoopFight(node, ev.ally, ev.foe);
+let cG = M._state();
+assert(cG.mode === 'coop' && cG.coop === true && cG.nPlayers === 3, 'the co-op table is a three-seat coop match');
+assert(cG.humans.length === 1 && cG.humans[0] === 0, 'only you are human; the ally and foe are AI');
+assert(cg.piles[0] && cg.piles[1] && cg.piles[2], 'all three seats draw from their own depleting piles');
+assert(allyDeck.length === 24, 'the ally deck is 2-of-each (16) + 8 drafted = 24');
+assert((cg.allyPouch.red + cg.allyPouch.white + cg.allyPouch.blue + cg.allyPouch.black) === 10, 'the ally pouch is 2-of-each (8) + 2 drafted = 10');
+// Sides: you (0) and the ally (2) stand together against the lone foe (1).
+assert(M.isOpponent(0, 1) && M.isOpponent(2, 1) && !M.isOpponent(0, 2), 'sides group you + ally vs the foe');
+assert(cg.foeMax === Math.round((M.CIRCUIT.foeBase + ((2 - 1) * M.CIRCUIT.actRows + 3) * M.CIRCUIT.foeStep) * M.CIRCUIT.coopFoeMult), 'the lone foe carries the co-op Standing multiplier');
+// A clean plain duel afterwards drops the ally pile (no stale third seat).
+M.seedRng(74);
+M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });
+assert(!cg.allyDeck && !cg.allyPouch && !cg.piles[2], 'a following plain duel clears the ally pile');
+M.clearRng();
+
+console.log('OK circuit: act map, node fights, Standing/clear/ground-out, acts→victory, foe charms, effect/charm scoring, depleting decks, spoils, events, 2v1 co-op, records.');

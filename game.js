@@ -714,7 +714,8 @@ function newGame(cfg) {
   const cfgHumans = raid ? null : (cfg.humans || humansFor(cfg.mode));
   const venue = VENUES[cfg.venue || 'tavern'];
   G = {
-    mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid'
+    mode: cfg.mode,                 // 'duel' | 'ffa' | 'teams' | 'hotseat… | 'raid' | 'coop'
+    coop: cfg.mode === 'coop',      // the Circuit 2v1: you (0) + a recruited ally (2) vs one strong foe (1)
     venueKey: cfg.venue || 'tavern', // remembered so a paused match can restore its backdrop on resume
     gauntlet: !!cfg.gauntlet,        // a rung of The Circuit — its own end-handling, never a resumable match
     deal: raid ? (cfg.raidBoss === 'crucible' ? 'house' : 'small') : cfg.deal, // the Crucible forces the deep draw
@@ -821,7 +822,7 @@ function humansFor(mode) {
 function playerName(i) { return G.names[i]; }
 function isHuman(i) { return G.humans.includes(i); }
 function teamOf(i) {
-  if (G.mode === 'raid') return i === 1 ? 1 : 0; // the Magistrate alone vs the party
+  if (G.mode === 'raid' || G.mode === 'coop') return i === 1 ? 1 : 0; // the lone foe vs your side (you + ally)
   return TEAM_MODES.has(G.mode) ? i % 2 : i;
 }
 function isOpponent(a, b) { return teamOf(a) !== teamOf(b); }
@@ -2812,6 +2813,12 @@ function entities() {
       { name: playerName(1), members: [1] },
     ];
   }
+  if (G.mode === 'coop') {
+    return [
+      { name: `${playerName(0)} & ${playerName(2)}`, members: [0, 2] },
+      { name: playerName(1), members: [1] },
+    ];
+  }
   if (TEAM_MODES.has(G.mode)) {
     return [
       { name: G.humans.length === 1 ? 'Your alliance' : `${playerName(0)} & ${playerName(2)}`, members: [0, 2] },
@@ -4374,7 +4381,7 @@ function openSetup() {
 
 // A table shape has a fixed seat count; the chosen "players" option says
 // which seats are real people (the rest are filled by bots).
-function seatCountOf(shape) { return shape === 'duel' ? 2 : 4; }
+function seatCountOf(shape) { return shape === 'duel' ? 2 : shape === 'coop' ? 3 : 4; }
 
 const PLAYERS_OPTIONS = {
   duel: [
@@ -5068,7 +5075,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2,
+  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 2.2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5287,7 +5294,7 @@ function circuitLoadoutScreen() {
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
-  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed };
+  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false };
   GAUNTLET.map = buildAct(1);
   circuitActIntro(1, circuitToMap); // open the run on the Act I cinematic
 }
@@ -5523,6 +5530,7 @@ function circuitResetPiles() {
   g.piles = {};
   g.piles[0] = makePileSet(g.deck, g.pouch);                 // you (seat 0)
   if (g.oppDeck || g.oppPouch) g.piles[1] = makePileSet(g.oppDeck, g.oppPouch); // the foe (seat 1)
+  if (g.allyDeck || g.allyPouch) g.piles[2] = makePileSet(g.allyDeck, g.allyPouch); // the recruited ally (seat 2, co-op only)
 }
 // Draw n entries from a depleting pile (draw → discard → reshuffle when dry).
 function drawPile(draw, discard, n) {
@@ -5596,6 +5604,7 @@ function circuitEnterNode(node) {
 // Set up a duel/elite/boss for the given node (foe, venue, Standing, foe charms).
 function circuitSetupFight(node) {
   const g = GAUNTLET;
+  g.allyDeck = null; g.allyPouch = null; // a plain duel is never co-op — drop any ally pile from a prior 2v1
   g.tableCleared = false; g.groundOut = false;
   g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
   charmFire('fightStart');
@@ -5624,6 +5633,8 @@ function circuitAfterNode() {
   const node = g.curNode;
   const wasBoss = node && node.type === 'boss';
   if (node) { node.done = true; m.pos = { col: node.col, idx: node.idx }; } // you now stand on it
+  // A bested act boss respects you now — they join the bench, recruitable later as a 2v1 ally.
+  if (wasBoss && node.foe) { g.allies = g.allies || []; if (!g.allies.includes(node.foe)) g.allies.push(node.foe); }
   g.curNode = null;
   if (wasBoss) {
     if (g.act >= CIRCUIT.acts) { circuitVictory(); return; }
@@ -5847,17 +5858,18 @@ function circuitHandResult(winner, diff) {
 
 function circuitEnd() {
   const g = GAUNTLET, node = g.curNode || { type: 'duel' };
+  g.allyDeck = null; g.allyPouch = null; g.ally = null; // the ally goes home once the table breaks
   closeModal('showdownModal');
   if (g.tableCleared) {
     g.cleared++;
     const tier = nodeTier(g.act, node.col || 0);
     g.score += 10 + tier + charmVal('scoreBonus');
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
-    const coinWon = (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    const coinWon = node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
     g.coin += coinWon;
-    // Reward by node: duels grow the deck (card/stone); elites and bosses also
-    // offer a charm. The reward screen's confirm advances the map.
-    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
+    // Reward by node: duels grow the deck (card/stone); elites, bosses, and the
+    // 2v1 rival fight also offer a charm. The reward screen's confirm advances.
+    g.reward = makeReward({ charm: node.coop || node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
     g.reward.coin = coinWon; // shown explicitly on the spoils screen
     circuitRewardScreen();
   } else {
@@ -5912,7 +5924,7 @@ function circuitRewardScreen() {
   SFX.play('win');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.add('wide');
   const node = g.curNode || { type: 'duel' };
-  $('circuitTitle').textContent = (node.type === 'boss' ? 'Boss cleared' : node.type === 'elite' ? 'Elite cleared' : 'Node cleared') + ' — take your spoils';
+  $('circuitTitle').textContent = (node.coop ? 'Rival at your side — the foe falls' : node.type === 'boss' ? 'Boss cleared' : node.type === 'elite' ? 'Elite cleared' : 'Node cleared') + ' — take your spoils';
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding}. Add a card and a stone to your decks${r.charms && r.charms.length ? ', and take a charm' : ''} — or skip. Then back to the map.`;
   const body = $('circuitStats');
   body.className = 'circuitload';
@@ -6192,6 +6204,10 @@ function variantForBase(base) { return Object.keys(STONE_VARIANTS).find(v => STO
 function upgradableStones(g) { return STONE_KEYS.filter(c => (g.pouch[c] || 0) > 0 && variantForBase(c)); }
 function makeCircuitEvent() {
   const g = GAUNTLET;
+  // An Old Rival: once you've bested an act boss, the next Encounter in a later
+  // act is a reunion — team up 2v1 against a strong foe. Offered once per run
+  // (decline and they ride on). Takes priority over the random pool.
+  if (g.act >= 2 && (g.allies || []).length && !g.allyOffered) return makeRivalEvent(g);
   // Random encounters only — never the interlude (that now lives on its own
   // Repose node, rolled into the map explicitly).
   const kinds = ['cache', 'cache', 'ambush', 'ambush', 'gold', 'blood', 'merchant'];
@@ -6251,6 +6267,8 @@ function circuitEventScreen() {
     case 'gold': return renderGoldEvent(g);
     case 'blood': return renderBloodEvent(g);
     case 'pact': return renderPactEvent(g);
+    case 'rival': return renderRivalEvent(g);
+    case 'draft': return renderAllyDraftScreen(g);
     case 'merchant': g.event = null; g.shop = makeShop(); return circuitShopScreen(); // a wandering Fence
     default: return renderInterludeEvent(g);
   }
@@ -6426,6 +6444,171 @@ function renderAmbushEvent(g) {
   eventReviewBtn(body);
   $('circuitNext').style.display = 'none'; // choices are the buttons above
   $('circuitModal').classList.add('open');
+}
+
+/* ---- An Old Rival (2v1 co-op): a boss you bested earlier reappears and offers
+   to fight beside you against one strong foe. You draft their loadout — pick 8
+   cards (from a spread of 20) on top of a 2-of-each base deck, and add 2 stones
+   to a 2-of-each base pouch — then the three of you sit the table: you (seat 0)
+   and the ally (seat 2) versus the lone foe (seat 1), who carries the Standing
+   of two. Optional and offered once a run; decline and they ride on. ---- */
+// A line of recruitment patter per persona (with a generic fallback).
+const CIRCUIT_ALLY_LINES = {
+  'The Ferryman': 'You paid the toll in full, once. The river remembers a fair hand. Point me at whoever blocks the crossing.',
+  'The Wagoner':  'Lost my last race to you. Won’t lose this one beside you. Climb on — we’ll run them down together.',
+  'The Deckhand': 'You took me clean, no grudge in it. Two of us on the rail? Nobody boards.',
+  'The Old Hand': 'I’ve folded to a better player twice in my life. You’re the second. Deal me in — I’ll cover your weak hand.',
+  'The Miner':    'You cut deeper than I did, and I respect a deep cut. There’s a vein here worth more than coin. Let’s split it open.',
+  'The Stranger': 'You saw my face once and walked away. That buys you a hand at my side. Once. Don’t waste it.',
+  'The Lady':     'I do not lend my name lightly. You earned it across a table. Stand with me, and we do not lose.',
+  'The Tinker':   'You broke my best gadget and grinned about it. I like you. Let’s build something that breaks THEM.',
+  'The Clerk':    'The ledger says you beat me, fair and signed. I keep honest books — consider this account settled in your favour, this once.',
+};
+function allyLine(name) { return CIRCUIT_ALLY_LINES[name] || 'We’ve crossed before, and you came out ahead. Let’s see what the two of us do on the same side of the table.'; }
+// Build the rival reunion: the most recently bested boss returns, set against a
+// strong named foe of the current act (never the ally themself).
+function makeRivalEvent(g) {
+  const ally = g.allies[g.allies.length - 1];
+  let foe = pickFoeFor('elite', g.act);
+  for (let i = 0; i < 8 && foe === ally; i++) foe = pickFoeFor('elite', g.act);
+  return { kind: 'rival', ally, foe, choice: null };
+}
+// The 20-card draft pool: every base type appears, roughly half carrying a
+// modifier — enough spread to actually shape the ally's deck.
+function circuitAllyDraftPool() {
+  const types = shuffle(TYPES.slice());
+  const fxBag = shuffle(CIRCUIT_FX.slice());
+  const pool = [];
+  for (let i = 0; i < 20; i++) {
+    const type = types[i % types.length];
+    const fx = (i % 2 === 0) ? fxBag[(i >> 1) % fxBag.length] : null;
+    pool.push(fx ? { type, fx } : type);
+  }
+  const out = shuffle(pool);
+  out.forEach(c => { const fx = specFx(c); if (fx) markCharmSeen('fx:' + fx); });
+  return out;
+}
+function renderRivalEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const body = eventShell('An Old Rival', `Standing ${g.standing}/${g.maxStanding}. A familiar figure falls into step beside you on the road — ${ev.ally}, the master you broke earlier. They’ve heard ${ev.foe} holds this stretch, and they don’t much care for ${ev.foe}.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  const quote = document.createElement('div'); quote.className = 'rivalquote';
+  quote.innerHTML = `<div class="rivalquote-who">${ev.ally}</div><div class="rivalquote-line">“${allyLine(ev.ally)}”</div>`;
+  sec.appendChild(quote);
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  const fight = document.createElement('button');
+  fight.className = 'eventopt';
+  fight.innerHTML = `<div class="eventopt-l">Fight together</div><div class="eventopt-n">Outfit ${ev.ally}’s deck, then take ${ev.foe} two-on-one. A strong foe, but two hands — and a rich spoil.</div>`;
+  fight.onclick = () => { ev.kind = 'draft'; g.allyDraft = { ally: ev.ally, foe: ev.foe, pool: circuitAllyDraftPool(), cards: [], stones: {} }; circuitEventScreen(); };
+  const wave = document.createElement('button');
+  wave.className = 'eventopt';
+  wave.innerHTML = `<div class="eventopt-l">Wave them on</div><div class="eventopt-n">Part ways and keep to your own road. They won’t offer twice.</div>`;
+  wave.onclick = () => { g.allyOffered = true; g.event = null; circuitAfterNode(); };
+  orow.appendChild(fight); orow.appendChild(wave);
+  sec.appendChild(orow); body.appendChild(sec);
+  eventReviewBtn(body);
+  $('circuitNext').style.display = 'none'; // choices are the buttons above
+  $('circuitModal').classList.add('open');
+}
+// Outfit the ally: pick 8 of 20 cards (on top of 2-of-each base) and 2 stones
+// (on top of 2-of-each base), then sit the 2v1 table.
+function renderAllyDraftScreen(g) {
+  const d = g.allyDraft;
+  const stoneTotal = STONE_KEYS.reduce((s, c) => s + (d.stones[c] || 0), 0);
+  const ready = d.cards.length === 8 && stoneTotal === 2;
+  SFX.play('flip');
+  const body = eventShell(`Outfit ${d.ally}`, `Build your ally up to fight at your side. Their deck starts at two of each base card; choose 8 more to add. Their pouch starts at two of each stone; add 2 more. Then face ${d.foe}, together.`);
+
+  // Cards — pick exactly 8 of 20.
+  const cs = document.createElement('div'); cs.className = 'ldsection';
+  cs.innerHTML = `<div class="ldhead">Add cards — ${d.cards.length}/8</div>`;
+  const crow = document.createElement('div'); crow.className = 'ldcards';
+  d.pool.forEach((c, i) => {
+    const sel = d.cards.includes(i);
+    const type = specType(c), fx = specFx(c), v = specVal(c);
+    const info = fx ? (FX_INFO[fx] || { label: fx }) : null;
+    const el = document.createElement('div');
+    el.className = 'card faceup loadcard' + (sel ? ' selected' : '');
+    el.innerHTML = `<div class="cval val-${v}">${v}</div>${info ? `<div class="cfx cfx-${fx}">${info.label}</div>` : ''}<div class="cicon icon-${type}"></div><div class="cname">${type}</div>`;
+    el.onclick = () => {
+      if (sel) d.cards = d.cards.filter(x => x !== i);
+      else if (d.cards.length < 8) d.cards.push(i);
+      renderAllyDraftScreen(g);
+    };
+    crow.appendChild(el);
+  });
+  cs.appendChild(crow); body.appendChild(cs);
+
+  // Stones — add exactly 2 (any base colours, duplicates allowed).
+  const ss = document.createElement('div'); ss.className = 'ldsection';
+  ss.innerHTML = `<div class="ldhead">Add stones — ${stoneTotal}/2</div>`;
+  const srow = document.createElement('div'); srow.className = 'ldpouches';
+  for (const color of STONE_KEYS) {
+    const n = d.stones[color] || 0;
+    const b = document.createElement('button');
+    b.className = 'ldpouch rewardstone' + (n ? ' selected' : '') + (stoneTotal >= 2 && !n ? ' disabled' : '');
+    b.disabled = stoneTotal >= 2 && !n;
+    b.title = `${STONES[color].name} — ${STONES[color].power}`;
+    const cluster = document.createElement('div'); cluster.className = 'ldstones';
+    const dot = document.createElement('span'); dot.className = `stonedot ${color}`; cluster.appendChild(dot);
+    b.appendChild(cluster);
+    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')}${n ? ` +${n}` : ''}`;
+    b.appendChild(lab);
+    b.onclick = () => { // left-click adds (cap 2); click a held one to drop it back
+      if (n && stoneTotal >= 2) d.stones[color] = n - 1;
+      else if (stoneTotal < 2) d.stones[color] = n + 1;
+      else d.stones[color] = n - 1;
+      renderAllyDraftScreen(g);
+    };
+    srow.appendChild(b);
+  }
+  ss.appendChild(srow);
+  const hint = document.createElement('div'); hint.className = 'ldnote';
+  hint.textContent = 'Tap a stone to add it; tap a held stone to drop it.';
+  ss.appendChild(hint);
+  body.appendChild(ss);
+
+  const next = $('circuitNext'); next.style.display = '';
+  next.disabled = !ready;
+  next.textContent = !ready ? `Pick 8 cards & 2 stones` : `Take the field with ${d.ally} ›`;
+  next.onclick = () => {
+    const picks = d.cards.map(i => d.pool[i]);
+    const deck = [];
+    for (const t of TYPES) { deck.push(t); deck.push(t); }   // two of each base card
+    for (const c of picks) deck.push(c);
+    const pouch = { red: 2, white: 2, blue: 2, black: 2 };    // two of each base stone
+    for (const color of STONE_KEYS) if (d.stones[color]) pouch[color] += d.stones[color];
+    g.allyDeck = deck; g.allyPouch = pouch;
+    g.allyOffered = true;
+    const ally = d.ally, foe = d.foe;
+    g.allyDraft = null; g.event = null;
+    g.curNode.foe = foe; g.curNode.coop = true;
+    circuitSetupCoopFight(g.curNode, ally, foe);
+  };
+  $('circuitModal').classList.add('open');
+}
+// Set up the 2v1 table: you (0) + ally (2) vs one strong foe (1).
+function circuitSetupCoopFight(node, ally, foe) {
+  const g = GAUNTLET;
+  g.tableCleared = false; g.groundOut = false;
+  g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
+  charmFire('fightStart');
+  g.opp = foe; g.ally = ally;
+  const tier = nodeTier(g.act, node.col);
+  const vp = actVenues(g.act); g.venue = vp[node.col % vp.length];
+  let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
+  max = Math.round(max * CIRCUIT.coopFoeMult);   // a lone foe braced against two of you
+  g.foeMax = max; g.foeHp = max;
+  g.foeCharms = node.foeCharms || [];
+  const fb = circuitBuildFor(foe);
+  g.oppDeck = fb.deck; g.oppPouch = fb.pouch;     // ally pile lives on g.allyDeck/g.allyPouch (from the draft)
+  circuitResetPiles();
+  closeModal('circuitModal');
+  if (logEl) logEl.innerHTML = '';
+  newGame({ mode: 'coop', humans: [0], companyNames: [foe, ally], venue: g.venue, deal: 'small', target: 999, gauntlet: true });
+  if (typeof document !== 'undefined') announce(`${ally} stands with you against ${foe}`, 'white', 0);
+  updateCircuitHud();
 }
 
 // A Windfall: a flat coin find, no strings.
@@ -6817,7 +7000,7 @@ function updateCircuitHud() {
   hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · <b>${g.coin || 0}</b>c · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
-      `<div class="chud-bar you"><span class="chud-lab">You</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
+      `<div class="chud-bar you"><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
       `<div class="chud-bar foe"><span class="chud-lab">${(g.opp || '') + tag}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
     `</div>` +
     ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
@@ -7145,7 +7328,7 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
-    buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
+    buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitSetupCoopFight, circuitAllyDraftPool, pickFoeFor, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
