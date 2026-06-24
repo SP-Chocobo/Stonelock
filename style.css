@@ -1156,12 +1156,14 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .loadcard.selected { outline: 2px solid var(--gold-bright); outline-offset: 2px; transform: translateY(-7px); border-color: var(--gold-bright); }
 .loadcard.selected:hover { transform: translateY(-7px); transition-delay: 0s; }
 /* Gallery-card layout (loadout / shop / reward / deck / puzzle): value top-left,
-   the card NAME across the top beside it, the icon centred, the EFFECT named
-   below the icon. (The in-play board keeps its own layout — it isn't .loadcard.) */
-.loadcard { justify-content: center; padding-bottom: 0; }
-.loadcard .cname { position: absolute; top: 11px; left: 37%; right: 6%; margin: 0; text-align: left; font-size: 13px; line-height: 1.04; }
-.loadcard .cicon { order: 1; }
-.loadcard .cfx { position: static; order: 2; top: auto; right: auto; margin: 8px auto 0; font-size: 9.5px; box-shadow: none; }
+   the card NAME across the top beside it, the icon below that, the EFFECT named
+   under the icon. A taller card + a reserved top band keep them from overlapping.
+   (The in-play board keeps its own layout — it isn't .loadcard.) */
+.loadcard { height: 136px; justify-content: flex-start; padding: 31px 5px 6px; }
+.loadcard .cval { top: 16px; left: 16px; transform: translate(-50%, -50%); }
+.loadcard .cname { position: absolute; top: 7px; left: 30px; right: 6px; margin: 0; text-align: left; font-size: 12.5px; line-height: 1.0; }
+.loadcard .cicon { order: 1; margin: 0 auto; }
+.loadcard .cfx { position: static; order: 2; top: auto; right: auto; margin: 7px auto 0; font-size: 9.5px; box-shadow: none; max-width: 92%; }
 
 /* Effect-card badge — a small ribbon naming the card's rider. */
 .cfx {
