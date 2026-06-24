@@ -6075,6 +6075,11 @@ function circuitShopScreen() {
   const body = $('circuitStats'); body.className = 'circuitload'; body.innerHTML = '';
   const can = p => g.coin >= p;
 
+  // The Fence's face — a per-act merchant backdrop (art at assets/shops/actN.jpg).
+  const banner = document.createElement('div'); banner.className = 'shopbanner';
+  banner.style.backgroundImage = `linear-gradient(180deg, rgba(20,14,8,0.08), rgba(14,9,4,0.62)), url('assets/shops/act${Math.min(g.act, 3)}.jpg?v=1')`;
+  body.appendChild(banner);
+
   // Cards
   const cs = document.createElement('div'); cs.className = 'ldsection';
   cs.innerHTML = `<div class="ldhead">Cards</div>`;

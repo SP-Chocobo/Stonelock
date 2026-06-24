@@ -1374,7 +1374,10 @@ body[data-compact="1"] .board .cfx { display: none; }
 .actscene-title { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 32px; line-height: 1.05; color: #f4e6c0; text-shadow: 0 2px 10px rgba(0,0,0,0.85); margin: 2px 0; }
 .actscene-tag { font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: 14px; color: var(--parchment); text-shadow: 0 1px 6px rgba(0,0,0,0.85); }
 @media (max-width: 640px) { .actscene-title { font-size: 24px; } }
-/* The shop (The Fence). */
+/* The shop (The Fence) — a per-act merchant backdrop over a painted fallback. */
+.shopbanner { width: 100%; aspect-ratio: 3 / 1; max-height: 150px; border-radius: 10px; margin: 0 0 14px;
+  border: 1px solid var(--gold); box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  background-color: #2a2011; background-size: cover; background-position: center 34%; background-repeat: no-repeat; }
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }
 .shopprice { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: 'Cinzel', Georgia, serif;
