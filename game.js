@@ -3225,7 +3225,7 @@ function render() {
 
 let INGAME = false;
 
-function hideTitle() { if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden'); }
+function hideTitle() { if (typeof document !== 'undefined') { $('titleScreen').classList.add('hidden'); document.body.classList.remove('titleopen'); } }
 
 // Go to the title — and PAUSE rather than abandon. The match state (G) and its
 // board DOM are kept intact behind the title, so "Continue match" can drop the
@@ -3245,6 +3245,7 @@ function showTitle() {
   setVenueBackdrop(null);
   refreshTitleButtons();
   resetTitleMenu(); // always come back to the main face, not the Play submenu
+  document.body.classList.add('titleopen'); // pin the page so a mobile scroll can't peek the board behind the title
   const t = $('titleScreen');
   t.classList.remove('hidden');
   // Replay the intro (scene zoom + staggered menu) on every return to the
@@ -3283,7 +3284,14 @@ function showTitleMenu(which) {
   const main = $('titleMenuMain'), play = $('titleMenuPlay');
   if (!main || !play) return;
   const t = $('titleScreen'); if (t) t.classList.remove('intro');
-  if (which === 'play') refreshTitleButtons(); // Continue reflects current state when the submenu opens
+  if (which === 'play') {
+    refreshTitleButtons(); // Continue reflects current state when the submenu opens
+    // Lock the submenu to the main menu's height (measured while it's still
+    // visible) so the centered stack doesn't shift: the top button and the
+    // Alpha toggle stay put, and the slack from the missing row falls between
+    // Back and Alpha.
+    play.style.minHeight = main.offsetHeight + 'px';
+  }
   const leaving = which === 'play' ? main : play;
   const entering = which === 'play' ? play : main;
   const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

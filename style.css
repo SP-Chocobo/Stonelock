@@ -1648,6 +1648,10 @@ body[data-compact="1"] .board .cfx { display: none; }
 .titlescreen.intro::before { animation: titleZoom 3.2s cubic-bezier(0.22,0.61,0.36,1) both; }
 @keyframes titleZoom { from { transform: scale(1.07); } to { transform: scale(1); } }
 .titlescreen.hidden { display: none; }
+/* While the title is up, pin the page: the board persists behind the fixed
+   overlay, and a mobile scroll/rubber-band would otherwise flash it (e.g. the
+   "Table Talk" header) past the overlay's bottom edge. */
+body.titleopen { overflow: hidden; overscroll-behavior: none; }
 .titleinner { position: relative; z-index: 1; text-align: center; padding: 20px; width: 100%; max-width: 540px; transform: translateY(9vh); }
 /* The title now lives in the artwork — keep an accessible name for readers. */
 .emblem, .titlesub { display: none; }
