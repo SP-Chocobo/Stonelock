@@ -4233,7 +4233,7 @@ function renderControls() {
   if (['target-own', 'target-blue-own', 'target-blue-opp', 'target-black'].includes(UI.mode)) {
     const cancel = document.createElement('button');
     cancel.className = 'btn';
-    cancel.textContent = 'Back';
+    cancel.textContent = '‹ Back';
     cancel.onclick = humanCancelStone;
     bar.appendChild(cancel);
     const noTargets = !stoneHasValidTarget(UI.pendingStone);
@@ -4254,7 +4254,7 @@ function renderControls() {
   if (['arch-slot', 'arch-slot-blue-a', 'arch-slot-blue-b'].includes(UI.mode)) {
     const cancel = document.createElement('button');
     cancel.className = 'btn';
-    cancel.textContent = 'Back';
+    cancel.textContent = '‹ Back';
     cancel.onclick = humanCancelStone;
     bar.appendChild(cancel);
     const blackNoTarget = UI.pendingStone === 'black' && !archReverse()
@@ -4336,7 +4336,7 @@ function showShowdownModal(d, review) {
   }
 
   body.innerHTML += `<div class="verdict">${verdict}</div>`;
-  $('nextHandBtn').textContent = review ? 'Back to the table'
+  $('nextHandBtn').textContent = review ? '‹ Back to the table'
     : matchWinner ? 'See the result' : 'Next hand — the Dealer Token rotates';
   // In a lesson, the coach drives ("Finish lesson") — hide the Next-hand button
   // so it can't deal another hand of the same lesson out from under the coaching.
@@ -4372,7 +4372,7 @@ function showRaidShowdown(d, review) {
       : `Dead level at <b>${teamScore}</b> — ${bn} holds on the tie. Nothing moves.`;
   $('showdownBody').innerHTML =
     `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
-  $('nextHandBtn').textContent = review ? 'Back to the table'
+  $('nextHandBtn').textContent = review ? '‹ Back to the table'
     : matchWinner ? 'See the result' : 'Next hand';
   $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
@@ -4406,7 +4406,7 @@ function showCoopShowdown(d, review) {
       : `Dead level at <b>${teamScore}</b> — ${fn} holds. Nothing moves.`;
   $('showdownBody').innerHTML =
     `<div class="raidteam"><div class="raidlabel">Your side — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${foeHtml}<div class="verdict">${verdict}</div>`;
-  $('nextHandBtn').textContent = review ? 'Back to the table' : (G.over ? 'See the result' : 'Next hand');
+  $('nextHandBtn').textContent = review ? '‹ Back to the table' : (G.over ? 'See the result' : 'Next hand');
   $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
   $('showdownModal').classList.add('open');
