@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=236">
+<link rel="stylesheet" href="style.css?v=237">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=236" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=236" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=237" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=237" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=236" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=236" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=237" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=237" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -84,14 +84,14 @@
 
 <!-- Tutorial coach panel -->
 <div id="coach" class="coach" style="display:none">
-  <button id="coachMin" class="coachmin" title="Hide instructions">–</button>
+  <button id="coachMin" class="coachmin" aria-label="Hide instructions" title="Hide instructions">–</button>
   <div id="coachText" class="coachtext"></div>
   <div class="coachbtns">
     <button id="coachNext" class="btn primary">Next</button>
     <button id="coachSkip" class="btn ghost">Skip tutorial</button>
   </div>
 </div>
-<button id="coachRestore" class="coachrestore" style="display:none" title="Show tutorial instructions">Tutorial ▸</button>
+<button id="coachRestore" class="coachrestore" style="display:none" aria-label="Show tutorial instructions" title="Show tutorial instructions">Tutorial ›</button>
 
 <div class="game">
 
@@ -129,7 +129,7 @@
       <button id="rulesBtn" class="btn">Rules</button>
       <button id="reviewBtn" class="btn" title="Review the last showdown" disabled>Last Hand</button>
       <div class="menuwrap">
-        <button id="menuBtn" class="btn" title="Match menu">Menu ▾</button>
+        <button id="menuBtn" class="btn" aria-label="Match menu" title="Match menu">Menu ▾</button>
         <div id="menuPop" class="menupop" style="display:none">
           <div id="tableSummary" class="tablesummary"></div>
           <button id="newGameBtn" class="btn ghost">New match — set the table</button>
@@ -449,6 +449,6 @@
   </div>
 </div>
 
-<script src="game.js?v=236"></script>
+<script src="game.js?v=237"></script>
 </body>
 </html>

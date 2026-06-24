@@ -6215,7 +6215,7 @@ function shopTile(o) {
   b.className = 'shoptile shoptile-' + o.accent + (dead ? ' sold' : (o.afford ? '' : ' cantafford')) + (o.selected ? ' selected' : '');
   b.disabled = dead || !o.afford;
   if (o.title) b.title = o.title;
-  const priceLabel = o.soldLabel != null ? o.soldLabel : (o.sold ? 'sold' : o.price + 'c');
+  const priceLabel = o.soldLabel != null ? o.soldLabel : (o.sold ? 'sold' : '⛁' + o.price);
   b.innerHTML = `<div class="shoptile-ic">${o.icon}</div>` +
     `<div class="shoptile-name">${o.name}</div>` +
     (o.desc ? `<div class="shoptile-desc">${o.desc}</div>` : '') +
@@ -6249,7 +6249,7 @@ function circuitShopScreen() {
     const sold = s.sold['c' + i], v = (it.fx === 'anchor') ? CIRCUIT_ANCHOR : ((REGIONS.bar.values[it.type] != null) ? REGIONS.bar.values[it.type] : 2);
     const info = FX_INFO[it.fx] || { label: it.fx };
     const el = document.createElement('div'); el.className = 'card faceup loadcard shopitem' + (sold ? ' sold' : '');
-    el.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${it.fx}">${info.label}</div><div class="cicon icon-${it.type}"></div><div class="cname">${it.type}</div><div class="shopprice">${sold ? 'sold' : it.price + 'c'}</div>`;
+    el.innerHTML = `<div class="cval val-${v}">${v}</div><div class="cfx cfx-${it.fx}">${info.label}</div><div class="cicon icon-${it.type}"></div><div class="cname">${it.type}</div><div class="shopprice">${sold ? 'sold' : '⛁' + it.price}</div>`;
     if (!sold && can(it.price)) el.onclick = () => circuitShopBuy('card', i); else if (!sold) el.classList.add('cantafford');
     crow.appendChild(el);
   });
@@ -7174,7 +7174,7 @@ function updateCircuitHud() {
   // At the table the persona IS revealed (you know who you face here) — it's
   // only the map tree that keeps it hidden.
   const node = g.curNode, tag = node && node.type === 'boss' ? ' ⚔' : node && node.type === 'elite' ? ' ★' : '';
-  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · <b>${g.coin || 0}</b>c · Score <b>${g.score}</b>` +
+  hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · ⛁<b>${g.coin || 0}</b> · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
       `<div class="chud-bar you"><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +

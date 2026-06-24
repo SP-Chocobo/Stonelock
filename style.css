@@ -897,6 +897,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .btn:hover:not(:disabled) { border-color: var(--gold-bright); filter: brightness(1.15); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.4; cursor: default; }
+/* Keyboard focus — a visible ring so keyboard/controller users can track the
+   selection (mouse clicks don't trigger :focus-visible, so it stays unobtrusive). */
+.btn:focus-visible, .mapnode.reach:focus-visible, .titlealpha:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 .btn.primary {
   background: linear-gradient(180deg, var(--gold-bright), var(--gold) 55%, #9a7427);
   color: var(--ink);
@@ -1306,8 +1309,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapedge { stroke: var(--gold-dim); stroke-width: 2; opacity: 0.5; }
 .mapedge.taken { stroke: var(--gold); opacity: 0.7; }
 .mapedge.live { stroke: var(--gold-bright); stroke-width: 2.5; opacity: 1; }
-.mapnode { z-index: 1; }
-.mapnode { display: flex; align-items: center; justify-content: center; padding: 6px; min-height: 52px; border-radius: 9px; cursor: default; position: relative;
+.mapnode { z-index: 1; display: flex; align-items: center; justify-content: center; padding: 6px; min-height: 52px; border-radius: 9px; cursor: default; position: relative;
   background: rgba(20,14,8,0.55); border: 1px solid var(--gold-dim); color: var(--parchment); transition: all 0.12s ease; }
 .mapnode.reach { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim) inset; }
 .mapnode.reach:hover { border-color: var(--gold-bright); background: rgba(40,30,17,0.85); transform: translateY(-2px); }
@@ -1350,7 +1352,6 @@ body[data-compact="1"] .board .cfx { display: none; }
 .maptip-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gold-bright); }
 .maptip-b { font-family: 'Alegreya', Georgia, serif; font-size: 11.5px; color: var(--parchment-dim); margin-top: 2px; }
 .mapnode-puzzle .mapnode-t { color: #6fc0c9; }
-.mapnode-puzzle .mapnode-i { color: #6fc0c9; }
 @media (max-width: 640px) { .mapnode-i { font-size: 16px; } }
 /* Puzzle board: two rows of cards (rival above, yours below). */
 .puzzlerow { justify-content: center; }
