@@ -525,7 +525,7 @@ function archQueueStone(actor, color, slot, swap) {
 function archSeatScores(resolvedSlots) {
   const opts = variantOpts();
   const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: !!c.poisoned }); } return cs; };
-  return G.players.map(p => (isMagistrate(p.idx) ? twoBestHands : bestSelection)(cardsOf(p.idx), G.region.values, opts).score);
+  return G.players.map(p => (isTwoHandFoe(p.idx) ? twoBestHands : bestSelection)(cardsOf(p.idx), G.region.values, opts).score);
 }
 // What `who` is playing to maximize: own side's total minus the best rival side's.
 // Team-agnostic, so it serves the raid (party vs boss) and the venue (per-seat /
@@ -937,6 +937,21 @@ function archReverse() { return (isArchivist() || isCrucible()) && !!archCfg().r
 function bossCardCount() { return (isArchivist() || isCrucible()) ? archCfg().cards : RAID_BOSS_CARDS; }
 function raidBossName(boss) { return boss === 'warden' ? 'The Warden' : boss === 'apothecary' ? 'The Apothecary' : boss === 'archivist' ? 'The Archivist' : boss === 'quartermaster' ? 'The Quartermaster' : boss === 'crucible' ? 'The Crucible' : 'The Magistrate'; }
 function isMagistrate(seat) { return G.mode === 'raid' && seat === 1; }
+// The Circuit 2v1: the lone foe (seat 1) is braced against two of you, so it
+// fields a bigger board and scores its TWO best hands — like a raid boss, but
+// decided by Standing, not the campaign ledger.
+const COOP_FOE_CARDS = 10;
+// The 2v1 foe is boss-tier and tuned HARD on purpose: by the Act 2/3 reunion you
+// carry relics and modded cards, so a vanilla foe would play easy — its raw
+// strength is meant to be pulled back toward even by your accumulated leverage.
+// Its difficulty is SCORING leverage (a developed deck + Triad/Pair charms), not
+// theft: a structure-leaning pouch (and the 2-stone-per-hand cap) keep it from
+// stripping the very build that's supposed to carry you.
+const COOP_FOE_FX = ['keen', 'anchor', 'lodestone', 'drain', 'keen', 'anchor']; // modifiers laid over its persona deck
+const COOP_FOE_CHARMS = ['forgerseal', 'masterforger', 'matchedset'];            // Pairs/Triads +1, Triads +3, Pairs +3
+const COOP_FOE_POUCH = { red: 2, black: 2, white: 1, blue: 1 };                  // phantom/tempo lean; little theft
+function isCoopFoe(seat) { return G.coop && seat === 1; }
+function isTwoHandFoe(seat) { return isMagistrate(seat) || isCoopFoe(seat); }
 // The Quartermaster rations the pouch: each hand one stone-colour is locked away
 // from EVERYONE (party and boss), cycling red→white→blue→black hand by hand —
 // you can't lean on a favourite. Also folded into the Crucible.
@@ -944,8 +959,8 @@ function isQuartermaster() { return G.mode === 'raid' && G.raidBoss === 'quarter
 function deniedColor() { return (isQuartermaster() || isCrucible()) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
 // The Crucible keeps the deep DRAW (9 in hand) but fields a LEAN footprint — you
 // see lots, commit few — so the party can't out-score the boss on raw selection.
-function footprintOf(seat) { return isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint); }
-function handSizeFor(seat) { return isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().hand || dealSpec().handSize) : dealSpec().handSize); }
+function footprintOf(seat) { return isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint); }
+function handSizeFor(seat) { return isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().hand || dealSpec().handSize) : dealSpec().handSize); }
 
 
 function orderFrom(start) {
@@ -986,7 +1001,7 @@ function startHand() {
     // The Circuit: each seat with a build (you AND the foe) draws a working set
     // of stones from its own Pouch each hand — a depleting stone deck (draw →
     // discard → reshuffle when dry), so thinning and added stones shift the draw.
-    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones + (p === 0 ? charmVal('drawStones') : 0));
+    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones + (p === 0 ? charmVal('drawStones') : 0) + (isCoopFoe(p) ? 2 : 0));
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands && !(p === 0 && G.gauntlet && charmVal('noExhaust'))) {
@@ -1399,8 +1414,8 @@ function executeStep(step) {
       // Magistrate commits double, always face-up.
       const reveals = [];
       for (let i = 0; i < G.nPlayers; i++) {
-        const up = isMagistrate(i) ? true : step.faceUp;
-        const cnt = isMagistrate(i) ? step.count * 2 : step.count;
+        const up = isTwoHandFoe(i) ? true : step.faceUp;
+        const cnt = isTwoHandFoe(i) ? step.count * 2 : step.count;
         const cards = isHuman(i) ? step.choices[i] : aiChooseDeploy(i, cnt, up);
         deployCards(i, cards, up);
         reveals.push(`${playerName(i)} ${verb(i, 'show')} ${cards.map(c => c.type).join(' and ')}`);
@@ -2220,6 +2235,28 @@ const CHARMS = {
   followingsea: { label: 'Following Sea',       blurb: 'The hand after you win one, your whole board reads +2.', bossOnly: 1, persona: 'The Deckhand', on: { handWon: (g) => { g.pressNext = true; }, handStart: (g) => { if (g.pressNext) { g.handBuff = (g.handBuff || 0) + 2; g.pressNext = false; } } } },
   secondwind:   { label: 'Second Wind',         blurb: 'The first time your Standing would break each act, you survive at 1 instead.', bossOnly: 1, persona: 'The Old Hand' },
   veilwalker:   { label: 'Veilwalker',          blurb: "Each hand, one of the opponent's veiled cards is revealed to you.", bossOnly: 1, persona: 'The Stranger' },
+  // The trophy of the 2v1 "Old Rival" event (its only source). Each hand, the
+  // first Lock or Steal the foe drew is shuffled back into their pouch and they
+  // draw a random replacement — rattling their control before they can set it.
+  doublecross:  { label: 'The Double-Cross',    blurb: 'Each hand, the first Lock or Steal the foe drew is shuffled back into their pouch — they draw a random stone in its place.', bossOnly: 1, coopRelic: 1,
+    on: { handStart: () => {
+      if (typeof G === 'undefined' || !G || !G.gauntlet) return;
+      const foe = G.players && G.players[1]; if (!foe) return;
+      const ps = (typeof GAUNTLET !== 'undefined' && GAUNTLET.piles) ? GAUNTLET.piles[1] : null;
+      if (!ps || !ps.stoneHand) return;
+      const i = ps.stoneHand.findIndex(s => { const b = stoneBase(s); return b === 'white' || b === 'blue'; });
+      if (i < 0) return; // they drew no control stone this hand — nothing to rattle
+      const removed = ps.stoneHand[i];
+      ps.stoneHand.splice(i, 1);
+      ps.stoneDraw.push(removed); shuffle(ps.stoneDraw);     // shuffle it back into the pouch
+      const rep = drawPile(ps.stoneDraw, ps.stoneDiscard, 1)[0]; // draw a random replacement
+      if (rep != null) ps.stoneHand.push(rep);
+      // Mirror the swap onto the foe's live drawn set so the AI plans around it.
+      foe.pool[removed] = Math.max(0, (foe.pool[removed] || 0) - 1);
+      const ai = foe.active.indexOf(removed); if (ai >= 0) foe.active.splice(ai, 1);
+      if (rep != null) { foe.pool[rep] = (foe.pool[rep] || 0) + 1; foe.active.push(rep); }
+      if (typeof document !== 'undefined') announce('The Double-Cross — you rattle their hand', 'blue', 0);
+    } } },
 };
 // Charms are seat-aware: seat 0 is the player (GAUNTLET.charms); seat 1 is the
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
@@ -2370,8 +2407,8 @@ function estimate(ofPlayer, viewer) {
     return { type, hasRed: c.hasRed, phantoms: c.phantoms, poisoned: c.poisoned, wild: c.wild, evalue: c.evalue };
   });
   if (!cards.length) return 0;
-  // The Magistrate's worth is its two best hands, so it plays for both.
-  if (isMagistrate(ofPlayer)) return twoBestHands(cards, values, variantOpts()).score;
+  // The Magistrate (and the Circuit 2v1 foe) is worth its two best hands, so it plays for both.
+  if (isTwoHandFoe(ofPlayer)) return twoBestHands(cards, values, variantOpts()).score;
   return bestSelection(cards, values, variantOpts()).score;
 }
 
@@ -2529,8 +2566,8 @@ function aiChooseDeploy(who, count, faceUp) {
     }
     p.aiPlan = { faceUp: faceUpSet, hidden: hiddenSet, queue: faceUpSet.concat(hiddenSet) };
   }
-  // The Magistrate fields everything face-up, in ranked order.
-  if (isMagistrate(who)) return p.aiPlan.queue.splice(0, count);
+  // The Magistrate (and the 2v1 foe) fields everything face-up, in ranked order.
+  if (isTwoHandFoe(who)) return p.aiPlan.queue.splice(0, count);
   if (faceUp) return p.aiPlan.faceUp;
   return p.aiPlan.hidden.splice(0, count);
 }
@@ -2847,6 +2884,7 @@ function showdown() {
   ));
 
   if (G.mode === 'raid') { raidShowdown(sel); return; }
+  if (G.coop) { coopShowdown(sel); return; }
 
   const ents = entities().map(e => ({
     ...e,
@@ -2927,6 +2965,28 @@ function raidShowdown(sel) {
 
   if (matchWinner) G.over = true;
   G.lastShowdown = { raid: true, sel, boss, teamScore, diff, matchWinner, hand: G.handNum };
+  showShowdownModal(G.lastShowdown, false);
+}
+
+// The Circuit 2v1 showdown: your side (you + ally, two hands summed) vs the lone
+// foe scoring its TWO best hands off its field — a genuine two-vs-two contest.
+// Decided by Standing (circuitHandResult), not the campaign ledger.
+function coopShowdown(sel) {
+  const party = [0, 2];
+  const teamScore = party.reduce((s, m) => s + sel[m].score, 0);
+  const foe = twoBestHands(
+    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) })),
+    G.region.values, scoreOptsFor(1) // the foe's charms boost its two hands (scoring leverage)
+  );
+  const diff = teamScore - foe.score; // positive = your side out-scores the foe
+  const fn = playerName(1), pn = `${playerName(0)} & ${playerName(2)}`;
+  let winner = null;
+  if (diff > 0) { winner = { name: pn, members: party }; log(`Your side fields ${teamScore} to ${fn}'s ${foe.score} (two hands) — you press by ${diff}.`, 'sys'); }
+  else if (diff < 0) { winner = { name: fn, members: [1] }; log(`${fn} fields ${foe.score} across two hands to your side's ${teamScore}, and presses ${-diff}.`, 'sys'); }
+  else log(`Dead level at ${teamScore}. ${fn} holds — nothing moves.`, 'sys');
+
+  if (G.gauntlet) circuitHandResult(winner, Math.abs(diff)); // Standing decides the table
+  G.lastShowdown = { coop: true, sel, foe, teamScore, diff, winner, hand: G.handNum };
   showShowdownModal(G.lastShowdown, false);
 }
 
@@ -4194,6 +4254,7 @@ function handMathLine(s) {
 function showShowdownModal(d, review) {
   if (typeof document === 'undefined') return;
   if (d.raid) return showRaidShowdown(d, review);
+  if (d.coop) return showCoopShowdown(d, review);
   const { sel, ents, winner, push, structuralOnly, diff, matchWinner, gains } = d;
   const m = $('showdownModal');
   const body = $('showdownBody');
@@ -4273,6 +4334,39 @@ function showRaidShowdown(d, review) {
     `<div class="raidteam"><div class="raidlabel">Your party — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${bossHtml}<div class="verdict">${verdict}</div>`;
   $('nextHandBtn').textContent = review ? 'Back to the table'
     : matchWinner ? 'See the result' : 'Next hand';
+  $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
+  $('showdownResume').style.display = 'none';
+  $('showdownModal').classList.add('open');
+}
+
+// The 2v1 showdown read-out: your side's two hands (combined) against the lone
+// foe's two best hands — Standing language, not the campaign ledger.
+function showCoopShowdown(d, review) {
+  const { sel, foe, teamScore, diff } = d;
+  const fn = playerName(1);
+  $('showdownTitle').textContent = (review ? `Hand ${d.hand} — ` : '') +
+    (diff > 0 ? 'Your side presses' : diff < 0 ? `${fn} answers` : `${fn} holds`);
+  const party = [0, 2];
+  const partyHtml = party.map(i => `
+    <div class="showhand">
+      <h3>${playerName(i)} — ${sel[i].score} points</h3>
+      <div class="pickrow">${handPicksHtml(sel[i])}</div>
+      <div class="mathline">${handMathLine(sel[i])}</div>
+    </div>`).join('');
+  const foeHtml = `
+    <div class="showhand">
+      <h3>${fn} — ${foe.score} points <span class="mathline">(two best hands)</span></h3>
+      ${foe.hands.map(h => `<div class="pickrow">${handPicksHtml(h)}</div><div class="mathline">${handMathLine(h)}</div>`).join('')}
+    </div>`;
+  const g = GAUNTLET;
+  const verdict = diff > 0
+    ? `Your side fields <b>${teamScore}</b> to ${fn}'s <b>${foe.score}</b> — you press their Standing by <b>${Math.min(diff, CIRCUIT.dmgCap)}</b>${g.foeHp != null ? ` (to ${g.foeHp}/${g.foeMax})` : ''}.`
+    : diff < 0
+      ? `${fn} fields <b>${foe.score}</b> across two hands to your side's <b>${teamScore}</b>, and presses you <b>${Math.min(-diff, CIRCUIT.dmgCap)}</b>${g.standing != null ? ` (Standing ${g.standing}/${g.maxStanding})` : ''}.`
+      : `Dead level at <b>${teamScore}</b> — ${fn} holds. Nothing moves.`;
+  $('showdownBody').innerHTML =
+    `<div class="raidteam"><div class="raidlabel">Your side — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${foeHtml}<div class="verdict">${verdict}</div>`;
+  $('nextHandBtn').textContent = review ? 'Back to the table' : (G.over ? 'See the result' : 'Next hand');
   $('nextHandBtn').style.display = (TUT.active && !review) ? 'none' : '';
   $('showdownResume').style.display = 'none';
   $('showdownModal').classList.add('open');
@@ -5075,7 +5169,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 2.2,
+  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.3,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5865,11 +5959,17 @@ function circuitEnd() {
     const tier = nodeTier(g.act, node.col || 0);
     g.score += 10 + tier + charmVal('scoreBonus');
     g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
-    const coinWon = node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    let coinWon = node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
     g.coin += coinWon;
-    // Reward by node: duels grow the deck (card/stone); elites, bosses, and the
-    // 2v1 rival fight also offer a charm. The reward screen's confirm advances.
-    g.reward = makeReward({ charm: node.coop || node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
+    // Reward by node: duels grow the deck (card/stone); elites and bosses also
+    // offer a charm. The reward screen's confirm advances.
+    g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
+    // The 2v1 always pays its one signature trophy: The Double-Cross (pre-taken).
+    // If you somehow already hold it, the spoil converts to a coin bonus.
+    if (node.coop) {
+      if (!charmHas('doublecross')) { g.reward.charms = ['doublecross']; g.reward.charmPick = 'doublecross'; markCharmSeen('doublecross'); }
+      else { g.reward.charms = []; coinWon += CIRCUIT.coinElite; g.coin += CIRCUIT.coinElite; }
+    }
     g.reward.coin = coinWon; // shown explicitly on the spoils screen
     circuitRewardScreen();
   } else {
@@ -6600,9 +6700,10 @@ function circuitSetupCoopFight(node, ally, foe) {
   let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
   max = Math.round(max * CIRCUIT.coopFoeMult);   // a lone foe braced against two of you
   g.foeMax = max; g.foeHp = max;
-  g.foeCharms = node.foeCharms || [];
+  g.foeCharms = COOP_FOE_CHARMS.slice();          // scoring leverage (Triads/Pairs), not theft
   const fb = circuitBuildFor(foe);
-  g.oppDeck = fb.deck; g.oppPouch = fb.pouch;     // ally pile lives on g.allyDeck/g.allyPouch (from the draft)
+  g.oppDeck = fb.deck.concat(COOP_FOE_FX.map((fx, i) => ({ type: TYPES[i % TYPES.length], fx }))); // a developed deck
+  g.oppPouch = Object.assign({}, COOP_FOE_POUCH); // ally pile lives on g.allyDeck/g.allyPouch (from the draft)
   circuitResetPiles();
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';

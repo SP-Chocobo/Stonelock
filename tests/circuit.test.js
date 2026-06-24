@@ -496,10 +496,32 @@ assert((cg.allyPouch.red + cg.allyPouch.white + cg.allyPouch.blue + cg.allyPouch
 // Sides: you (0) and the ally (2) stand together against the lone foe (1).
 assert(M.isOpponent(0, 1) && M.isOpponent(2, 1) && !M.isOpponent(0, 2), 'sides group you + ally vs the foe');
 assert(cg.foeMax === Math.round((M.CIRCUIT.foeBase + ((2 - 1) * M.CIRCUIT.actRows + 3) * M.CIRCUIT.foeStep) * M.CIRCUIT.coopFoeMult), 'the lone foe carries the co-op Standing multiplier');
-// A clean plain duel afterwards drops the ally pile (no stale third seat).
+// The foe is boss-tier: a developed (modded) deck and scoring foe-charms, so it
+// can field two real hands — and it scores its TWO best hands, not one.
+assert(cg.foeCharms.length >= 2 && cg.foeCharms.includes('matchedset'), 'the 2v1 foe carries scoring foe-charms');
+assert(cg.oppDeck.length > M.TYPES.length && cg.oppDeck.some(c => c && typeof c === 'object' && c.fx), 'the 2v1 foe fields a developed (modded) deck');
+// Run an all-AI co-op table (seat 0 piloted too) and confirm the side-aware
+// Standing result fires — the foe's two hands vs your side's combined.
 M.seedRng(74);
+cg.foeHp = cg.foeMax = 40; cg.standing = cg.maxStanding;
+M.circuitResetPiles();
+M.newGame({ mode: 'coop', humans: [], companyNames: [ev.foe, ev.ally], venue: 'slums', deal: 'small', target: 999, gauntlet: true });
+const cG2 = M._state();
+let cguard = 0; const startFoe = cg.foeHp, startStand = cg.standing;
+while (!cG2.over && cguard++ < 8000) { if (!cG2.queue.length) M.nextHand(); else M._run(); }
+assert(cg.foeHp < startFoe || cg.standing < startStand, 'a 2v1 showdown presses Standing on one side (side-aware result fires)');
+assert(cg.tableCleared || cg.groundOut, 'the all-AI 2v1 table resolves to a clear or a ground-out');
+
+// The Double-Cross relic: each hand, the foe's first Lock/Steal is shuffled away.
+M.seedRng(75);
+const dc = M.CHARMS.doublecross;
+assert(dc && dc.bossOnly && dc.coopRelic && dc.on && dc.on.handStart, 'The Double-Cross is a co-op-only relic with a hand-start hook');
+
+// A clean plain duel afterwards drops the ally pile (no stale third seat).
+M.seedRng(76);
 M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });
 assert(!cg.allyDeck && !cg.allyPouch && !cg.piles[2], 'a following plain duel clears the ally pile');
+assert(!M._state().coop, 'a plain duel is not a co-op match');
 M.clearRng();
 
 console.log('OK circuit: act map, node fights, Standing/clear/ground-out, acts→victory, foe charms, effect/charm scoring, depleting decks, spoils, events, 2v1 co-op, records.');
