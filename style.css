@@ -1379,6 +1379,10 @@ body[data-compact="1"] .board .cfx { display: none; }
 .shopbanner { width: 100%; aspect-ratio: 3 / 1; max-height: 150px; border-radius: 10px; margin: 0 0 14px;
   border: 1px solid var(--gold); box-shadow: 0 4px 16px rgba(0,0,0,0.5);
   background-color: #2a2011; background-size: cover; background-position: center 34%; background-repeat: no-repeat; }
+/* Per-act merchant scene + framing (was inline magic offsets in JS). */
+.shopbanner.act1 { background-image: linear-gradient(180deg, rgba(20,14,8,0.08), rgba(14,9,4,0.62)), url('assets/shops/act1.jpg?v=1'); background-position: center 74%; }
+.shopbanner.act2 { background-image: linear-gradient(180deg, rgba(20,14,8,0.08), rgba(14,9,4,0.62)), url('assets/shops/act2.jpg?v=1'); }
+.shopbanner.act3 { background-image: linear-gradient(180deg, rgba(20,14,8,0.08), rgba(14,9,4,0.62)), url('assets/shops/act3.jpg?v=1'); }
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }
 .shopprice { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: 'Cinzel', Georgia, serif;

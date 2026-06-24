@@ -6234,11 +6234,10 @@ function circuitShopScreen() {
   const body = $('circuitStats'); body.className = 'circuitload'; body.innerHTML = '';
   const can = p => g.coin >= p;
 
-  // The Fence's face — a per-act merchant backdrop (art at assets/shops/actN.jpg).
-  const banner = document.createElement('div'); banner.className = 'shopbanner';
+  // The Fence's face — a per-act merchant backdrop (art + framing live in CSS:
+  // .shopbanner.actN at assets/shops/actN.jpg).
   const act = Math.min(g.act, 3);
-  banner.style.backgroundImage = `linear-gradient(180deg, rgba(20,14,8,0.08), rgba(14,9,4,0.62)), url('assets/shops/act${act}.jpg?v=1')`;
-  banner.style.backgroundPosition = ({ 1: 'center 74%', 2: 'center 34%', 3: 'center 34%' })[act]; // each scene framed on its merchant
+  const banner = document.createElement('div'); banner.className = 'shopbanner act' + act;
   body.appendChild(banner);
 
   // Cards
