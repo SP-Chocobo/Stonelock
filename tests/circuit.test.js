@@ -495,6 +495,7 @@ assert(allyDeck.length === 24, 'the ally deck is 2-of-each (16) + 8 drafted = 24
 assert((cg.allyPouch.red + cg.allyPouch.white + cg.allyPouch.blue + cg.allyPouch.black) === 10, 'the ally pouch is 2-of-each (8) + 2 drafted = 10');
 // Sides: you (0) and the ally (2) stand together against the lone foe (1).
 assert(M.isOpponent(0, 1) && M.isOpponent(2, 1) && !M.isOpponent(0, 2), 'sides group you + ally vs the foe');
+assert(node.ally === ev.ally, 'the node remembers its ally (for the victory line on the spoils screen)');
 assert(cg.foeMax === Math.round((M.CIRCUIT.foeBase + ((2 - 1) * M.CIRCUIT.actRows + 3) * M.CIRCUIT.foeStep) * M.CIRCUIT.coopFoeMult), 'the lone foe carries the co-op Standing multiplier');
 // The foe is boss-tier: a developed (modded) deck and scoring foe-charms, so it
 // can field two real hands — and it scores its TWO best hands, not one.
@@ -516,6 +517,14 @@ assert(cg.tableCleared || cg.groundOut, 'the all-AI 2v1 table resolves to a clea
 M.seedRng(75);
 const dc = M.CHARMS.doublecross;
 assert(dc && dc.bossOnly && dc.coopRelic && dc.on && dc.on.handStart, 'The Double-Cross is a co-op-only relic with a hand-start hook');
+
+// Dialogue: every persona has a recruit line, a foe taunt, and a victory line.
+const ROSTER9 = ['The Ferryman','The Wagoner','The Deckhand','The Old Hand','The Miner','The Stranger','The Lady','The Tinker','The Clerk'];
+for (const p of ROSTER9) {
+  assert(M.CIRCUIT_ALLY_LINES[p] && M.CIRCUIT_ALLY_LINES[p].length > 10, `${p} has a recruit line`);
+  assert(M.CIRCUIT_FOE_TAUNTS[p] && M.CIRCUIT_FOE_TAUNTS[p].length > 10, `${p} has a foe taunt`);
+  assert(M.CIRCUIT_ALLY_WINLINES[p] && M.CIRCUIT_ALLY_WINLINES[p].length > 10, `${p} has a victory line`);
+}
 
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);

@@ -6030,6 +6030,13 @@ function circuitRewardScreen() {
   body.className = 'circuitload';
   body.innerHTML = '';
 
+  // The 2v1 victory — your ally's parting word as they hand you the trophy.
+  if (node.coop && node.ally) {
+    const q = document.createElement('div'); q.className = 'rivalquote';
+    q.innerHTML = `<div class="rivalquote-who">${node.ally}</div><div class="rivalquote-line">“${allyWinLine(node.ally)}”</div>`;
+    body.appendChild(q);
+  }
+
   // Coin won — an explicit, banked reward (already added to your purse).
   if (r.coin) {
     const cb = document.createElement('div'); cb.className = 'ldsection';
@@ -6565,6 +6572,32 @@ const CIRCUIT_ALLY_LINES = {
   'The Clerk':    'The ledger says you beat me, fair and signed. I keep honest books — consider this account settled in your favour, this once.',
 };
 function allyLine(name) { return CIRCUIT_ALLY_LINES[name] || 'We’ve crossed before, and you came out ahead. Let’s see what the two of us do on the same side of the table.'; }
+// The foe's sneer as they block the road, two-on-one.
+const CIRCUIT_FOE_TAUNTS = {
+  'The Ferryman': 'Two of you, one crossing, and neither’s paid. The river takes what it’s owed — in coin or in cards.',
+  'The Wagoner':  'Brought a friend to lose with? The road’s long, and I’ve all day to empty both your purses.',
+  'The Deckhand': 'An old face and a sore winner. Cute. I’ll put the pair of you over the side.',
+  'The Old Hand': 'I’ve buried partnerships better than yours. Sit down — let’s see how long it holds.',
+  'The Miner':    'Two picks at the same vein. I’ll bury you both and keep the ore.',
+  'The Stranger': 'You brought a witness. Bold. Neither of you leaves remembering this.',
+  'The Lady':     'How quaint — a pair of strays. I dine on alliances. Shall we?',
+  'The Tinker':   'Two against one? I’ve rigged worse odds in my favour. Mind your stones.',
+  'The Clerk':    'I’ll enter you both in the ledger. Under losses. Take your seats.',
+};
+function foeTaunt(name) { return CIRCUIT_FOE_TAUNTS[name] || 'Two of you? I’ve taken worse odds and smiled. Sit.'; }
+// The ally's word once the foe falls — and they hand you the trophy (The Double-Cross).
+const CIRCUIT_ALLY_WINLINES = {
+  'The Ferryman': 'Crossing’s clear. You ferry like you owe nobody — I respect that. Take this; you’ll want it downriver.',
+  'The Wagoner':  'HA! Did you see the face on them? Here — a parting gift. Run the next one down for me.',
+  'The Deckhand': 'Clean sweep, no survivors. Knew you’d hold the rail. This trick’s yours now — use it ugly.',
+  'The Old Hand': 'Forty years and I still learn one a fight. That’s what we did to them. Keep this — pass it on someday.',
+  'The Miner':    'Struck it. Told you there was a vein. Your cut — and it’s the good stuff.',
+  'The Stranger': 'We were never here. But you keep this. Call it a debt I’d sooner not owe.',
+  'The Lady':     'Flawless. I do so enjoy winning in company. A token — wear it where they can see.',
+  'The Tinker':   'Boom. Built to break, and break it did. Made you a little something — don’t ask how it works.',
+  'The Clerk':    'Settled in full, with interest. The books are balanced and you’re in the black. This is yours by right.',
+};
+function allyWinLine(name) { return CIRCUIT_ALLY_WINLINES[name] || 'We make a fine table, you and I. Take this — you earned the both of us.'; }
 // Build the rival reunion: the most recently bested boss returns, set against a
 // strong named foe of the current act (never the ally themself).
 function makeRivalEvent(g) {
@@ -6596,6 +6629,9 @@ function renderRivalEvent(g) {
   const quote = document.createElement('div'); quote.className = 'rivalquote';
   quote.innerHTML = `<div class="rivalquote-who">${ev.ally}</div><div class="rivalquote-line">“${allyLine(ev.ally)}”</div>`;
   sec.appendChild(quote);
+  const taunt = document.createElement('div'); taunt.className = 'rivalquote foe';
+  taunt.innerHTML = `<div class="rivalquote-who">${ev.foe}</div><div class="rivalquote-line">“${foeTaunt(ev.foe)}”</div>`;
+  sec.appendChild(taunt);
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const fight = document.createElement('button');
   fight.className = 'eventopt';
@@ -6683,7 +6719,7 @@ function renderAllyDraftScreen(g) {
     g.allyOffered = true;
     const ally = d.ally, foe = d.foe;
     g.allyDraft = null; g.event = null;
-    g.curNode.foe = foe; g.curNode.coop = true;
+    g.curNode.foe = foe; g.curNode.coop = true; g.curNode.ally = ally; // node remembers its ally (for the win line)
     circuitSetupCoopFight(g.curNode, ally, foe);
   };
   $('circuitModal').classList.add('open');
@@ -6694,7 +6730,7 @@ function circuitSetupCoopFight(node, ally, foe) {
   g.tableCleared = false; g.groundOut = false;
   g.handBuff = 0; g.cpDone = false; g.winStreak = 0; g.spitePending = false;
   charmFire('fightStart');
-  g.opp = foe; g.ally = ally;
+  g.opp = foe; g.ally = ally; if (node) { node.ally = ally; node.coop = true; }
   const tier = nodeTier(g.act, node.col);
   const vp = actVenues(g.act); g.venue = vp[node.col % vp.length];
   let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
@@ -7434,6 +7470,7 @@ if (typeof window !== 'undefined') {
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     PUZZLES, solvePuzzle, puzzleAcademySafe, actVenues, actCast,
+    CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,
