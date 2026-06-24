@@ -21,6 +21,27 @@
   --black-s: #211e1c;
   --row-opp: #6e2018;
   --row-you: #4a5a3a;
+  /* Consolidated from exact-duplicate literals (no visual change) — one edit to retheme. */
+  --gold-pale: #f0d99a;   /* soft gold for coin/labels */
+  --gold-deep: #6e4d14;   /* dark gold trim */
+  --amber: #e6b15a;       /* elite/amber accent */
+  --curse: #d96a5b;       /* Cursed Register red (light) */
+  --curse-deep: #6e2018;  /* Cursed Register red (dark) */
+  --cardicon-hi: #f3e7c4; /* card-face icon gradient — light */
+  --cardicon-mid: #d9c592;/* card-face icon gradient — mid */
+  --cardicon-lo: #c2ab77; /* card-face icon gradient — low */
+  /* Stacking order — one scale instead of scattered magic numbers. */
+  --z-badge: 3;
+  --z-dropdown: 50;
+  --z-cardhover: 60;
+  --z-toast: 80;
+  --z-title: 90;
+  --z-menupop: 95;
+  --z-modal: 100;
+  --z-modaltop: 110;
+  --z-tutorial: 120;
+  --z-coach: 130;
+  --z-tip: 1000;          /* tooltips ride above everything (was 9999) */
 }
 
 * { box-sizing: border-box; }
@@ -146,26 +167,26 @@ body[data-compact="1"] .epithet { display: none; }
 .cursedbadge {
   font-size: 11px;
   font-style: italic;
-  color: #d96a5b;
-  border: 1px solid #6e2018;
+  color: var(--curse);
+  border: 1px solid var(--curse-deep);
   border-radius: 9px;
   padding: 1px 9px;
 }
-.pickcard.cursedpick { opacity: 0.55; border-color: #6e2018; }
+.pickcard.cursedpick { opacity: 0.55; border-color: var(--curse-deep); }
 /* Persistent curse banner in the scoreboard — always in view. */
 .cursednote {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 2px 0 2px;
   padding: 7px 11px;
-  border: 1px solid #6e2018;
-  border-left: 3px solid #d96a5b;
+  border: 1px solid var(--curse-deep);
+  border-left: 3px solid var(--curse);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(110,32,24,0.32), rgba(110,32,24,0.16));
   color: #f0c2bb;
   font-size: 12.5px;
 }
 .cursednote b { color: #ef9c8f; font-style: normal; }
-.cursednote .cursedmark { color: #d96a5b; font-size: 16px; line-height: 1; }
+.cursednote .cursedmark { color: var(--curse); font-size: 16px; line-height: 1; }
 .cursednote .cursedsub { width: 100%; font-size: 11px; font-style: italic; color: var(--parchment-dim); }
 .dealertoken {
   font-size: 10px;
@@ -234,7 +255,7 @@ body[data-compact="1"] .epithet { display: none; }
   width: 18px; height: 18px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, #6e4d14);
+  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, var(--gold-deep));
   border: 1px solid #3d2c0c;
   box-shadow: 0 0 8px rgba(201,160,80,0.55), 0 2px 4px rgba(0,0,0,0.7);
   transition: left 0.9s cubic-bezier(.5,1.5,.4,1);
@@ -291,7 +312,7 @@ body[data-compact="1"] .epithet { display: none; }
   border: 1px solid var(--gold-dim);
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-  z-index: 95; /* above the board (cards lift to 60); JS anchors it as fixed */
+  z-index: var(--z-menupop); /* above the board (cards lift to 60); JS anchors it as fixed */
   max-height: 86vh; overflow-y: auto; /* tall menus scroll inside, never grow the page */
 }
 .menupop .btn { width: 100%; text-align: left; font-size: 12px; }
@@ -671,20 +692,20 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   overflow: hidden;
   /* The painted emblem fills the circle; a thin white ring sets it off the
      weathered card face. Gold gradient stays as a fallback if art is missing. */
-  background: radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77);
+  background: radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo));
   background-size: cover; background-position: center;
   border: 2px solid #f3ecda;
   box-shadow: inset 0 -3px 7px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.55);
 }
 .cicon svg { width: 100%; height: 100%; display: block; }
-.cicon.icon-Crest { background: url('assets/icon-crest.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Coin  { background: url('assets/icon-coin.png')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Bread { background: url('assets/icon-bread.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Quill { background: url('assets/icon-quill.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Sword { background: url('assets/icon-sword.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Chain { background: url('assets/icon-chain.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Ferry { background: url('assets/icon-ferry.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
-.cicon.icon-Road  { background: url('assets/icon-road.png?v=2')  center/cover no-repeat, radial-gradient(circle at 38% 32%, #f3e7c4, #d9c592 70%, #c2ab77); }
+.cicon.icon-Crest { background: url('assets/icon-crest.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Coin  { background: url('assets/icon-coin.png')  center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Bread { background: url('assets/icon-bread.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Quill { background: url('assets/icon-quill.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Sword { background: url('assets/icon-sword.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Chain { background: url('assets/icon-chain.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Ferry { background: url('assets/icon-ferry.png') center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
+.cicon.icon-Road  { background: url('assets/icon-road.png?v=2')  center/cover no-repeat, radial-gradient(circle at 38% 32%, var(--cardicon-hi), var(--cardicon-mid) 70%, var(--cardicon-lo)); }
 
 .cname {
   font-family: 'IM Fell English SC', serif;
@@ -699,7 +720,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   width: 30%; aspect-ratio: 1;
   display: flex; align-items: center; justify-content: center;
   font-size: 15px; font-weight: bold;
-  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14);
+  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, var(--gold-deep));
   color: var(--ink);
   border: 1px solid #3d2c0c;
   border-radius: 50%;
@@ -715,10 +736,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   background-repeat: no-repeat;
   background-position: center;
 }
-.cval.val-0 { background-image: url('assets/card-value-0.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
-.cval.val-1 { background-image: url('assets/card-value-1.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
-.cval.val-2 { background-image: url('assets/card-value-2.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
-.cval.val-3 { background-image: url('assets/card-value-3.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, #6e4d14); }
+.cval.val-0 { background-image: url('assets/card-value-0.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, var(--gold-deep)); }
+.cval.val-1 { background-image: url('assets/card-value-1.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, var(--gold-deep)); }
+.cval.val-2 { background-image: url('assets/card-value-2.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, var(--gold-deep)); }
+.cval.val-3 { background-image: url('assets/card-value-3.png'), radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 60%, var(--gold-deep)); }
 
 .card.back {
   /* Face-down: the dedicated card-back art (assets/card-back.png) over
@@ -781,13 +802,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Rest on a card a beat and it pops bigger so you can read it. The delay
    lives on the hovered state only, so the zoom-out snaps back immediately. */
 .card:hover, .card.targetable:hover {
-  transform: scale(1.85); z-index: 60;
+  transform: scale(1.85); z-index: var(--z-cardhover);
   box-shadow: 0 16px 38px rgba(0,0,0,0.85);
   transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
   transition-delay: 1s;
 }
 .card.selected { outline: 2px solid var(--sage); transform: translateY(-7px); }
-.card.selected:hover { transform: translateY(-7px) scale(1.85); z-index: 60; transition: transform 0.1s ease-out; transition-delay: 1s; }
+.card.selected:hover { transform: translateY(-7px) scale(1.85); z-index: var(--z-cardhover); transition: transform 0.1s ease-out; transition-delay: 1s; }
 /* The minimized tray is a tight scrolling row — a zoom there just spawns
    scrollbars, so leave those small cards alone on hover. */
 .handarea.min .card:hover, .handarea.min .card.targetable:hover {
@@ -835,7 +856,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Stone art (assets/stone-*.png) layers over the gem gradient; if a
    file is missing the 404 layer is transparent and the gradient shows,
    so the game looks right with or without the art. */
-.stone.red, .stonedot.red { background: url('assets/stone-red.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #d96a5b, var(--red) 60%, #6e2018); }
+.stone.red, .stonedot.red { background: url('assets/stone-red.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, var(--curse), var(--red) 60%, var(--curse-deep)); }
 .stone.white, .stonedot.white { background: url('assets/stone-white.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #ffffff, var(--white-s) 60%, #a9a290); }
 .stone.blue, .stonedot.blue { background: url('assets/stone-blue.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #7aa6c6, var(--blue) 60%, #1f3d54); }
 .stone.black, .stonedot.black { background: url('assets/stone-black.png') center/cover no-repeat, radial-gradient(circle at 35% 30%, #5a544e, var(--black-s) 60%, #000); }
@@ -915,11 +936,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   display: none;
   align-items: center; justify-content: center;
   background: rgba(8,6,4,0.8);
-  z-index: 100; /* above the title screen (90) so Rules etc. open over it */
+  z-index: var(--z-modal); /* above the title screen (90) so Rules etc. open over it */
   padding: 20px;
 }
 .modal.open { display: flex; }
-.modal.pass { background: rgba(10,8,5,0.98); z-index: 110; }
+.modal.pass { background: rgba(10,8,5,0.98); z-index: var(--z-modaltop); }
 
 .namerow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .nameinput {
@@ -1120,7 +1141,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .deckcards { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .deckcard { position: relative; }
 .deckcount {
-  position: absolute; bottom: 4px; right: 4px; z-index: 3;
+  position: absolute; bottom: 4px; right: 4px; z-index: var(--z-badge);
   font-family: 'Cinzel', Georgia, serif; font-size: 11px; font-weight: 600; color: #f7eccf;
   background: rgba(20,14,8,0.85); border: 1px solid var(--gold-dim); border-radius: 7px; padding: 0 5px;
 }
@@ -1170,7 +1191,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 
 /* Effect-card badge — a small ribbon naming the card's rider. */
 .cfx {
-  position: absolute; top: 5px; right: 5px; z-index: 3;
+  position: absolute; top: 5px; right: 5px; z-index: var(--z-badge);
   font-family: 'Cinzel', Georgia, serif; font-size: 8.5px; font-weight: 600;
   letter-spacing: 0.04em; text-transform: uppercase;
   padding: 1px 5px; border-radius: 7px; color: #f7eccf;
@@ -1216,7 +1237,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 /* Owned charms in the HUD. */
 .chud-charms { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; justify-content: center; }
 .chud-charm { font-size: 9.5px; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 6px; cursor: default;
-  color: #f0d99a; background: rgba(40,30,17,0.7); border: 1px solid var(--gold-dim); }
+  color: var(--gold-pale); background: rgba(40,30,17,0.7); border: 1px solid var(--gold-dim); }
 /* Owned charms in the deck viewer. */
 .charmlist { display: flex; flex-direction: column; gap: 6px; }
 .charmrow { display: flex; flex-direction: column; padding: 6px 9px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 7px; }
@@ -1316,19 +1337,19 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapnode.done { opacity: 0.6; border-style: dashed; }
 .mapnode-t { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
 .mapnode-duel .mapnode-t { color: var(--parchment); }
-.mapnode-elite .mapnode-t { color: #e6b15a; }
+.mapnode-elite .mapnode-t { color: var(--amber); }
 .mapnode-event .mapnode-t { color: #b79bd6; }
 .mapnode-repose .mapnode-t { color: #8fc7a0; }
 .mapnode-boss .mapnode-t { color: #d9685b; }
 .mapnode-f { font-size: 11px; color: var(--gold); margin-top: 2px; font-family: 'Alegreya', serif; }
 .mapnode-hp { font-size: 10px; color: var(--parchment-dim); margin-top: 2px; }
-.mapnode-c { position: absolute; top: 4px; right: 5px; font-size: 10px; color: #e6b15a; }
+.mapnode-c { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--amber); }
 .mapnode-shop .mapnode-t { color: #d9c06a; }
 /* The node is icon-only; a legend + hover tip name it. Per-kind icon colours are
    shared by the node glyph and the legend swatch. */
 .mapnode-i { font-size: 27px; line-height: 1; }
 .mapnode-duel .mapnode-i,   .maplegend-i.mapnode-duel   { color: var(--parchment); }
-.mapnode-elite .mapnode-i,  .maplegend-i.mapnode-elite  { color: #e6b15a; }
+.mapnode-elite .mapnode-i,  .maplegend-i.mapnode-elite  { color: var(--amber); }
 .mapnode-event .mapnode-i,  .maplegend-i.mapnode-event  { color: #b79bd6; }
 .mapnode-repose .mapnode-i, .maplegend-i.mapnode-repose { color: #8fc7a0; }
 .mapnode-boss .mapnode-i,   .maplegend-i.mapnode-boss   { color: #d9685b; }
@@ -1337,7 +1358,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 /* Legend — a press-to-reveal popup under the map. */
 .maplegendwrap { position: relative; display: flex; justify-content: center; margin-top: 14px; }
 .maplegendbtn { font-size: 12.5px; padding: 5px 12px; }
-.maplegendpop { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); z-index: 50;
+.maplegendpop { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); z-index: var(--z-dropdown);
   display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center; white-space: nowrap; padding: 16px 18px 14px;
   background: linear-gradient(180deg, #2b2113, #161008); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.65); }
 .maplegend-i { font-size: 16px; text-align: center; }
@@ -1345,7 +1366,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 .maplegendclose { position: absolute; top: 3px; right: 7px; background: none; border: none; color: var(--parchment-dim); font-size: 18px; line-height: 1; cursor: pointer; }
 .maplegendclose:hover { color: var(--gold-bright); }
 /* Hover tooltip naming a node (fixed so the scroll viewport can't clip it). */
-.maptip { position: fixed; z-index: 9999; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap; text-align: center;
+.maptip { position: fixed; z-index: var(--z-tip); transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap; text-align: center;
   background: linear-gradient(180deg, #2b2113, #161008); border: 1px solid var(--gold); border-radius: 8px; padding: 6px 11px;
   box-shadow: 0 8px 22px rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.1s ease; }
 .maptip.show { opacity: 1; }
@@ -1386,11 +1407,11 @@ body[data-compact="1"] .board .cfx { display: none; }
 .shopitem { position: relative; }
 .shopitem.cantafford, .shopitem.sold { opacity: 0.5; cursor: default; }
 .shopprice { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-family: 'Cinzel', Georgia, serif;
-  font-size: 11px; font-weight: 600; color: #f0d99a; background: rgba(20,14,8,0.85); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 0 5px; }
+  font-size: 11px; font-weight: 600; color: var(--gold-pale); background: rgba(20,14,8,0.85); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 0 5px; }
 .shoprow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .shopbtn { padding: 6px 11px; font-family: 'Alegreya', serif; font-size: 12.5px; color: var(--parchment);
   background: rgba(20,14,8,0.6); border: 1px solid var(--gold-dim); border-radius: 8px; cursor: pointer; transition: all 0.12s ease; display: flex; align-items: center; gap: 5px; }
-.shopbtn b { color: #f0d99a; font-family: 'Cinzel', Georgia, serif; }
+.shopbtn b { color: var(--gold-pale); font-family: 'Cinzel', Georgia, serif; }
 .shopbtn:hover:not(:disabled) { border-color: var(--gold-bright); background: rgba(40,30,17,0.85); }
 .shopbtn.charm { border-color: #b58a3a; }
 .shopbtn:disabled, .shopbtn.cantafford { opacity: 0.45; cursor: default; }
@@ -1408,9 +1429,9 @@ body[data-compact="1"] .board .cfx { display: none; }
 .shoptile-name { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 12.5px; color: var(--gold-bright); margin-top: 6px; }
 .shoptile-desc { font-size: 11px; color: var(--parchment-dim); margin-top: 3px; line-height: 1.25; }
 .shoptile-price { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-family: 'Cinzel', Georgia, serif;
-  font-size: 11px; font-weight: 600; color: #f0d99a; background: rgba(20,14,8,0.9); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 1px 7px; }
+  font-size: 11px; font-weight: 600; color: var(--gold-pale); background: rgba(20,14,8,0.9); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 1px 7px; }
 .shoptile-up { position: absolute; right: -3px; top: -4px; font-size: 14px; color: var(--gold-bright); text-shadow: 0 1px 2px #000; }
-.shoptile-charm { border-color: #b58a3a; } .shoptile-charm .shoptile-ic { color: #e6b15a; }
+.shoptile-charm { border-color: #b58a3a; } .shoptile-charm .shoptile-ic { color: var(--amber); }
 .shoptile-upgrade .shoptile-ic { color: var(--gold-bright); }
 .shoptile-heal .shoptile-ic { color: #8fd585; }
 .shoptile-thin .shoptile-ic { color: #d9685b; }
@@ -1434,17 +1455,17 @@ body[data-compact="1"] .board .cfx { display: none; }
 .rivalquote.foe .rivalquote-who { color: #d98a8c; }
 /* A Windfall: a big coin find. */
 .goldfind { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; }
-.goldfind-ic { font-size: 40px; color: #f0d99a; text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
-.goldfind-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 26px; color: #f0d99a; }
+.goldfind-ic { font-size: 40px; color: var(--gold-pale); text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+.goldfind-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 26px; color: var(--gold-pale); }
 /* Coin won on the spoils screen — an explicit banked reward. */
 .coinwon { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px; }
-.coinwon-ic { font-size: 24px; color: #f0d99a; }
-.coinwon-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 18px; color: #f0d99a; }
+.coinwon-ic { font-size: 24px; color: var(--gold-pale); }
+.coinwon-amt { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 18px; color: var(--gold-pale); }
 .coinwon-tot { font-size: 12px; color: var(--parchment-dim); }
 
 /* Styled effect-card hover tooltip — a richer reminder than the native title. */
 .fxtip {
-  position: fixed; z-index: 9999; max-width: 230px; padding: 9px 11px; pointer-events: none;
+  position: fixed; z-index: var(--z-tip); max-width: 230px; padding: 9px 11px; pointer-events: none;
   background: linear-gradient(180deg, #2b2113, #161008);
   border: 1px solid var(--gold); border-radius: 9px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.65);
@@ -1600,13 +1621,13 @@ body[data-compact="1"] .board .cfx { display: none; }
 }
 /* Rest on a showdown card to enlarge it, matching the table's hover-zoom. */
 .pickcard:hover {
-  transform: scale(1.5); z-index: 60;
+  transform: scale(1.5); z-index: var(--z-cardhover);
   box-shadow: 0 14px 32px rgba(0,0,0,0.85);
   transition-delay: 0.7s;
 }
 .pickcard .cicon { width: 36px; height: 36px; padding: 4px; }
 .pickcard .cname { font-size: 11px; }
-.pickcard.phantom { opacity: 0.72; border-style: dashed; border-color: #d96a5b; }
+.pickcard.phantom { opacity: 0.72; border-style: dashed; border-color: var(--curse); }
 .mathline { font-size: 12.5px; font-style: italic; color: var(--parchment-dim); margin: 4px 0 8px; }
 .membername { font-size: 12px; color: var(--gold); margin: 6px 0 4px; font-family: 'Cinzel', Georgia, serif; }
 .modalsub.small { font-size: 12.5px; margin-top: 10px; }
@@ -1617,7 +1638,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 .rules h3 { color: var(--gold); margin: 14px 0 4px; }
 .rules ol, .rules ul { padding-left: 22px; margin: 6px 0; }
 .rules li { margin: 4px 0; }
-.rword { color: #d96a5b; } .wword { color: #efe9d8; } .bword { color: #7aa6c6; } .kword { color: #9b948c; }
+.rword { color: var(--curse); } .wword { color: #efe9d8; } .bword { color: #7aa6c6; } .kword { color: #9b948c; }
 
 /* Toast */
 .toast {
@@ -1631,7 +1652,7 @@ body[data-compact="1"] .board .cfx { display: none; }
   font-size: 14px;
   opacity: 0; pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
-  z-index: 80;
+  z-index: var(--z-toast);
   box-shadow: 0 5px 20px rgba(0,0,0,0.7);
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -1640,7 +1661,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 
 .titlescreen {
   position: fixed; inset: 0;
-  z-index: 90;
+  z-index: var(--z-title);
   display: flex; align-items: center; justify-content: center;
   background: var(--bg);
   overflow: hidden;
@@ -1743,7 +1764,7 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
   position: fixed;
   top: 14px; left: 50%;
   transform: translateX(-50%);
-  z-index: 130; /* above modals so it can overlay the showdown breakdown */
+  z-index: var(--z-coach); /* above modals so it can overlay the showdown breakdown */
   width: min(560px, 92vw);
   background: linear-gradient(175deg, #322819, #221a10);
   border: 1px solid var(--gold);
@@ -1766,7 +1787,7 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
   position: fixed;
   top: 14px; left: 50%;
   transform: translateX(-50%);
-  z-index: 130;
+  z-index: var(--z-coach);
   border: 1px solid var(--gold);
   border-radius: 0 0 10px 10px;
   border-top: none;
@@ -1787,7 +1808,7 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
 /* The element the tutorial is pointing at */
 .tut-spotlight {
   position: relative;
-  z-index: 120; /* above modal backdrops, below the coach panel */
+  z-index: var(--z-tutorial); /* above modal backdrops, below the coach panel */
   outline: 3px solid var(--gold-bright) !important;
   outline-offset: 3px;
   border-radius: 10px;
