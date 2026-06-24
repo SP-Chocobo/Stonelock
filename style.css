@@ -1458,6 +1458,14 @@ body[data-compact="1"] .board .cfx { display: none; }
 }
 .fxtip .fxtip-h::before { content: '◆'; font-size: 10px; opacity: 0.85; }
 .fxtip .fxtip-b { font-family: 'Alegreya', Georgia, serif; font-size: 12.5px; color: var(--parchment); line-height: 1.35; }
+/* Header tints for the shared tooltip. fx headers keep their .cfx-* colour; the
+   rest carry an explicit class so nothing fights the .cfx-* rules above. */
+.fxtip .fxtip-h.tip-gold  { color: var(--gold-bright); }
+.fxtip .fxtip-h.tip-red   { color: #e08a6a; }
+.fxtip .fxtip-h.tip-white { color: #e8e2d2; }
+.fxtip .fxtip-h.tip-blue  { color: #8fb8db; }
+.fxtip .fxtip-h.tip-black { color: #c3b3d6; }
+.fxtip .fxtip-h.tip-green { color: #84c993; }
 
 /* Victory screen — what a campaign win newly earned. */
 .victoryunlocks { margin: 16px 0 4px; border: 1px solid var(--gold-dim); border-radius: 10px;

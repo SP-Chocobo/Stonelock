@@ -7176,8 +7176,8 @@ function updateCircuitHud() {
   hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · ⛁<b>${g.coin || 0}</b> · Score <b>${g.score}</b>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
-      `<div class="chud-bar you"><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
-      `<div class="chud-bar foe"><span class="chud-lab">${(g.opp || '') + tag}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
+      `<div class="chud-bar you" data-tip-head="Your Standing" data-tip="Your footing at the table — ${g.standing}/${g.maxStanding}. Lose a showdown and it drops by the margin; if it hits zero, the run ends. Clearing a node restores some."><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
+      `<div class="chud-bar foe" data-tip-head="Their Standing" data-tip="The foe's footing — ${g.foeHp}/${g.foeMax}. Win showdowns to press it down; break it to zero to clear this node."><span class="chud-lab">${(g.opp || '') + tag}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
     `</div>` +
     ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
   const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
@@ -7305,17 +7305,50 @@ function circuitScreen(over) {
 // Styled hover reminder for effect cards: read the fx off whatever card the
 // pointer is over (works for every card render path, since they all carry the
 // .cfx badge) and float a themed tooltip anchored to it.
-function setupFxTooltip() {
+// One styled tooltip for the whole UI. It themes three families uniformly:
+//   • card modifiers — a .card carrying a .cfx badge (label + blurb from FX_INFO)
+//   • stones & charms — .stonedot / .stone / .chud-charm / .rewardstone, whose
+//     existing native `title` ("Name — power: desc") is parsed into head + body
+//     and shown in the styled box (the native tooltip is suppressed while shown)
+//   • anything explicit — an element with data-tip (+ data-tip-head / -cls), e.g.
+//     the Circuit Standing bars.
+// Incidental button titles (Menu, dealer token…) stay as plain native tooltips.
+const TIP_SELECTOR = '.stonedot, .stone, .chud-charm, .rewardstone';
+function setupTooltips() {
   const tip = $('fxtip'); if (!tip) return;
-  let curCard = null;
+  let cur = null, stashEl = null, stashTitle = null;
   const fxOf = card => {
     const badge = card.querySelector && card.querySelector('.cfx');
     if (!badge) return null;
     for (const cls of badge.classList) if (cls.indexOf('cfx-') === 0) return cls.slice(4);
     return null;
   };
-  const place = card => {
-    const r = card.getBoundingClientRect();
+  const colorClassOf = el => {
+    const probe = el.classList && [...el.classList].find(c => STONE_KEYS.includes(c)) ||
+      (el.querySelector && el.querySelector('.stonedot') && [...el.querySelector('.stonedot').classList].find(c => STONE_KEYS.includes(c)));
+    return probe ? 'tip-' + probe : '';
+  };
+  // Resolve the hovered element into { el, head, body, cls } — or null.
+  const resolve = t => {
+    if (!t || !t.closest) return null;
+    const de = t.closest('[data-tip]');
+    if (de) return { el: de, head: de.dataset.tipHead || '', body: de.dataset.tip || '', cls: de.dataset.tipCls || '' };
+    // stones/charms before .card, so a stone marker rendered on a card shows the
+    // stone, not the card's modifier.
+    const se = t.closest(TIP_SELECTOR);
+    if (se && se.getAttribute('title')) {
+      const raw = se.getAttribute('title');
+      const i = raw.indexOf(' — ');
+      const head = i >= 0 ? raw.slice(0, i) : raw;
+      const body = i >= 0 ? raw.slice(i + 3) : '';
+      return { el: se, head, body, cls: colorClassOf(se), nativeTitle: true };
+    }
+    const card = t.closest('.card');
+    if (card) { const fx = fxOf(card); if (fx && FX_INFO[fx]) return { el: card, head: FX_INFO[fx].label, body: FX_INFO[fx].blurb, cls: 'cfx-' + fx }; }
+    return null;
+  };
+  const place = anchor => {
+    const r = anchor.getBoundingClientRect();
     tip.style.display = 'block';
     const t = tip.getBoundingClientRect();
     let left = r.left + r.width / 2 - t.width / 2;
@@ -7325,23 +7358,26 @@ function setupFxTooltip() {
     tip.style.left = Math.round(left) + 'px';
     tip.style.top = Math.round(top) + 'px';
   };
-  const hide = () => { if (!curCard) return; curCard = null; tip.classList.remove('show'); tip.style.display = 'none'; };
+  const hide = () => {
+    if (!cur) return;
+    if (stashEl && stashTitle != null) { stashEl.setAttribute('title', stashTitle); } // restore native title
+    stashEl = stashTitle = cur = null;
+    tip.classList.remove('show'); tip.style.display = 'none';
+  };
   document.addEventListener('mouseover', e => {
-    const card = e.target.closest && e.target.closest('.card');
-    if (!card) { hide(); return; }
-    if (card === curCard) return;
-    const fx = fxOf(card);
-    if (!fx || !FX_INFO[fx]) { hide(); return; }
-    curCard = card;
-    const info = FX_INFO[fx];
-    tip.innerHTML = `<div class="fxtip-h cfx-${fx}">${info.label}</div><div class="fxtip-b">${info.blurb}</div>`;
-    place(card);
+    const r = resolve(e.target);
+    if (!r) { hide(); return; }
+    if (r.el === cur) return;
+    hide();
+    cur = r.el;
+    if (r.nativeTitle) { stashEl = r.el; stashTitle = r.el.getAttribute('title'); r.el.removeAttribute('title'); } // suppress the native tooltip
+    tip.innerHTML = (r.head ? `<div class="fxtip-h ${r.cls || 'tip-gold'}">${r.head}</div>` : '') + (r.body ? `<div class="fxtip-b">${r.body}</div>` : '');
+    place(r.el);
     requestAnimationFrame(() => tip.classList.add('show'));
   });
   document.addEventListener('mouseout', e => {
-    if (!curCard) return;
-    // leaving the current card entirely (not just moving across its children)
-    if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.card') === curCard) return;
+    if (!cur) return;
+    if (e.relatedTarget && e.relatedTarget.closest && (e.relatedTarget.closest('[data-tip]') === cur || e.relatedTarget.closest('.card') === cur || e.relatedTarget.closest(TIP_SELECTOR) === cur)) return;
     hide();
   });
   window.addEventListener('scroll', hide, true);
@@ -7351,7 +7387,7 @@ function boot() {
   // Start buffering the music at page load so it plays the instant the first
   // gesture lands (otherwise it downloads on-click, a ~3s awkward gap).
   try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
-  setupFxTooltip();
+  setupTooltips();
   logEl = $('log');
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
