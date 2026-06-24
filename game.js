@@ -6110,17 +6110,12 @@ function circuitRewardScreen() {
   ss.innerHTML = `<div class="ldhead">Take a stone — ${r.stonePick ? '1' : '0'}/1 · optional</div>`;
   const srow = document.createElement('div'); srow.className = 'ldpouches';
   for (const color of r.stones) {
-    const sel = r.stonePick === color;
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (sel ? ' selected' : '');
-    b.title = `${STONES[color].name} — ${STONES[color].power}`;
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
-    b.appendChild(cluster);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = STONES[color].name.replace(' Stone', '');
-    b.appendChild(lab);
-    b.onclick = () => { r.stonePick = (r.stonePick === color) ? null : color; circuitRewardScreen(); };
-    srow.appendChild(b);
+    srow.appendChild(stonePickBtn({
+      dot: color, label: STONES[color].name.replace(' Stone', ''),
+      title: `${STONES[color].name} — ${STONES[color].power}`,
+      selected: r.stonePick === color,
+      onClick: () => { r.stonePick = (r.stonePick === color) ? null : color; circuitRewardScreen(); },
+    }));
   }
   ss.appendChild(srow);
   body.appendChild(ss);
@@ -6145,11 +6140,7 @@ function circuitRewardScreen() {
 
   // Review your decks before committing (opens over this screen; closing returns
   // here with your selection intact).
-  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
-  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
-  rb.onclick = () => showDeckView('full');
-  rev.appendChild(rb);
-  body.appendChild(rev);
+  eventReviewBtn(body);
 
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false;
@@ -6302,9 +6293,7 @@ function circuitShopScreen() {
   }
   body.appendChild(us);
 
-  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
-  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch'; rb.onclick = () => showDeckView('full');
-  rev.appendChild(rb); body.appendChild(rev);
+  eventReviewBtn(body);
 
   const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Leave the shop ›';
   next.onclick = () => { g.shop = null; circuitAfterNode(); };
@@ -6389,6 +6378,23 @@ function eventReviewBtn(body) {
   rb.onclick = () => showDeckView('full');
   rev.appendChild(rb); body.appendChild(rev);
 }
+// One pouch-stone pick button — shared by every stone picker (reward / whetstone
+// / swap / ally-draft / puzzle / interlude-remove). Caller supplies the dot class,
+// label, title, state and handler; the markup is built once here so the pickers
+// (and their tooltips) can't drift apart.
+function stonePickBtn(o) {
+  const b = document.createElement('button');
+  b.className = 'ldpouch rewardstone' + (o.selected ? ' selected' : '') + (o.disabled ? ' disabled' : '');
+  if (o.disabled) b.disabled = true;
+  if (o.title) b.title = o.title;
+  const cluster = document.createElement('div'); cluster.className = 'ldstones';
+  const d = document.createElement('span'); d.className = 'stonedot ' + o.dot; cluster.appendChild(d);
+  b.appendChild(cluster);
+  const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = o.label;
+  b.appendChild(lab);
+  if (o.onClick) b.onclick = o.onClick;
+  return b;
+}
 // A clickable card tile (used by the cache offer).
 function eventOfferCard(c, selected, onClick) {
   const type = specType(c), fx = specFx(c), v = specVal(c);
@@ -6454,11 +6460,7 @@ function renderInterludeEvent(g) {
   }
 
   // Review your decks before committing.
-  const rev = document.createElement('div'); rev.className = 'ldsection rewardreview';
-  const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
-  rb.onclick = () => showDeckView('full');
-  rev.appendChild(rb);
-  body.appendChild(rev);
+  eventReviewBtn(body);
 
   const next = $('circuitNext'); next.style.display = '';
   const anyAvail = avail.heal || avail.removeCard || avail.removeStone || avail.moveMod;
@@ -6495,16 +6497,12 @@ function renderWhetstoneEvent(g) {
   const rowEl = document.createElement('div'); rowEl.className = 'ldpouches';
   for (const color of upgradableStones(g)) {
     const variant = variantForBase(color);
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
-    b.title = `${getStone(variant).name} — ${getStone(variant).power}: ${getStone(variant).desc}`;
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    const d = document.createElement('span'); d.className = `stonedot ${color} variant`; cluster.appendChild(d);
-    b.appendChild(cluster);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `⇪ ${getStone(variant).name}`;
-    b.appendChild(lab);
-    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
-    rowEl.appendChild(b);
+    rowEl.appendChild(stonePickBtn({
+      dot: `${color} variant`, label: `⇪ ${getStone(variant).name}`,
+      title: `${getStone(variant).name} — ${getStone(variant).power}: ${getStone(variant).desc}`,
+      selected: ev.stoneColor === color,
+      onClick: () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); },
+    }));
   }
   sec.appendChild(rowEl); body.appendChild(sec);
   eventReviewBtn(body);
@@ -6524,16 +6522,12 @@ function renderSwapEvent(g) {
   const rowEl = document.createElement('div'); rowEl.className = 'ldpouches';
   for (const color of STONE_KEYS) {
     const n = g.pouch[color] || 0; if (!n) continue;
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
-    b.title = `${STONES[color].name} — ${STONES[color].power}`;
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
-    b.appendChild(cluster);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')} ×${n}`;
-    b.appendChild(lab);
-    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
-    rowEl.appendChild(b);
+    rowEl.appendChild(stonePickBtn({
+      dot: color, label: `${STONES[color].name.replace(' Stone', '')} ×${n}`,
+      title: `${STONES[color].name} — ${STONES[color].power}`,
+      selected: ev.stoneColor === color,
+      onClick: () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); },
+    }));
   }
   sec.appendChild(rowEl); body.appendChild(sec);
   eventReviewBtn(body);
@@ -6721,22 +6715,17 @@ function renderAllyDraftScreen(g) {
   const srow = document.createElement('div'); srow.className = 'ldpouches';
   for (const color of STONE_KEYS) {
     const n = d.stones[color] || 0;
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (n ? ' selected' : '') + (stoneTotal >= 2 && !n ? ' disabled' : '');
-    b.disabled = stoneTotal >= 2 && !n;
-    b.title = `${STONES[color].name} — ${STONES[color].power}`;
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    const dot = document.createElement('span'); dot.className = `stonedot ${color}`; cluster.appendChild(dot);
-    b.appendChild(cluster);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')}${n ? ` +${n}` : ''}`;
-    b.appendChild(lab);
-    b.onclick = () => { // left-click adds (cap 2); click a held one to drop it back
-      if (n && stoneTotal >= 2) d.stones[color] = n - 1;
-      else if (stoneTotal < 2) d.stones[color] = n + 1;
-      else d.stones[color] = n - 1;
-      renderAllyDraftScreen(g);
-    };
-    srow.appendChild(b);
+    srow.appendChild(stonePickBtn({
+      dot: color, label: `${STONES[color].name.replace(' Stone', '')}${n ? ` +${n}` : ''}`,
+      title: `${STONES[color].name} — ${STONES[color].power}`,
+      selected: !!n, disabled: stoneTotal >= 2 && !n,
+      onClick: () => { // left-click adds (cap 2); click a held one to drop it back
+        if (n && stoneTotal >= 2) d.stones[color] = n - 1;
+        else if (stoneTotal < 2) d.stones[color] = n + 1;
+        else d.stones[color] = n - 1;
+        renderAllyDraftScreen(g);
+      },
+    }));
   }
   ss.appendChild(srow);
   const hint = document.createElement('div'); hint.className = 'ldnote';
@@ -6996,16 +6985,13 @@ function circuitPuzzleScreen() {
   ss.innerHTML = `<div class="ldhead">${q.pick && !q.pick.done ? promptForPick(q.pick) : 'Choose a stone, then its target'}</div>`;
   const srow = document.createElement('div'); srow.className = 'ldpouches';
   for (const stone of p.stones) {
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (q.pick && q.pick.stone === stone && !q.pick.done ? ' selected' : '');
-    b.title = `${getStone(stone).name} — ${getStone(stone).power}`;
-    const cl = document.createElement('div'); cl.className = 'ldstones';
-    const d = document.createElement('span'); d.className = `stonedot ${stoneBase(stone)}${isVariant(stone) ? ' variant' : ''}`; cl.appendChild(d);
-    b.appendChild(cl);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = getStone(stone).name.replace(' Stone', '');
-    b.appendChild(lab);
-    b.onclick = () => puzzlePickStone(stone);
-    srow.appendChild(b);
+    srow.appendChild(stonePickBtn({
+      dot: `${stoneBase(stone)}${isVariant(stone) ? ' variant' : ''}`,
+      label: getStone(stone).name.replace(' Stone', ''),
+      title: `${getStone(stone).name} — ${getStone(stone).power}`,
+      selected: q.pick && q.pick.stone === stone && !q.pick.done,
+      onClick: () => puzzlePickStone(stone),
+    }));
   }
   ss.appendChild(srow); body.appendChild(ss);
 
@@ -7102,16 +7088,12 @@ function eventStonePicker() {
   const row = document.createElement('div'); row.className = 'ldpouches';
   for (const color of STONE_KEYS) {
     const n = g.pouch[color] || 0; if (!n) continue;
-    const b = document.createElement('button');
-    b.className = 'ldpouch rewardstone' + (ev.stoneColor === color ? ' selected' : '');
-    b.title = `${STONES[color].name} — ${STONES[color].power}`;
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    const d = document.createElement('span'); d.className = `stonedot ${color}`; cluster.appendChild(d);
-    b.appendChild(cluster);
-    const lab = document.createElement('div'); lab.className = 'rewardlab'; lab.textContent = `${STONES[color].name.replace(' Stone', '')} ×${n}`;
-    b.appendChild(lab);
-    b.onclick = () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); };
-    row.appendChild(b);
+    row.appendChild(stonePickBtn({
+      dot: color, label: `${STONES[color].name.replace(' Stone', '')} ×${n}`,
+      title: `${STONES[color].name} — ${STONES[color].power}`,
+      selected: ev.stoneColor === color,
+      onClick: () => { ev.stoneColor = ev.stoneColor === color ? null : color; circuitEventScreen(); },
+    }));
   }
   sec.appendChild(row);
   return sec;
