@@ -3244,6 +3244,7 @@ function showTitle() {
   if ($('circuitHud')) $('circuitHud').style.display = 'none';
   setVenueBackdrop(null);
   refreshTitleButtons();
+  resetTitleMenu(); // always come back to the main face, not the Play submenu
   const t = $('titleScreen');
   t.classList.remove('hidden');
   // Replay the intro (scene zoom + staggered menu) on every return to the
@@ -3267,11 +3268,42 @@ function resumeMatch() {
   run();
 }
 
-// Show "Continue match" on the title only when a paused, unfinished match waits.
+// Show "Continue match" (now inside the Play submenu) only when a paused,
+// unfinished match waits.
 function refreshTitleButtons() {
   if (typeof document === 'undefined') return;
   const btn = $('titleContinue');
   if (btn) btn.style.display = (G && !G.over && !G.tutorial && !G.gauntlet) ? '' : 'none';
+}
+// Swap the title between its main face and the Play submenu (Continue / Campaign
+// / The Circuit / Custom Matches). The leaving set fades out, the arriving set
+// falls in. .intro is dropped first so the one-time entrance can't fight it.
+function showTitleMenu(which) {
+  if (typeof document === 'undefined') return;
+  const main = $('titleMenuMain'), play = $('titleMenuPlay');
+  if (!main || !play) return;
+  const t = $('titleScreen'); if (t) t.classList.remove('intro');
+  if (which === 'play') refreshTitleButtons(); // Continue reflects current state when the submenu opens
+  const leaving = which === 'play' ? main : play;
+  const entering = which === 'play' ? play : main;
+  const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reveal = () => {
+    leaving.style.display = 'none'; leaving.classList.remove('swapout');
+    entering.style.display = 'flex';
+    entering.classList.remove('swapin'); void entering.offsetWidth; // restart the stagger
+    if (!reduce) entering.classList.add('swapin');
+  };
+  if (reduce) { reveal(); return; }
+  leaving.classList.add('swapout');
+  setTimeout(reveal, 160);
+}
+// Reset the title to its main face (used on every return to the title).
+function resetTitleMenu() {
+  if (typeof document === 'undefined') return;
+  const main = $('titleMenuMain'), play = $('titleMenuPlay');
+  if (!main || !play) return;
+  main.style.display = ''; main.classList.remove('swapin', 'swapout');
+  play.style.display = 'none'; play.classList.remove('swapin', 'swapout');
 }
 
 // Set (or clear) the per-venue in-game backdrop. The dark overlay is baked in so
@@ -7425,6 +7457,8 @@ function boot() {
   };
   $('quitYes').onclick = () => { closeModal('quitModal'); const fn = pendingNewMatch; pendingNewMatch = null; if (fn) fn(); };
   $('quitNo').onclick = () => { pendingNewMatch = null; closeModal('quitModal'); };
+  if ($('titlePlay')) $('titlePlay').onclick = () => showTitleMenu('play');
+  if ($('titleBack')) $('titleBack').onclick = () => showTitleMenu('main');
   $('titleStandard').onclick = () => startNewFromTitle(openSetup);
   $('titleRaid').onclick = () => startNewFromTitle(openRaidSetup);
   if ($('titleCircuit')) $('titleCircuit').onclick = () => startNewFromTitle(startCircuit);

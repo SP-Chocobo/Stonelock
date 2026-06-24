@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=233">
+<link rel="stylesheet" href="style.css?v=234">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=233" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=233" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=234" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=234" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=233" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=233" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=234" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=234" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -63,15 +63,19 @@
     </div>
     <h1 class="titlename">Stonelock</h1>
     <div class="titlesub">a Keth Mara game</div>
-    <div class="titlebtns">
-      <button id="titleContinue" class="btn primary big" style="display:none">Continue match</button>
-      <button id="titleStandard" class="btn primary big">Standard Game</button>
-      <button id="titleRaid" class="btn big">Campaign</button>
-      <button id="titleCircuit" class="btn big">The Circuit</button>
+    <div class="titlebtns titlemenu-main" id="titleMenuMain">
+      <button id="titlePlay" class="btn primary big">Play</button>
       <button id="titleTutorial" class="btn big">The Academy</button>
       <button id="titleRegulars" class="btn big">The Regulars</button>
       <button id="titleRules" class="btn big">Rules</button>
       <button id="titleAudio" class="btn big">Audio</button>
+    </div>
+    <div class="titlebtns titlemenu-play" id="titleMenuPlay" style="display:none">
+      <button id="titleContinue" class="btn primary big" style="display:none">Continue match</button>
+      <button id="titleRaid" class="btn big">Campaign</button>
+      <button id="titleCircuit" class="btn big">The Circuit</button>
+      <button id="titleStandard" class="btn big">Custom Matches</button>
+      <button id="titleBack" class="btn ghost big">‹ Back</button>
     </div>
     <button id="titleAlpha" class="btn ghost titlealpha">Alpha — all bosses unlocked</button>
     <div class="titlefoot">A game of regional leverage, point optimization, and tactical wills.</div>
@@ -445,6 +449,6 @@
   </div>
 </div>
 
-<script src="game.js?v=233"></script>
+<script src="game.js?v=234"></script>
 </body>
 </html>

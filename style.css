@@ -1679,22 +1679,34 @@ body[data-compact="1"] .board .cfx { display: none; }
 /* Staggered fade/slide-in — only while .intro is set, with a slightly later
    first arrival so the scene reads before the menu lands. */
 @keyframes titleItemIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-.titlescreen.intro .titlebtns .btn { animation: titleItemIn 0.5s ease both; }
-.titlescreen.intro .titlebtns .btn:nth-child(1) { animation-delay: 0.85s; }
-.titlescreen.intro .titlebtns .btn:nth-child(2) { animation-delay: 1.01s; }
-.titlescreen.intro .titlebtns .btn:nth-child(3) { animation-delay: 1.17s; }
-.titlescreen.intro .titlebtns .btn:nth-child(4) { animation-delay: 1.33s; }
-.titlescreen.intro .titlebtns .btn:nth-child(5) { animation-delay: 1.49s; }
-.titlescreen.intro .titlebtns .btn:nth-child(6) { animation-delay: 1.65s; }
-.titlescreen.intro .titlebtns .btn:nth-child(7) { animation-delay: 1.81s; }
-.titlescreen.intro .titlebtns .btn:nth-child(8) { animation-delay: 1.97s; }
-.titlescreen.intro .titlebtns .btn:nth-child(9) { animation-delay: 2.13s; }
+.titlescreen.intro .titlemenu-main .btn { animation: titleItemIn 0.5s ease both; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(1) { animation-delay: 0.85s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(2) { animation-delay: 1.01s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(3) { animation-delay: 1.17s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(4) { animation-delay: 1.33s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(5) { animation-delay: 1.49s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(6) { animation-delay: 1.65s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(7) { animation-delay: 1.81s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(8) { animation-delay: 1.97s; }
+.titlescreen.intro .titlemenu-main .btn:nth-child(9) { animation-delay: 2.13s; }
+/* Menu swap (Play <-> title): the leaving set fades up-and-out; the arriving set
+   falls in with a light stagger, echoing the intro. JS drops .intro first so the
+   one-time entrance can't fight the swap. */
+@keyframes menuSwapOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-9px); } }
+.titlebtns.swapout { animation: menuSwapOut 0.16s ease forwards; pointer-events: none; }
+.titlebtns.swapin .btn { animation: titleItemIn 0.34s ease both; }
+.titlebtns.swapin .btn:nth-child(1) { animation-delay: 0.02s; }
+.titlebtns.swapin .btn:nth-child(2) { animation-delay: 0.08s; }
+.titlebtns.swapin .btn:nth-child(3) { animation-delay: 0.14s; }
+.titlebtns.swapin .btn:nth-child(4) { animation-delay: 0.20s; }
+.titlebtns.swapin .btn:nth-child(5) { animation-delay: 0.26s; }
 /* Alpha bypass — a discreet testing toggle under the menu. */
 .titlealpha { margin-top: 16px; font-size: 11.5px; padding: 5px 12px; opacity: 0.7; }
 .titlescreen.intro .titlealpha { animation: titleItemIn 0.5s ease 2.29s both; }
 .titlealpha.selected { opacity: 1; border-color: var(--gold); color: var(--gold-bright); }
 @media (prefers-reduced-motion: reduce) {
-  .titlescreen.intro::before, .titlescreen.intro .titlebtns .btn, .titlescreen.intro .titlealpha { animation: none; }
+  .titlescreen.intro::before, .titlescreen.intro .titlebtns .btn, .titlescreen.intro .titlealpha,
+  .titlebtns.swapout, .titlebtns.swapin .btn { animation: none; }
 }
 
 /* Audio settings panel */
