@@ -5745,7 +5745,7 @@ function circuitSetupFight(node) {
   g.opp = node.foe;
   const tier = nodeTier(g.act, node.col);
   const vp = actVenues(g.act); g.venue = vp[node.col % vp.length]; // venues are scoped to the act's region
-  let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
+  let max = Math.round(CIRCUIT.foeBase + tier * CIRCUIT.foeStep); // whole-number Standing — the step is fractional
   if (node.type === 'elite') max = Math.round(max * CIRCUIT.eliteHpMult);
   if (node.type === 'boss') max = Math.round(max * CIRCUIT.bossHpMult);
   g.foeMax = max; g.foeHp = max;
@@ -5836,7 +5836,7 @@ function circuitWildImbueScreen() {
 
 // A node's foe Standing (for the map preview).
 function nodeFoeMax(node) {
-  let m = CIRCUIT.foeBase + nodeTier(GAUNTLET.act, node.col) * CIRCUIT.foeStep;
+  let m = Math.round(CIRCUIT.foeBase + nodeTier(GAUNTLET.act, node.col) * CIRCUIT.foeStep);
   if (node.type === 'elite') m = Math.round(m * CIRCUIT.eliteHpMult);
   if (node.type === 'boss') m = Math.round(m * CIRCUIT.bossHpMult);
   return m;
