@@ -1184,8 +1184,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .loadcard { cursor: pointer; }
 .loadcard:hover { transform: translateY(-5px); z-index: auto; box-shadow: 0 9px 20px rgba(0,0,0,0.6);
   transition: transform 0.12s ease, box-shadow 0.12s ease; transition-delay: 0s; }
-.loadcard.selected { outline: 2px solid var(--gold-bright); outline-offset: 2px; transform: translateY(-7px); border-color: var(--gold-bright); }
-.loadcard.selected:hover { transform: translateY(-7px); transition-delay: 0s; }
+/* Gallery picks (loadout / reward / ally draft / pickers): a gold ring + glow to
+   match the in-hand blue's pop — combat selection reads blue, deck-building gold,
+   both unmistakable. */
+.loadcard.selected { outline: 3px solid var(--gold-bright); outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--gold-bright) inset, 0 0 16px rgba(232,196,119,0.55), 0 6px 14px rgba(0,0,0,0.5);
+  transform: translateY(-9px) scale(1.03); border-color: var(--gold-bright); }
+.loadcard.selected:hover { transform: translateY(-9px) scale(1.03); transition-delay: 0s; }
 /* Gallery-card layout (loadout / shop / reward / deck / puzzle): value top-left,
    the card NAME across the top beside it, the icon below that, the EFFECT named
    under the icon. A taller card + a reserved top band keep them from overlapping.
