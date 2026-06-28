@@ -809,6 +809,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 }
 .card.selected { outline: 2px solid var(--sage); transform: translateY(-7px); }
 .card.selected:hover { transform: translateY(-7px) scale(1.85); z-index: var(--z-cardhover); transition: transform 0.1s ease-out; transition-delay: 1s; }
+/* Selecting cards IN HAND (committing them): a bold steel-blue ring + glow, set
+   clearly apart from the gold "you can pick this" targetable cue, with a firmer
+   lift — so what you've chosen reads at a glance. */
+.hand-card.selected { outline: 3px solid #79afe0; outline-offset: 2px;
+  box-shadow: 0 0 0 1px #79afe0 inset, 0 0 16px rgba(121,175,224,0.6), 0 6px 14px rgba(0,0,0,0.55);
+  transform: translateY(-10px) scale(1.03); }
+.hand-card.selected:hover { transform: translateY(-10px) scale(1.85); z-index: var(--z-cardhover); transition: transform 0.1s ease-out; transition-delay: 1s; }
 /* The minimized tray is a tight scrolling row — a zoom there just spawns
    scrollbars, so leave those small cards alone on hover. */
 .handarea.min .card:hover, .handarea.min .card.targetable:hover {
