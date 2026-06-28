@@ -4086,10 +4086,11 @@ function renderHand() {
   wrap.innerHTML = '';
   $('handArea').querySelector('.arealabel').textContent =
     G.humans.length > 1 ? `${playerName(G.viewer)}’s hand` : 'Your hand';
+  const dealt = UI.dealtIds || [];
   for (const card of G.players[G.viewer].hand) {
     const el = document.createElement('div');
     el.dataset.cardId = card.id;
-    el.className = 'card hand-card' + (UI.selected.includes(card) ? ' selected' : '');
+    el.className = 'card hand-card' + (UI.selected.includes(card) ? ' selected' : '') + (dealt.includes(card.id) ? ' dealt' : '');
     el.innerHTML = `
       <div class="cicon icon-${card.type}"></div>
       <div class="cname">${card.type}</div>
@@ -4105,6 +4106,7 @@ function renderHand() {
     }
     wrap.appendChild(el);
   }
+  UI.dealtIds = []; // one-shot: the deal-in animation plays on this render only
   $('handArea').style.display = G.players[G.viewer].hand.length ? '' : 'none';
 }
 
@@ -5720,6 +5722,9 @@ function circuitDrawOne(seat) {
   G.cards.push(card);
   G.players[seat].hand.push(card);
   if (ps.cardHand) ps.cardHand.push(spec);
+  // Flag it so the hand renderer deals it in with a brief animation — a card
+  // popping straight into the hand is hard to track when you've just played one.
+  if (typeof UI !== 'undefined' && UI && seat === G.viewer) UI.dealtIds = (UI.dealtIds || []).concat(card.id);
   return card;
 }
 
