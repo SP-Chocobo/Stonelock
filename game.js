@@ -6243,7 +6243,9 @@ function circuitShopScreen() {
     if (!sold && can(it.price)) el.onclick = () => circuitShopBuy('card', i); else if (!sold) el.classList.add('cantafford');
     crow.appendChild(el);
   });
-  cs.appendChild(crow); body.appendChild(cs);
+  cs.appendChild(crow);
+  const shopLeg = fxLegendWrap(s.cards.map(c => c.fx)); if (shopLeg) cs.appendChild(shopLeg); // map-style key for the modded cards
+  body.appendChild(cs);
 
   // Stones, charms, upgrades & services as visual tiles (icon-first).
   const us = document.createElement('div'); us.className = 'ldsection'; us.innerHTML = `<div class="ldhead">Wares & services</div>`;
@@ -6377,6 +6379,24 @@ function eventReviewBtn(body) {
   const rb = document.createElement('button'); rb.className = 'btn'; rb.textContent = 'Review deck & pouch';
   rb.onclick = () => showDeckView('full');
   rev.appendChild(rb); body.appendChild(rev);
+}
+// A tap-to-open "Effects" legend (mirrors the map's): lists each offered modifier
+// with its name + one-line blurb. Reused on the reward/shop screens so a player on
+// touch — where the hover tooltips don't fire — can still read what a badge means.
+function fxLegendWrap(keys) {
+  const uniq = [...new Set((keys || []).filter(Boolean))].filter(k => FX_INFO[k]);
+  if (!uniq.length) return null;
+  const wrap = document.createElement('div'); wrap.className = 'maplegendwrap fxlegendwrap';
+  const btn = document.createElement('button'); btn.className = 'btn maplegendbtn'; btn.textContent = '◇ Effects';
+  const pop = document.createElement('div'); pop.className = 'fxlegendpop'; pop.style.display = 'none';
+  pop.innerHTML = `<button class="maplegendclose" title="Close">×</button>` +
+    uniq.map(k => `<div class="fxlegend-row"><span class="fxlegend-n cfx-${k}">${FX_INFO[k].label}</span> <span class="fxlegend-b">${FX_INFO[k].blurb}</span></div>`).join('');
+  const close = () => { pop.style.display = 'none'; document.removeEventListener('click', off); };
+  const off = e => { if (!wrap.contains(e.target)) close(); };
+  btn.onclick = e => { e.stopPropagation(); if (pop.style.display === 'none') { pop.style.display = ''; setTimeout(() => document.addEventListener('click', off), 0); } else close(); };
+  pop.querySelector('.maplegendclose').onclick = close;
+  wrap.appendChild(btn); wrap.appendChild(pop);
+  return wrap;
 }
 // One pouch-stone pick button — shared by every stone picker (reward / whetstone
 // / swap / ally-draft / puzzle / interlude-remove). Caller supplies the dot class,
@@ -6707,7 +6727,9 @@ function renderAllyDraftScreen(g) {
     };
     crow.appendChild(el);
   });
-  cs.appendChild(crow); body.appendChild(cs);
+  cs.appendChild(crow);
+  const draftLeg = fxLegendWrap(d.pool.map(c => specFx(c))); if (draftLeg) cs.appendChild(draftLeg); // key for the 20-card modded pool
+  body.appendChild(cs);
 
   // Stones — add exactly 2 (any base colours, duplicates allowed).
   const ss = document.createElement('div'); ss.className = 'ldsection';
