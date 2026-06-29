@@ -5285,12 +5285,15 @@ const CIRCUIT_POUCHES = [
 // offered in runs automatically. A run offers typed cards each carrying one fx
 // rider, so the two-card add is a real decision (value vs. effect).
 const CIRCUIT_FX = Object.keys(EFFECTS).filter(k => !EFFECTS[k].viaCharm); // charm-only effects never appear on offered cards
-function circuitOfferCards(n) {
+function circuitOfferCards(n, reveal = true) {
   const types = shuffle(TYPES.slice());
   const fxBag = shuffle(CIRCUIT_FX.slice());
   const out = [];
   for (let i = 0; i < n; i++) out.push({ type: types[i % types.length], fx: fxBag[i % fxBag.length] });
-  out.forEach(c => { if (c.fx) markCharmSeen('fx:' + c.fx); }); // discovery: an offered modifier is revealed in the compendium
+  // Discovery: an offered modifier reveals in the compendium — but ONLY for
+  // in-run offers (rewards/shop/events). The pre-game starter offer is
+  // re-rollable by cycling seeds, so it must not credit discovery (reveal=false).
+  if (reveal) out.forEach(c => { if (c.fx) markCharmSeen('fx:' + c.fx); });
   return out;
 }
 let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
@@ -5305,7 +5308,7 @@ function startCircuit(seed) {
   seedRng(circuitSeed);
   // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
   const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
-  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5), picks: [] };
+  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5, false), picks: [] }; // starter offer is re-rollable — don't credit discovery here
   if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
   circuitIntro();
 }
@@ -5481,6 +5484,7 @@ function circuitLoadoutScreen() {
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
+  circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
   GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false };
   GAUNTLET.map = buildAct(1);
   circuitActIntro(1, circuitToMap); // open the run on the Act I cinematic
