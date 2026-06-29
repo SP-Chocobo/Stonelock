@@ -7013,6 +7013,62 @@ const PUZZLES = {
     },
     miss: { text: 'Put the two phantoms where one high card becomes a whole Triad — the Road.' },
   },
+  // ---- Defensive / denial (base stones, ⌂): the rival answers your move with a
+  // scripted counter — a lock you set in the right place makes it fizzle. ----
+  shields: {
+    name: 'Shields Up', academy: true,
+    flavor: 'Their Blue is poised to seize your Road. Defend the card that carries the hand.',
+    venue: 'tavern',
+    you: ['Road', 'Bread', 'Chain'],          // two 3s; the Road is what their Blue wants
+    foe: ['Sword', 'Crest', 'Quill'],
+    stones: ['white'],
+    rival: { stone: 'blue', idx: 0, swap: 2 }, // the rival steals your Road (you0) for their Quill
+    responses: {
+      'white@you0': { solve: true, text: 'You lock the Road. Their Blue finds it sealed and dies — your lead holds.' },
+      'white@you1': { text: 'You locked the Bread, but the Road sat open — their Blue takes it and the table flips.' },
+      'white@you2': { text: 'A locked Chain no one wanted. The Road was naked — gone to their Blue.' },
+      'white@foe0': { text: 'Locking their card does nothing for your exposed Road — their Blue still seizes it.' },
+      'white@foe1': { text: 'Locking their card does nothing for your exposed Road.' },
+      'white@foe2': { text: 'Locking their card does nothing for your exposed Road.' },
+    },
+    miss: { text: 'With their Blue live, lock the swing card before anything clever — the Road they covet.' },
+  },
+  scalpel: {
+    name: 'Shield the Scalpel', academy: true,
+    flavor: 'Their Green is the last word — it cuts your best UNLOCKED card. Deny it.',
+    venue: 'tavern',
+    you: ['Bread', 'Sword', 'Chain'],
+    foe: ['Coin', 'Quill', 'Crest'],
+    stones: ['white'],
+    rival: { stone: 'green', side: 'you', idx: 0 }, // the scalpel poisons your Bread (your best)
+    responses: {
+      'white@you0': { solve: true, text: 'You lock the Bread. The scalpel finds it shielded and finds nothing — your 3 stands.' },
+      'white@you1': { text: 'You locked the Sword; the Bread sat open — the Green takes your best card to nothing.' },
+      'white@you2': { text: 'You locked a Chain; the Bread was open — the scalpel cuts it.' },
+      'white@foe0': { text: 'Locking their card leaves your best one bare — the Green still cuts it.' },
+      'white@foe1': { text: 'Locking their card leaves your best one bare — the Green still cuts it.' },
+      'white@foe2': { text: 'Locking their card leaves your best one bare — the Green still cuts it.' },
+    },
+    miss: { text: 'Against a known Green, White your TOP card before the last word — a locked card can’t be poisoned.' },
+  },
+  freeze: {
+    name: 'Freeze the Setup', academy: true,
+    flavor: 'They have one card they must Red into a Pair to score. Deny the irreplaceable piece.',
+    venue: 'tavern',
+    you: ['Bread', 'Road', 'Quill'],          // two 3s, no set — you win only if they don't pair
+    foe: ['Coin', 'Sword', 'Crest'],          // their Coin is the only duplicable card
+    stones: ['white'],
+    rival: { stone: 'red', side: 'foe', idx: 0 }, // they Red the Coin into a Pair of coins
+    responses: {
+      'white@foe0': { solve: true, text: 'You lock their Coin — the Red has nowhere to land, their Pair never forms, and your two 3s carry it.' },
+      'white@foe1': { text: 'You locked their Sword — but the Red still pairs the Coin. Lock the card their setup NEEDS.' },
+      'white@foe2': { text: 'You locked their Crest — the Coin still takes its phantom and pairs. Freeze the Coin.' },
+      'white@you0': { text: 'A lock on your own card does nothing to their setup — they pair the Coin and hold you level.' },
+      'white@you1': { text: 'Locking your own card lets their Coin pair — you only draw level.' },
+      'white@you2': { text: 'Locking your own card lets their Coin pair — you only draw level.' },
+    },
+    miss: { text: 'Deny the irreplaceable piece — lock the one card their hand can’t score without.' },
+  },
 };
 const PUZZLE_KEYS = Object.keys(PUZZLES);
 function puzzleValues(p) { const v = VENUES[p.venue]; return REGIONS[(v && v.region) || 'bar'].values; }
@@ -7057,8 +7113,34 @@ function puzzlePreview(p, stone, side, idx, swap) {
   else if (base === 'green') { st.foe[idx].poisoned = true; }
   else if (base === 'black') { board[idx].phantoms = 0; board[idx].poisoned = false; } // undo the red/green riding the target
   else if (base === 'blue') { const a = st.you[idx], b = st.foe[swap]; a.owner = 1; b.owner = 0; st.you[idx] = b; st.foe[swap] = a; }
+  puzzleApplyRival(st, p.rival); // the rival's scripted answer — a lock you set in the right place makes it fizzle
   puzzleEvalues([st.you, st.foe], puzzleValues(p));
   return st;
+}
+// A puzzle's scripted rival counter, applied AFTER your move: their one answer.
+// It honours locks — a White you placed on the right card blocks a Blue steal,
+// a Green poison, or a Red setup — which is the whole point of the defensive
+// riddles. A blocked move simply does nothing.
+function puzzleApplyRival(st, r) {
+  if (!r) return;
+  const b = stoneBase(r.stone);
+  const at = (side, i) => (side === 'foe' ? st.foe : st.you)[i];
+  if (b === 'blue') {
+    const yc = st.you[r.idx], fc = st.foe[r.swap];
+    if (!yc || !fc || yc.locked) return; // lock the TAKEN card to block the steal (they can re-route what they give)
+    yc.owner = 1; fc.owner = 0; st.you[r.idx] = fc; st.foe[r.swap] = yc;
+  } else if (b === 'green') {
+    const c = at(r.side || 'you', r.idx); if (!c || c.locked) return;
+    c.poisoned = true; c.phantoms = 0;
+  } else if (b === 'black') {
+    const c = at(r.side || 'you', r.idx); if (!c || c.locked) return;
+    c.phantoms = 0; c.poisoned = false;
+  } else if (b === 'red') {
+    const c = at(r.side || 'foe', r.idx); if (!c || c.locked) return; // a locked card can't take a phantom
+    c.phantoms += (r.stone === 'twinred' ? 2 : 1);
+  } else if (b === 'white') {
+    const c = at(r.side || 'foe', r.idx); if (c) c.locked = true;
+  }
 }
 // The puzzle reward scales by how few guesses it took: 1st a relic, 2nd a stone
 // upgrade, 3rd gold — each falling through to the next if unavailable.
