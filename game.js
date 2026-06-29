@@ -5784,6 +5784,7 @@ function nodeTier(act, col) { return (act - 1) * CIRCUIT.actRows + col; }
 // Enter a chosen node: an event runs the interlude; a fight is set up and played.
 function circuitEnterNode(node) {
   const g = GAUNTLET;
+  hideMapTip(); // a tapped node's hover tip would otherwise stay pinned over the encounter
   g.curNode = node;
   if (node.type === 'event') { g.event = makeCircuitEvent(); circuitEventScreen(); return; }
   if (node.type === 'repose') { g.event = { kind: 'interlude', choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
@@ -5906,10 +5907,15 @@ const MAP_NODE_ICON = { duel: '⚔', elite: '★', boss: '☠', repose: '✦', s
 function mapNodeHtml(node) { return `<div class="mapnode-i">${MAP_NODE_ICON[node.type] || ''}</div>`; }
 // A single fixed-position tooltip (so the scrolling map can't clip it).
 function mapTipEl() { let t = document.getElementById('maptip'); if (!t) { t = document.createElement('div'); t.id = 'maptip'; t.className = 'maptip'; document.body.appendChild(t); } return t; }
+// On touch there's no mouseleave, so the hover tip a tap raises would otherwise
+// stay pinned over the match. Hide it whenever we leave the map. (Doesn't create
+// the element — safe headless.)
+function hideMapTip() { if (typeof document === 'undefined') return; const t = document.getElementById('maptip'); if (t) t.classList.remove('show'); }
 function wireMapTip(btn, node) {
   const show = () => { const t = mapTipEl(); t.innerHTML = `<div class="maptip-h mapnode-${node.type}">${MAP_NODE_NAME[node.type]}</div><div class="maptip-b">${MAP_NODE_SUB[node.type] || ''}</div>`; const r = btn.getBoundingClientRect(); t.style.left = (r.left + r.width / 2) + 'px'; t.style.top = (r.top - 6) + 'px'; t.classList.add('show'); };
   btn.addEventListener('mouseenter', show);
-  btn.addEventListener('mouseleave', () => mapTipEl().classList.remove('show'));
+  btn.addEventListener('mouseleave', hideMapTip);
+  btn.addEventListener('touchend', hideMapTip); // touch fires no mouseleave — dismiss on tap-up
 }
 // The act map — pick a node in the current column to advance toward the boss.
 function circuitMapScreen() {
