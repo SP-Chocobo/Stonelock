@@ -1000,6 +1000,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .castbio { font-size: 13px; color: var(--parchment-dim); line-height: 1.5; max-width: 460px; }
 .castleans { font-size: 12px; color: var(--parchment-dim); }
 .castleans b { color: var(--gold); font-style: normal; }
+/* Coach's note — the concise mechanical read of a persona (what its AI does). */
+.coachnote { font-family: 'Alegreya', Georgia, serif; font-size: 12px; color: var(--parchment-dim); margin-top: 6px; line-height: 1.4; }
+.coachnote b { color: var(--gold); font-weight: 600; font-style: normal; }
+.coachnote.full { margin-top: 8px; padding: 8px 10px; background: rgba(20,14,8,0.4); border-left: 2px solid var(--gold-dim); border-radius: 0 6px 6px 0; }
+.coachnote.full > div { margin: 1px 0; }
+.coachnote .cn-k { display: inline-block; min-width: 50px; font-family: 'Cinzel', Georgia, serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold); }
 /* zoomed-in single profile */
 #regularsBody.castdetail { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 11px; margin-top: 8px; padding: 6px; }
 #regularsBody.castdetail h3 { margin: 0; color: var(--gold); font-size: 19px; }

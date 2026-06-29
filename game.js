@@ -3507,6 +3507,40 @@ function regularLeans(p) {
   if (p[ranked[0]] - p[ranked[ranked.length - 1]] < 0.25) return 'Even hand — no lean';
   return ranked.slice(0, 2).map(c => STONES[c].power).join(' · ');
 }
+// A concise "coach's note" read STRAIGHT OFF a persona's AI weights + temperament,
+// so it can never drift from how the bot actually plays. Flavor tells you who they
+// are; this tells a new player what they'll DO — the missing legibility a tester
+// flagged on the allied AI. STONE_DO is in plain "what it does to the board" terms.
+const STONE_DO = { red: 'builds Pairs & Triads', white: 'locks down what it keeps', blue: 'steals your cards', black: 'undoes plays' };
+function personaCoachNote(name) {
+  const p = PERSONALITIES[name]; if (!p) return null;
+  const prefers = STONE_KEYS.filter(c => p[c] >= 1.3).sort((a, b) => p[b] - p[a]);
+  const avoids = STONE_KEYS.filter(c => p[c] <= 0.8).sort((a, b) => p[a] - p[b]);
+  const tags = [];
+  if (p.risk >= 2) tags.push('gambles on veiled cards');
+  else if (p.risk === 0) tags.push('won’t bluff into the veil');
+  if (p.bluff >= 0.25) tags.push('its telegraphs lie');
+  if (p.skill < 0.96) tags.push('fumbles a stone now and then');
+  return {
+    prefers: prefers.map(c => STONES[c].power),
+    avoids: avoids.map(c => STONES[c].power),
+    plays: prefers.length ? prefers.map(c => STONE_DO[c]).join(', ') : 'spends whatever the moment asks for',
+    tags,
+  };
+}
+// One-line form (for the cast grid) or the full Prefers/Plays/Avoids block.
+function coachNoteHtml(name, full) {
+  const n = personaCoachNote(name); if (!n) return '';
+  if (!full) {
+    const lead = n.prefers.length ? `Prefers <b>${n.prefers.join(' · ')}</b> — ${n.plays}` : `No favoured stone — ${n.plays}`;
+    return `<div class="coachnote">${lead}${n.tags.length ? `; ${n.tags.join(', ')}` : ''}.</div>`;
+  }
+  const rows = [];
+  if (n.prefers.length) rows.push(`<span class="cn-k">Prefers</span> ${n.prefers.join(' · ')}`);
+  rows.push(`<span class="cn-k">Plays</span> ${n.plays}${n.tags.length ? `; ${n.tags.join(', ')}` : ''}`);
+  if (n.avoids.length) rows.push(`<span class="cn-k">Shy of</span> ${n.avoids.join(' · ')}`);
+  return `<div class="coachnote full">${rows.map(r => `<div>${r}</div>`).join('')}</div>`;
+}
 function openRegulars() {
   if (typeof document === 'undefined') return;
   const body = $('regularsBody');
@@ -3546,7 +3580,7 @@ function openAllyPicker() {
     card.innerHTML =
       `${portrait ? `<div class="castportrait" style="background-image:url('${portrait}')"></div>` : ''}` +
       `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>` +
-      `<div class="castleans">${regularLeans(p)}</div>`;
+      coachNoteHtml(name, false);
     card.onclick = () => { RAIDSET.allyBot = name; closeModal('regularsModal'); renderRaidSetup(); };
     body.appendChild(card);
   }
@@ -3602,7 +3636,7 @@ function showRegular(name) {
     `${portrait ? `<div class="castportrait-lg" style="background-image:url('${portrait}')"></div>` : ''}` +
     `<h3>${name}</h3><div class="castepithet">${p.flavor}</div>` +
     `<div class="castbio">${p.bio || ''}</div>` +
-    `<div class="castleans">Leans: <b>${regularLeans(p)}</b></div>`;
+    coachNoteHtml(name, true);
   $('regularsModal').querySelector('h2').textContent = name;
   const b = $('regularsBack');
   b.textContent = '‹ The Regulars'; b.onclick = openRegulars;
@@ -6691,10 +6725,10 @@ function renderRivalEvent(g) {
   const body = eventShell('An Old Rival', `Standing ${g.standing}/${g.maxStanding}. A familiar figure falls into step beside you on the road — ${ev.ally}, the master you broke earlier. They’ve heard ${ev.foe} holds this stretch, and they don’t much care for ${ev.foe}.`);
   const sec = document.createElement('div'); sec.className = 'ldsection';
   const quote = document.createElement('div'); quote.className = 'rivalquote';
-  quote.innerHTML = `<div class="rivalquote-who">${ev.ally}</div><div class="rivalquote-line">“${allyLine(ev.ally)}”</div>`;
+  quote.innerHTML = `<div class="rivalquote-who">${ev.ally}</div><div class="rivalquote-line">“${allyLine(ev.ally)}”</div>` + coachNoteHtml(ev.ally, true);
   sec.appendChild(quote);
   const taunt = document.createElement('div'); taunt.className = 'rivalquote foe';
-  taunt.innerHTML = `<div class="rivalquote-who">${ev.foe}</div><div class="rivalquote-line">“${foeTaunt(ev.foe)}”</div>`;
+  taunt.innerHTML = `<div class="rivalquote-who">${ev.foe}</div><div class="rivalquote-line">“${foeTaunt(ev.foe)}”</div>` + coachNoteHtml(ev.foe, false);
   sec.appendChild(taunt);
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const fight = document.createElement('button');
@@ -6719,6 +6753,7 @@ function renderAllyDraftScreen(g) {
   const ready = d.cards.length === 8 && stoneTotal === 2;
   SFX.play('flip');
   const body = eventShell(`Outfit ${d.ally}`, `Build your ally up to fight at your side. Their deck starts at two of each base card; choose 8 more to add. Their pouch starts at two of each stone; add 2 more. Then face ${d.foe}, together.`);
+  const cn = document.createElement('div'); cn.className = 'ldsection'; cn.innerHTML = `<div class="ldhead">How ${d.ally} plays</div>` + coachNoteHtml(d.ally, true); body.appendChild(cn);
 
   // Cards — pick exactly 8 of 20.
   const cs = document.createElement('div'); cs.className = 'ldsection';
