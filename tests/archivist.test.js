@@ -134,4 +134,23 @@ const card = name => ({ name, phantom: false, locked: false });
   assert(r.slots[0].name === 'A' && r.slots[2].name === 'C', 'no swap occurred');
 }
 
-console.log('OK archivist engine: order-war forward/reverse, black-undoes-last-resolved, fizzles, purity.');
+// --- Black can NEVER undo another Black (it cannot itself be undone). Stacking
+// blacks is allowed; the extras simply fizzle. ---
+{
+  // Red, then two Blacks on the same slot. The first Black undoes the Red; the
+  // second finds nothing (a Black is never in the undo history) and fizzles.
+  const slots = [card('A')];
+  const q = [{ color: 'red', slot: 0 }, { color: 'black', slot: 0 }, { color: 'black', slot: 0 }];
+  const fwd = M.resolveArchivist(slots, q, false);
+  assert(fwd.log[1].color === 'black' && !fwd.log[1].fizzled, 'first Black undoes the Red');
+  assert(fwd.log[2].color === 'black' && fwd.log[2].fizzled, 'second Black fizzles — it cannot undo the first Black');
+  assert(fwd.slots[0].phantom === false, 'the Red is undone exactly once, not re-applied');
+  // Two Blacks alone: both fizzle, nothing touched.
+  const r2 = M.resolveArchivist([card('A')], [{ color: 'black', slot: 0 }, { color: 'black', slot: 0 }], false);
+  assert(r2.log.every(e => e.fizzled), 'stacked Blacks with nothing to undo both fizzle — no Black-on-Black');
+  // Reverse order: the Blacks resolve before the Red, so they fizzle and the Red stands.
+  const rev = M.resolveArchivist([card('A')], [{ color: 'red', slot: 0 }, { color: 'black', slot: 0 }, { color: 'black', slot: 0 }], true);
+  assert(rev.slots[0].phantom === true && rev.log.filter(e => e.color === 'black').every(e => e.fizzled), 'reverse: Blacks resolve first, fizzle; the Red survives');
+}
+
+console.log('OK archivist engine: order-war forward/reverse, black-undoes-last-resolved, no Black-on-Black, fizzles, purity.');

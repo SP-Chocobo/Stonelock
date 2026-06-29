@@ -509,6 +509,17 @@ function archBlackableSlot(gi) {
   if (archReverse()) return true;
   return G.archQueue.some(p => (p.color === 'red' || p.color === 'blue') && p.slot === gi);
 }
+// Which slots a queued stone may legally target in the slot game — matched to
+// normal play so the rules don't change just because resolution inverts:
+// White/Red protect or buff YOUR OWN cards, Green poisons a RIVAL's, Blue swaps
+// any two slots, Black undoes a Red/Blue on a slot.
+function archStoneTargetable(color, gi) {
+  if (color === 'blue') return true;
+  if (color === 'black') return archBlackableSlot(gi);
+  const mine = teamOf(archOwnerOfSlot(gi)) === teamOf(G.viewer);
+  if (color === 'green') return !mine; // poison is offensive — a rival's slot only
+  return mine;                          // White / Red act on your own side
+}
 function archQueueStone(actor, color, slot, swap) {
   const rec = { color, by: actor, slot };
   if (color === 'blue') rec.swap = swap;
@@ -1695,7 +1706,7 @@ function humanChooseStone(color) {
   if (G.archivist) {
     if (base === 'blue') { UI.mode = 'arch-slot-blue-a'; setPrompt(`${sName} (Exchange) — click the first SLOT of the swap (any layout).`); }
     else if (base === 'black') { UI.mode = 'arch-slot'; setPrompt(archReverse() ? `${sName} (Disruption) — reverse order: click ANY slot; it catches a Red/Blue placed onto it later.` : `${sName} (Disruption) — click a SLOT carrying a queued Red/Blue to undo its last.`); }
-    else { UI.mode = 'arch-slot'; setPrompt(`${sName} (${getStone(color).power}) — click a SLOT to queue it on (any layout).`); }
+    else { UI.mode = 'arch-slot'; setPrompt(base === 'green' ? `${sName} (Poison) — click a RIVAL slot to void it.` : `${sName} (${getStone(color).power}) — click one of YOUR slots.`); }
     render(); autoScrollToPrompt();
     return;
   }
@@ -1804,7 +1815,7 @@ function humanTargetSlot(gi) {
   if (UI.mode === 'arch-commit') return humanCommitToSlot(gi);
   const color = UI.pendingStone;
   if (UI.mode === 'arch-slot') {
-    if (color === 'black' && !archBlackableSlot(gi)) return;
+    if (!archStoneTargetable(color, gi)) return; // White/Red own side, Green a rival's, Black an undo target
     consumeActive(me, color);
     archQueueStone(me, color, gi);
     UI.pendingStone = null;
@@ -4089,7 +4100,7 @@ function renderBoard(who, container) {
 function decorateSlotTarget(who, pos, gi, slot) {
   const me = G.viewer;
   let ok = false;
-  if (UI.mode === 'arch-slot') ok = (UI.pendingStone === 'black') ? archBlackableSlot(gi) : true;
+  if (UI.mode === 'arch-slot') ok = archStoneTargetable(UI.pendingStone, gi);
   else if (UI.mode === 'arch-slot-blue-a') ok = true;
   else if (UI.mode === 'arch-slot-blue-b') ok = (gi !== UI.blueSlot);
   else if (UI.mode === 'arch-commit') ok = (who === me && !G.players[who].board[pos]);
