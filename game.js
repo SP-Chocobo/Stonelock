@@ -3626,7 +3626,7 @@ function academyMenu(title, items, back) {
     const el = document.createElement('div');
     el.className = 'bigopt';
     el.innerHTML = `<h3>${l.title}</h3><div class="bigoptdesc">${l.blurb}</div>`;
-    el.onclick = l.opens ? () => openMenu(l.opens) : () => { closeModal('academyModal'); startLesson(l.id); };
+    el.onclick = l.opens ? () => openMenu(l.opens) : l.puzzle ? () => academyPuzzle(l.puzzle) : () => { closeModal('academyModal'); startLesson(l.id); };
     grid.appendChild(el);
   }
   body.appendChild(grid);
@@ -3639,6 +3639,7 @@ function academyMenu(title, items, back) {
 function openMenu(which) {
   if (which === 'tutorials') openTutorials();
   else if (which === 'strategy') openStrategy();
+  else if (which === 'puzzles') openPuzzles();
   else if (which === 'stones') openStonesMenu();
   else openAcademy();
 }
@@ -3646,7 +3647,12 @@ function openTutorials() {
   academyMenu('Tutorials', LESSONS, { label: '‹ The Academy', fn: openAcademy });
 }
 function openStrategy() {
-  academyMenu('Strategy & Puzzles', STRATEGY, { label: '‹ The Academy', fn: openAcademy });
+  const items = [{ opens: 'puzzles', title: 'Puzzles', blurb: 'One-move riddles — read the board, place the stone that wins it.' }].concat(STRATEGY);
+  academyMenu('Strategy & Puzzles', items, { label: '‹ The Academy', fn: openAcademy });
+}
+function openPuzzles() {
+  const items = PUZZLE_KEYS.filter(k => puzzleAcademySafe(PUZZLES[k])).map(k => ({ puzzle: k, title: PUZZLES[k].name, blurb: PUZZLES[k].flavor }));
+  academyMenu('Puzzles', items, { label: '‹ Strategy & Puzzles', fn: openStrategy });
 }
 function openStonesMenu() {
   academyMenu('Lesson 2 — The Stones', STONE_LESSONS, { label: '‹ Tutorials', fn: openTutorials });
@@ -6891,22 +6897,121 @@ function renderPactEvent(g) {
 //   responses : { '<placementKey>': { text, solve? } }  — see puzzleKey()
 //   miss    : the default response for any placement not listed (a wrong line)
 const PUZZLES = {
+  // ---- Academy fundamentals (⌂ in the design doc): base stones only. ----
+  larceny: {
+    name: 'Grand Larceny', academy: true,
+    flavor: 'Their best card also completes your hand. Take it.',
+    venue: 'tavern',
+    you: ['Road', 'Quill', 'Chain'],          // a lone Road (3) and two junk (1)
+    foe: ['Road', 'Bread', 'Sword'],          // their Road (3) pairs with yours
+    stones: ['blue'],
+    responses: {
+      'blue@you1>foe0': { solve: true, text: 'You trade a Chain for their Road: +3 to you, −3 to them, and your Roads pair. The swing is the spread plus the structure.' },
+      'blue@you2>foe0': { solve: true, text: 'A Quill for their Road — you bank the 3 AND pair your Roads. Both ends of the steal count.' },
+      'blue@you0>foe0': { text: 'Road for Road is a wash — you gained no value and broke nothing.' },
+      'blue@you1>foe1': { text: 'A Bread is a 3, but it pairs with nothing of yours — value without structure. The Road steal was the double swing.' },
+      'blue@you2>foe1': { text: 'A Bread is a 3, but it pairs with nothing of yours. The Road both lifts you and guts them.' },
+    },
+    miss: { text: 'A steal that neither lifts your structure nor guts theirs is only half a play. Take the Road.' },
+  },
+  keystone: {
+    name: 'Steal the Keystone', academy: true,
+    flavor: 'Their Triad is three real cards — no phantom to snuff. Take the body, and give up your least.',
+    venue: 'tavern',
+    you: ['Coin', 'Sword', 'Chain'],          // a Coin (3), a Sword (2), a junk Chain (1)
+    foe: ['Coin', 'Coin', 'Coin'],            // a real Triad of coins
+    stones: ['blue'],
+    responses: {
+      'blue@you2>foe0': { solve: true, text: 'A Chain for a Coin: their Triad (+6) folds to a Pair, your Coins pair, and you keep the Sword. You end a point up.' },
+      'blue@you2>foe1': { solve: true, text: 'A Chain for a Coin: their Triad folds, your Coins pair, the Sword stays. A point to the good.' },
+      'blue@you2>foe2': { solve: true, text: 'A Chain for a Coin: their Triad folds, your Coins pair, the Sword stays. A point to the good.' },
+      'blue@you1>foe0': { text: 'You gave up the Sword — your Coins pair, but you’re a point light. Spend your LOWEST, the Chain.' },
+      'blue@you1>foe1': { text: 'You gave up the Sword — spend the Chain instead and keep the 2.' },
+      'blue@you1>foe2': { text: 'You gave up the Sword — spend the Chain instead and keep the 2.' },
+      'blue@you0>foe0': { text: 'You handed back your own Coin — their three reforms. Give up a junk card, not your keystone.' },
+      'blue@you0>foe1': { text: 'You handed back your own Coin — their three reforms. Spend the Chain instead.' },
+      'blue@you0>foe2': { text: 'You handed back your own Coin — their three reforms. Spend the Chain instead.' },
+    },
+    miss: { text: 'No phantom to undo here — take one of the three, and pay with your lowest card to keep the most value.' },
+  },
+  thirdcoin: {
+    name: 'The Third Coin', academy: true,
+    flavor: 'You hold a Pair. Their board has the card that makes it three.',
+    venue: 'tavern',
+    you: ['Coin', 'Coin', 'Quill'],           // a Pair of coins (+2)
+    foe: ['Coin', 'Sword', 'Bread'],          // a lone stealable Coin
+    stones: ['blue'],
+    responses: {
+      'blue@you2>foe0': { solve: true, text: 'A Quill for their Coin completes your Triad (+6) — and strips a 3 from them. The biggest swing on the board.' },
+      'blue@you2>foe2': { text: 'A Bread is a 3, but it joins no set of yours. The Coin makes your Triad — take it.' },
+      'blue@you2>foe1': { text: 'A Sword adds value but no structure. The Coin finishes your Triad.' },
+      'blue@you0>foe0': { text: 'You swapped a Coin for a Coin — your Pair is unchanged. Give up the Quill to make three.' },
+      'blue@you1>foe0': { text: 'You swapped a Coin for a Coin — your Pair is unchanged. Spend the junk Quill.' },
+    },
+    miss: { text: 'You hold two Coins — the steal that finishes the Triad is worth far more than any loose 3.' },
+  },
+  shatter: {
+    name: 'Shatter the Triad', academy: true,
+    flavor: 'A phantom props their Triad. Undo it, and the +6 guts out.',
+    venue: 'tavern',
+    you: ['Road', 'Road', 'Bread'],           // a Pair of Roads + a Bread
+    foe: ['Coin', { type: 'Coin', phantoms: 1 }, 'Sword'], // 2 Coins + a phantom = Triad
+    stones: ['black'],
+    responses: {
+      'black@foe1': { solve: true, text: 'Black snuffs the phantom: their Triad (+6) collapses to a bare Pair, and your Roads carry the table.' },
+      'black@foe0': { text: 'No stone rides that Coin — it’s the phantom-bearing one that makes the third. Snuff THAT.' },
+      'black@foe2': { text: 'The Sword is no part of their set. Undo the phantom that props the Triad.' },
+    },
+    miss: { text: 'Black undoes a stone — and the only one that matters here is the phantom holding their Triad together.' },
+  },
+  poison: {
+    name: 'Poison the Set', academy: true,
+    flavor: 'One cut voids a card and kills the phantom riding it — the whole Triad folds.',
+    venue: 'tavern',
+    you: ['Road', 'Road', 'Bread'],
+    foe: ['Coin', { type: 'Coin', phantoms: 1 }, 'Sword'],
+    stones: ['green'],
+    responses: {
+      'green@foe1': { solve: true, text: 'Green takes the phantom-bearing Coin: it scores nothing, joins no set, and the phantom dies with it. Triad gone.' },
+      'green@foe0': { text: 'You void a Coin — but the phantom still pairs the other. Cut the Coin the phantom RIDES to fold the whole set.' },
+      'green@foe2': { text: 'A Sword is no part of their Triad. Poison the Coin carrying the phantom.' },
+    },
+    miss: { text: 'Poison erases value AND structure — so cut the one card doing both: the Coin the phantom rides.' },
+  },
+  // ---- Circuit-only (variants): not Academy-safe. ----
   wayfarer: {
     name: 'A Wayfarer’s Riddle',
     flavor: 'One stone decides it. Read the board and pick the line that lands.',
     venue: 'tavern',
-    you: ['Coin', 'Sword', 'Quill'],                 // 3 / 2 / 1 at the Tavern
-    foe: ['Bread', { type: 'Ferry', fx: 'drain' }, 'Chain'], // the Ferry's Drain pulls your Sword to 1
+    you: ['Coin', 'Sword', 'Quill'],
+    foe: ['Bread', 'Quill', 'Chain'],
     stones: ['twinred', 'red'],
     responses: {
-      'twinred@you0': { solve: true, text: 'Two phantoms crown the Coin — a full Triad of coins, and the table tips to you.' },
-      'twinred@you1': { text: 'A Triad of Swords — but they’re drained thin. It scores too lean to break the wall.' },
+      'twinred@you0': { solve: true, text: 'Two phantoms crown the Coin — a full Triad of coins on one card, and the table tips to you.' },
+      'twinred@you1': { text: 'A Triad of Swords scores too lean — three 2s can’t catch their Bread.' },
       'twinred@you2': { text: 'Three Quills is still a pauper’s hand. It falls short.' },
       'red@you0': { text: 'One phantom makes only a Pair of coins — not enough to take the table.' },
-      'red@you1': { text: 'A Pair of drained Swords. The wall holds.' },
+      'red@you1': { text: 'A Pair of Swords. The wall holds.' },
       'red@you2': { text: 'A Pair of Quills changes little.' },
     },
     miss: { text: 'The line comes up short.' },
+  },
+  lonespur: {
+    name: 'Twin Red Alone',
+    flavor: 'One high card, no second copy — but a Twin Red is two phantoms.',
+    venue: 'tavern',
+    you: ['Road', 'Quill', 'Chain'],
+    foe: ['Bread', 'Sword', 'Coin'],
+    stones: ['twinred', 'red'],
+    responses: {
+      'twinred@you0': { solve: true, text: 'Two phantoms ride the Road — a finished Triad of Roads (3 + 6) from a single card. No second copy needed.' },
+      'red@you0': { text: 'One phantom makes only a Pair of Roads — it doesn’t clear their board.' },
+      'twinred@you1': { text: 'A Triad of Quills is three 1s. A pauper’s set.' },
+      'twinred@you2': { text: 'Three Chains scores nothing worth having.' },
+      'red@you1': { text: 'A Pair of Quills falls short.' },
+      'red@you2': { text: 'A Pair of Chains falls short.' },
+    },
+    miss: { text: 'Put the two phantoms where one high card becomes a whole Triad — the Road.' },
   },
 };
 const PUZZLE_KEYS = Object.keys(PUZZLES);
@@ -6929,34 +7034,28 @@ function puzzleKey(stone, side, idx, swap) {
   return stoneBase(stone) === 'blue' ? `${stone}@you${idx}>foe${swap}` : `${stone}@${side}${idx}`;
 }
 function puzzleResponse(p, key) { return (p.responses && p.responses[key]) || p.miss || { text: 'Nothing comes of it.' }; }
-// A working board (for the screen to show the phantom/swap a guess produces).
-function puzzleFresh(p) {
-  const mk = t => ({ type: t, phantoms: 0, locked: false, poisoned: false });
-  return { you: p.you.map(mk), foe: p.foe.map(mk) };
-}
-function puzzlePreview(p, stone, side, idx, swap) {
-  const st = puzzleFresh(p), base = stoneBase(stone);
-  if (base === 'red') { (side === 'you' ? st.you : st.foe)[idx].phantoms += (stone === 'twinred' ? 2 : 1); }
-  else if (base === 'white') { (side === 'you' ? st.you : st.foe)[idx].locked = true; }
-  else if (base === 'green') { st.foe[idx].poisoned = true; }
-  else if (base === 'blue') { const a = st.you[idx], b = st.foe[swap]; st.you[idx] = b; st.foe[swap] = a; }
-  return st;
-}
 // Headless helper (tests/authoring): the authored response for one placement.
 function solvePuzzle(key, placementKey) { const p = PUZZLES[key]; if (!p) return null; return puzzleResponse(p, placementKey); }
 // A puzzle is Academy-safe (re-usable as base-game practice) when it leans on no
 // Circuit-exclusive stones — i.e. no variants. (Run charms never touch a puzzle.)
 function puzzleAcademySafe(p) { return (p.academy != null) ? !!p.academy : p.stones.every(s => !isVariant(s)); }
 
+// A working board. Card specs may pre-set phantoms/locked/poisoned so a puzzle can
+// field a real Triad, a locked card, etc. (e.g. {type:'Coin', phantoms:1}).
 function puzzleFresh(p) {
-  const mk = (s, owner) => ({ type: puzzleSpecType(s), fx: puzzleSpecFx(s), phantoms: 0, locked: false, poisoned: false, owner, origOwner: owner, stones: [] });
+  const mk = (s, owner) => {
+    const o = (s && typeof s === 'object') ? s : { type: s };
+    return { type: o.type, fx: o.fx || null, phantoms: o.phantoms || 0, locked: !!o.locked, poisoned: !!o.poisoned, owner, origOwner: owner, stones: [] };
+  };
   return { you: p.you.map(s => mk(s, 0)), foe: p.foe.map(s => mk(s, 1)) };
 }
 function puzzlePreview(p, stone, side, idx, swap) {
   const st = puzzleFresh(p), base = stoneBase(stone);
-  if (base === 'red') { (side === 'you' ? st.you : st.foe)[idx].phantoms += (stone === 'twinred' ? 2 : 1); }
-  else if (base === 'white') { (side === 'you' ? st.you : st.foe)[idx].locked = true; }
+  const board = side === 'you' ? st.you : st.foe;
+  if (base === 'red') { board[idx].phantoms += (stone === 'twinred' ? 2 : 1); }
+  else if (base === 'white') { board[idx].locked = true; }
   else if (base === 'green') { st.foe[idx].poisoned = true; }
+  else if (base === 'black') { board[idx].phantoms = 0; board[idx].poisoned = false; } // undo the red/green riding the target
   else if (base === 'blue') { const a = st.you[idx], b = st.foe[swap]; a.owner = 1; b.owner = 0; st.you[idx] = b; st.foe[swap] = a; }
   puzzleEvalues([st.you, st.foe], puzzleValues(p));
   return st;
@@ -6977,10 +7076,12 @@ function circuitPuzzleReward(g, guess) {
 function circuitPuzzleScreen() {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET, q = g.puzzle, p = PUZZLES[q.key];
-  if (!p) { circuitAfterNode(); return; }
+  if (!p) { q.academy ? (q.back && q.back()) : circuitAfterNode(); return; }
   SFX.play('flip');
   const guess = q.tryN + 1;
-  const body = eventShell(p.name, `${p.flavor}  ·  Guess ${guess} of 3 — a wrong line costs 2 Standing. (Standing ${g.standing}/${g.maxStanding})`);
+  const body = eventShell(p.name, q.academy
+    ? `${p.flavor}  ·  Read the board and place the one stone that wins it.`
+    : `${p.flavor}  ·  Guess ${guess} of 3 — a wrong line costs 2 Standing. (Standing ${g.standing}/${g.maxStanding})`);
   const st = (q.pick && q.pick.done) ? puzzlePreview(p, q.pick.stone, q.pick.side, q.pick.idx, q.pick.swap) : puzzleFresh(p);
   if (!(q.pick && q.pick.done)) puzzleEvalues([st.you, st.foe], puzzleValues(p));
 
@@ -6998,7 +7099,7 @@ function circuitPuzzleScreen() {
   const boardRow = (cards, side) => {
     const row = document.createElement('div'); row.className = 'ldcards puzzlerow';
     const need = q.pick && !q.pick.done ? q.pick.need : null;
-    cards.forEach((c, i) => row.appendChild(cardEl(c, side, i, need === side)));
+    cards.forEach((c, i) => row.appendChild(cardEl(c, side, i, need === side || need === 'any')));
     return row;
   };
   const foeSec = document.createElement('div'); foeSec.className = 'ldsection';
@@ -7040,21 +7141,26 @@ function circuitPuzzleScreen() {
     back.onclick = () => { q.pick = null; circuitPuzzleScreen(); };
     acts.appendChild(commit); acts.appendChild(back);
   }
-  const bail = document.createElement('button'); bail.className = 'btn ghost'; bail.textContent = 'Walk away';
-  bail.onclick = () => { g.puzzle = null; circuitAfterNode(); };
+  const bail = document.createElement('button'); bail.className = 'btn ghost'; bail.textContent = q.academy ? '‹ Back to Puzzles' : 'Walk away';
+  bail.onclick = () => { const back = q.back; g.puzzle = null; if (q.academy) { closeModal('circuitModal'); back && back(); } else circuitAfterNode(); };
   acts.appendChild(bail);
   body.appendChild(acts);
   $('circuitModal').classList.add('open');
 }
 function promptForPick(pick) {
   const base = stoneBase(pick.stone), nm = getStone(pick.stone).name;
+  if (pick.need === 'any') return `${nm} — click any card to target.`;
   if (pick.need === 'foe') return `${nm} — click a rival card to target.`;
   if (base === 'blue') return pick.idx == null ? `${nm} — click one of YOUR cards to give up.` : `${nm} — now click a rival card to seize.`;
   return `${nm} — click one of YOUR cards.`;
 }
 function puzzlePickStone(stone) {
   const q = GAUNTLET.puzzle; const base = stoneBase(stone);
-  q.pick = { stone, side: base === 'green' ? 'foe' : 'you', need: base === 'green' ? 'foe' : 'you', idx: null, swap: null, done: false };
+  // Green poisons a rival card; Blue gives up one of yours; everything else
+  // (Red/White/Black/variants) may land on EITHER board — locking or undoing a
+  // rival's card is a real line.
+  const need = base === 'green' ? 'foe' : base === 'blue' ? 'you' : 'any';
+  q.pick = { stone, side: need === 'foe' ? 'foe' : 'you', need, idx: null, swap: null, done: false };
   circuitPuzzleScreen();
 }
 function puzzleClickCard(side, i) {
@@ -7062,8 +7168,10 @@ function puzzleClickCard(side, i) {
   if (base === 'blue') {
     if (q.pick.idx == null) { if (side !== 'you') return; q.pick.idx = i; q.pick.need = 'foe'; }
     else { if (side !== 'foe') return; q.pick.swap = i; q.pick.done = true; }
+  } else if (q.pick.need === 'any') {
+    q.pick.side = side; q.pick.idx = i; q.pick.done = true; // either board; the key records which
   } else {
-    if (side !== q.pick.need) return; q.pick.idx = i; q.pick.done = true;
+    if (side !== q.pick.need) return; q.pick.side = side; q.pick.idx = i; q.pick.done = true;
   }
   circuitPuzzleScreen();
 }
@@ -7071,6 +7179,11 @@ function puzzleCommit() {
   const g = GAUNTLET, q = g.puzzle, p = PUZZLES[q.key];
   const resp = puzzleResponse(p, puzzleKey(q.pick.stone, q.pick.side, q.pick.idx, q.pick.swap));
   const guess = q.tryN + 1;
+  // Academy: a practice riddle — no Standing at stake, retry as often as you like.
+  if (q.academy) {
+    if (resp.solve) { const back = q.back; g.puzzle = null; toast('Solved — well read.'); SFX.play('win'); closeModal('circuitModal'); back && back(); return; }
+    q.pick = null; toast('Not the line — read the board again.'); SFX.play('sting'); circuitPuzzleScreen(); return;
+  }
   if (resp.solve) {
     const reward = circuitPuzzleReward(g, guess);
     g.puzzle = null;
@@ -7084,6 +7197,13 @@ function puzzleCommit() {
   q.tryN = guess; q.pick = null;
   if (guess >= 3) { g.puzzle = null; toast('The riddle bests you. You move on.'); circuitAfterNode(); return; }
   SFX.play('sting');
+  circuitPuzzleScreen();
+}
+// Launch a puzzle from the Academy (practice mode — no run, no stakes).
+function academyPuzzle(key) {
+  if (typeof document === 'undefined') return;
+  closeModal('academyModal');
+  GAUNTLET.puzzle = { key, tryN: 0, pick: null, academy: true, back: openPuzzles };
   circuitPuzzleScreen();
 }
 
@@ -7555,7 +7675,7 @@ if (typeof window !== 'undefined') {
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
-    PUZZLES, solvePuzzle, puzzleAcademySafe, actVenues, actCast,
+    PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast,
     CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),

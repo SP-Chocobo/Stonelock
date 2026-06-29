@@ -389,6 +389,35 @@ assert(M.solvePuzzle('wayfarer', 'twinred@you0').solve === true, 'the authored s
 assert(!M.solvePuzzle('wayfarer', 'twinred@you1').solve, 'a non-solving authored line is a miss');
 assert(M.solvePuzzle('wayfarer', 'blue@you2>foe0').text && !M.solvePuzzle('wayfarer', 'blue@you2>foe0').solve, 'an unlisted placement falls to the miss response');
 assert(M.solvePuzzle('nope', 'x') === null, 'an unknown puzzle resolves to null');
+// Every puzzle is honestly solvable: the marked-solve line is the strict best
+// outcome (you − foe margin) over all legal placements, and the best line(s) are
+// marked solve. This guards against authoring a riddle with a wrong/no answer.
+function pzScore(boardCards, values) {
+  return M.bestSelection(boardCards.map(c => ({ type: c.type, phantoms: c.phantoms || 0, poisoned: !!c.poisoned, evalue: c.evalue })), values, {}).score;
+}
+function pzPlacements(p) {
+  const out = [];
+  for (const stone of p.stones) {
+    const b = M.stoneBase(stone);
+    if (b === 'blue') { for (let i = 0; i < p.you.length; i++) for (let j = 0; j < p.foe.length; j++) out.push({ stone, side: 'you', idx: i, swap: j }); }
+    else if (b === 'green') { for (let j = 0; j < p.foe.length; j++) out.push({ stone, side: 'foe', idx: j }); }
+    else { for (let i = 0; i < p.you.length; i++) out.push({ stone, side: 'you', idx: i }); for (let j = 0; j < p.foe.length; j++) out.push({ stone, side: 'foe', idx: j }); }
+  }
+  return out;
+}
+for (const key of M.PUZZLE_KEYS) {
+  const p = M.PUZZLES[key], values = M.puzzleValues(p);
+  const rows = pzPlacements(p).map(pl => {
+    const st = M.puzzlePreview(p, pl.stone, pl.side, pl.idx, pl.swap);
+    const resp = (p.responses && p.responses[M.puzzleKey(pl.stone, pl.side, pl.idx, pl.swap)]) || p.miss;
+    return { margin: pzScore(st.you, values) - pzScore(st.foe, values), solve: !!(resp && resp.solve) };
+  });
+  const max = Math.max(...rows.map(r => r.margin));
+  assert(rows.some(r => r.solve), `puzzle ${key} has a marked solve`);
+  assert(max > 0, `puzzle ${key} is winnable (best margin > 0)`);
+  assert(rows.filter(r => r.solve).every(r => r.margin >= max - 1e-9), `puzzle ${key}: every marked solve is the best line`);
+  assert(rows.filter(r => r.margin >= max - 1e-9).every(r => r.solve), `puzzle ${key}: the best line is marked solve`);
+}
 // each act seeds exactly one puzzle node (in the branching columns, never the first two)
 for (const act of [1, 2, 3]) {
   M.seedRng(700 + act);
