@@ -5908,7 +5908,18 @@ const MAP_NODE_ORDER = ['duel', 'elite', 'boss', 'repose', 'shop', 'event', 'puz
 const MAP_NODE_NAME = { duel: 'Duel', elite: 'Elite', boss: 'Boss', repose: 'Repose', shop: 'Shop', event: 'Encounter', puzzle: 'Puzzle' };
 const MAP_NODE_SUB = { duel: 'a standing fight', elite: 'a hardened foe', boss: 'the act’s master', repose: 'rest & refit', shop: 'spend your coin', event: 'who knows what', puzzle: 'a tailored riddle' };
 const MAP_NODE_ICON = { duel: '⚔', elite: '★', boss: '☠', repose: '✦', shop: '⛃', event: '?', puzzle: '◆' };
-function mapNodeHtml(node) { return `<div class="mapnode-i">${MAP_NODE_ICON[node.type] || ''}</div>`; }
+// Hand-drawn SVG icons (recolour by state via currentColor) — crisp and identical
+// on every device, unlike the Unicode glyphs they replace.
+const MAP_NODE_SVG = {
+  duel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10"/><path d="M19 5L9 15"/><path d="M3.4 7.4l3-3"/><path d="M20.6 7.4l-3-3"/><path d="M13.5 16.5l2.6 2.6"/><path d="M10.5 16.5L7.9 19.1"/></svg>',
+  elite: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.6 6.3 6.8.5-5.2 4.4 1.6 6.6L12 16.9 6.2 20.3l1.6-6.6L2.6 9.3l6.8-.5z"/></svg>',
+  boss: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c-4.6 0-7.7 3.1-7.7 7.5 0 2 .8 3.7 2.2 4.9v2.3c0 1 .8 1.8 1.8 1.8h.5v1.7c0 .3.3.6.6.6s.6-.3.6-.6v-1.7h2.8v1.7c0 .3.3.6.6.6s.6-.3.6-.6v-1.7h.5c1 0 1.8-.8 1.8-1.8V15c1.4-1.2 2.2-2.9 2.2-4.9 0-4.4-3.1-7.5-7.5-7.5z"/><circle cx="9" cy="10.6" r="1.7" fill="#140d06"/><circle cx="15" cy="10.6" r="1.7" fill="#140d06"/><path d="M11 14.5h2v3h-2z" fill="#140d06"/></svg>',
+  repose: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.2c0 4-1 6.8-2 8.2.5 1 1.5 2 1.2 3.4-.9-.7-1.4-1.9-1.2-3.1C9.1 12 7.5 13 7.5 15.6c0 2.2 1.6 3.8 3.4 4.1-.9-.8-1.1-2.1-.7-3.1.5-1.3 2.1-2.3 1.8-4.3.9.7 1.4 1.9 1.2 3.1.6-.6 1-1.4 1-2.4C14.2 9.4 12 8.5 12 2.2z"/></svg>',
+  shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.4"/></svg>',
+  event: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8.6 9a3.5 3.5 0 1 1 5.1 3.1c-1.2.7-1.7 1.5-1.7 2.8"/><circle cx="12" cy="18.4" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  puzzle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 2.5l9 9-9 10-9-10z"/><path d="M3.2 11.5h17.6"/><path d="M12 2.5l-4 9 4 10 4-10z"/></svg>',
+};
+function mapNodeHtml(node) { return `<div class="mapnode-i">${MAP_NODE_SVG[node.type] || MAP_NODE_ICON[node.type] || ''}</div>`; }
 // A single fixed-position tooltip (so the scrolling map can't clip it).
 function mapTipEl() { let t = document.getElementById('maptip'); if (!t) { t = document.createElement('div'); t.id = 'maptip'; t.className = 'maptip'; document.body.appendChild(t); } return t; }
 // On touch there's no mouseleave, so the hover tip a tap raises would otherwise
@@ -5935,7 +5946,7 @@ function circuitMapScreen() {
   // margined, so it CENTERS when it fits but scrolls from the LEFT when it
   // overflows (a portrait phone). Centering the flex directly would push the
   // first column into unreachable overflow — the bug being fixed here.
-  const grid = document.createElement('div'); grid.className = 'mapgrid';
+  const grid = document.createElement('div'); grid.className = 'mapgrid mapact' + Math.min(g.act, 3); // per-act backdrop slot (CSS fallback when no art)
   const track = document.createElement('div'); track.className = 'maptrack';
   m.cols.forEach((col) => {
     const colEl = document.createElement('div'); colEl.className = 'mapcol';
@@ -5962,7 +5973,7 @@ function circuitMapScreen() {
   const lbtn = document.createElement('button'); lbtn.className = 'btn maplegendbtn'; lbtn.textContent = '◇ Legend';
   const pop = document.createElement('div'); pop.className = 'maplegendpop'; pop.style.display = 'none';
   pop.innerHTML = `<button class="maplegendclose" title="Close">×</button>` +
-    MAP_NODE_ORDER.map(t => `<span class="maplegend-i mapnode-${t}">${MAP_NODE_ICON[t]}</span><span class="maplegend-n">${MAP_NODE_NAME[t]}</span>`).join('');
+    MAP_NODE_ORDER.map(t => `<span class="maplegend-i mapnode-${t}">${MAP_NODE_SVG[t] || MAP_NODE_ICON[t]}</span><span class="maplegend-n">${MAP_NODE_NAME[t]}</span>`).join('');
   const closePop = () => { pop.style.display = 'none'; document.removeEventListener('click', offClick); };
   const offClick = e => { if (!lwrap.contains(e.target)) closePop(); };
   lbtn.onclick = e => {
@@ -6001,12 +6012,15 @@ function drawMapEdges(grid, m) {
     const from = btn[node.col + ',' + node.idx], to = btn[(node.col + 1) + ',' + j];
     if (!from || !to) continue;
     const fr = from.getBoundingClientRect(), tr = to.getBoundingClientRect();
-    const line = document.createElementNS(NS, 'line');
-    line.setAttribute('x1', fr.right - gr.left); line.setAttribute('y1', fr.top - gr.top + fr.height / 2);
-    line.setAttribute('x2', tr.left - gr.left); line.setAttribute('y2', tr.top - gr.top + tr.height / 2);
+    const x1 = fr.right - gr.left, y1 = fr.top - gr.top + fr.height / 2;
+    const x2 = tr.left - gr.left, y2 = tr.top - gr.top + tr.height / 2;
+    const c = (x2 - x1) * 0.5; // horizontal-tangent control points → a smooth winding trail
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`);
+    path.setAttribute('fill', 'none');
     const live = m.pos ? (m.pos.col === node.col && m.pos.idx === node.idx) : node.col === 0;
-    line.setAttribute('class', 'mapedge' + (live ? ' live' : '') + (node.done ? ' taken' : ''));
-    svg.appendChild(line);
+    path.setAttribute('class', 'mapedge' + (live ? ' live' : '') + (node.done ? ' taken' : ''));
+    svg.appendChild(path);
   }
   grid.insertBefore(svg, grid.firstChild);
 }

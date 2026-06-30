@@ -1338,30 +1338,47 @@ body[data-compact="1"] .board .cfx { display: none; }
 .circuitmap { margin: 8px 0; }
 /* Scroll viewport — the track inside centers when it fits and scrolls from the
    LEFT when it overflows (so the first node is always reachable on a phone). */
-.mapgrid { overflow-x: auto; overflow-y: hidden; width: 100%; padding: 4px 0; -webkit-overflow-scrolling: touch; }
+.mapgrid { position: relative; overflow-x: auto; overflow-y: hidden; width: 100%; padding: 18px 0; -webkit-overflow-scrolling: touch;
+  border-radius: 12px; border: 1px solid var(--gold-dim); background-size: cover; background-position: center;
+  background-image: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92)); }
+/* Per-act backdrop slot: overlay + region texture + the dark fallback beneath, so
+   it looks intentional now and levels up the moment art lands at assets/maps/. */
+.mapgrid.mapact1 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act1.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.mapgrid.mapact2 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act2.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.mapgrid.mapact3 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act3.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
 .maptrack { position: relative; display: flex; gap: 46px; width: max-content; margin: 0 auto; align-items: stretch; }
 .mapcol { display: grid; grid-template-rows: repeat(5, 1fr); gap: 12px; min-width: 78px; align-items: center; }
 @media (max-width: 720px) {
   .maptrack { gap: 34px; }
   .mapcol { min-width: 58px; gap: 9px; }
-  .mapnode { padding: 6px 5px; }
+  .mapnode { width: 44px; height: 44px; }
+  .mapnode-i svg { width: 22px; height: 22px; }
   .mapnode-t { font-size: 11px; }
   .mapnode-f { font-size: 10px; }
   .mapnode-hp { font-size: 9px; }
-  .mapslot { min-height: 40px; }
+  .mapslot { min-height: 44px; }
 }
 .mapslot { min-height: 52px; } /* keeps empty lanes spaced so branches read as paths */
-.mapnode:not(.reach):not(.here):not(.done) { opacity: 0.5; } /* unreachable-this-step nodes recede */
-.mapnode.here { border-color: var(--gold-bright); box-shadow: 0 0 0 2px var(--gold-bright) inset; opacity: 1; }
+.mapnode:not(.reach):not(.here):not(.done) { opacity: 0.4; } /* unreachable-this-step nodes recede */
+.mapnode.here { border-color: var(--gold-bright); opacity: 1; animation: mapHere 1.7s ease-in-out infinite; }
+@keyframes mapHere {
+  0%, 100% { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 12px rgba(232,196,119,0.4), 0 3px 8px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 22px rgba(232,196,119,0.78), 0 3px 8px rgba(0,0,0,0.5); }
+}
+@media (prefers-reduced-motion: reduce) { .mapnode.here { animation: none; box-shadow: 0 0 0 2px var(--gold-bright), 0 0 16px rgba(232,196,119,0.5); } }
 .mapedges { z-index: 0; }
-.mapedge { stroke: var(--gold-dim); stroke-width: 2; opacity: 0.5; }
+.mapedge { fill: none; stroke: var(--gold-dim); stroke-width: 2.5; opacity: 0.4; stroke-linecap: round; }
 .mapedge.taken { stroke: var(--gold); opacity: 0.7; }
-.mapedge.live { stroke: var(--gold-bright); stroke-width: 2.5; opacity: 1; }
-.mapnode { z-index: 1; display: flex; align-items: center; justify-content: center; padding: 6px; min-height: 52px; border-radius: 9px; cursor: default; position: relative;
-  background: rgba(20,14,8,0.55); border: 1px solid var(--gold-dim); color: var(--parchment); transition: all 0.12s ease; }
-.mapnode.reach { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim) inset; }
-.mapnode.reach:hover { border-color: var(--gold-bright); background: rgba(40,30,17,0.85); transform: translateY(-2px); }
-.mapnode.done { opacity: 0.6; border-style: dashed; }
+.mapedge.live { stroke: var(--gold-bright); stroke-width: 3; opacity: 0.95; filter: drop-shadow(0 0 3px rgba(232,196,119,0.5)); }
+/* Nodes are gilded medallions, not boxes. */
+.mapnode { z-index: 1; width: 52px; height: 52px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; cursor: default; position: relative; color: var(--parchment);
+  background: radial-gradient(circle at 50% 34%, rgba(58,44,26,0.96), rgba(22,15,8,0.96));
+  border: 2px solid var(--gold-dim); box-shadow: 0 3px 8px rgba(0,0,0,0.55);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease; }
+.mapnode.reach { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px rgba(232,196,119,0.3) inset, 0 0 12px rgba(232,196,119,0.22), 0 3px 8px rgba(0,0,0,0.5); }
+.mapnode.reach:hover { border-color: var(--gold-bright); transform: translateY(-3px) scale(1.07); box-shadow: 0 0 0 1px var(--gold-bright) inset, 0 0 20px rgba(232,196,119,0.5), 0 6px 14px rgba(0,0,0,0.55); }
+.mapnode.done { opacity: 0.5; }
+.mapnode.done::after { content: '✓'; position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-dim); color: #140d06; font-size: 12px; line-height: 18px; text-align: center; font-weight: 700; }
 .mapnode-t { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; }
 .mapnode-duel .mapnode-t { color: var(--parchment); }
 .mapnode-elite .mapnode-t { color: var(--amber); }
@@ -1374,7 +1391,9 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapnode-shop .mapnode-t { color: #d9c06a; }
 /* The node is icon-only; a legend + hover tip name it. Per-kind icon colours are
    shared by the node glyph and the legend swatch. */
-.mapnode-i { font-size: 27px; line-height: 1; }
+.mapnode-i { font-size: 27px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.mapnode-i svg { width: 27px; height: 27px; display: block; }
+.maplegend-i svg { width: 18px; height: 18px; display: block; }
 .mapnode-duel .mapnode-i,   .maplegend-i.mapnode-duel   { color: var(--parchment); }
 .mapnode-elite .mapnode-i,  .maplegend-i.mapnode-elite  { color: var(--amber); }
 .mapnode-event .mapnode-i,  .maplegend-i.mapnode-event  { color: #b79bd6; }
@@ -1388,7 +1407,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 .maplegendpop { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); z-index: var(--z-dropdown);
   display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center; white-space: nowrap; padding: 16px 18px 14px;
   background: linear-gradient(180deg, #2b2113, #161008); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.65); }
-.maplegend-i { font-size: 16px; text-align: center; }
+.maplegend-i { font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
 .maplegend-n { font-family: 'Alegreya', Georgia, serif; font-size: 13px; color: var(--parchment); }
 .maplegendclose { position: absolute; top: 3px; right: 7px; background: none; border: none; color: var(--parchment-dim); font-size: 18px; line-height: 1; cursor: pointer; }
 .maplegendclose:hover { color: var(--gold-bright); }
@@ -1409,7 +1428,7 @@ body[data-compact="1"] .board .cfx { display: none; }
 .maptip-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gold-bright); }
 .maptip-b { font-family: 'Alegreya', Georgia, serif; font-size: 11.5px; color: var(--parchment-dim); margin-top: 2px; }
 .mapnode-puzzle .mapnode-t { color: #6fc0c9; }
-@media (max-width: 640px) { .mapnode-i { font-size: 16px; } }
+@media (max-width: 640px) { .mapnode-i { font-size: 16px; } .mapnode-i svg { width: 20px; height: 20px; } }
 /* Puzzle board: two rows of cards (rival above, yours below). */
 .puzzlerow { justify-content: center; }
 .puzzlecard { cursor: default; }
