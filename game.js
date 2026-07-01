@@ -3522,7 +3522,7 @@ function regularLeans(p) {
 // so it can never drift from how the bot actually plays. Flavor tells you who they
 // are; this tells a new player what they'll DO — the missing legibility a tester
 // flagged on the allied AI. STONE_DO is in plain "what it does to the board" terms.
-const STONE_DO = { red: 'builds Pairs & Triads', white: 'locks down what it keeps', blue: 'steals your cards', black: 'undoes plays' };
+const STONE_DO = { red: 'builds Pairs & Triads', white: 'locks down what it keeps', blue: 'poaches cards across the table', black: 'undoes plays on the board' };
 function personaCoachNote(name) {
   const p = PERSONALITIES[name]; if (!p) return null;
   const prefers = STONE_KEYS.filter(c => p[c] >= 1.3).sort((a, b) => p[b] - p[a]);
