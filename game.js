@@ -4481,7 +4481,7 @@ function showVictory() {
       : `${playerName(1)} held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
     // The broken boss’s parting word, face to face (reset to hidden up top).
     const dp = $('victoryDialogue');
-    if (dp && won) { dp.style.display = ''; dp.innerHTML = dialoguePlate(playerName(1), bossDefeatLine(playerName(1)), { side: 'left' }); }
+    if (dp && won && showCampaignDefeat()) { dp.style.display = ''; dp.innerHTML = dialoguePlate(playerName(1), bossDefeatLine(playerName(1)), { side: 'left' }); }
     const lines = won ? unlockLines(G.unlocked) : [];
     if (uw && lines.length) {
       uw.style.display = '';
@@ -4928,6 +4928,27 @@ function campaignBeaten() { try { return new Set(JSON.parse(ls.get('stonelock-ca
 function markCampaignWin(boss, diff) { const s = campaignBeaten(); s.add(`${boss}-${diff}`); ls.set('stonelock-campaign', JSON.stringify([...s])); }
 function alphaUnlock() { const v = ls.get('stonelock-alpha'); return v === null ? true : v === '1'; } // default ON in alpha
 function setAlphaUnlock(on) { ls.set('stonelock-alpha', on ? '1' : '0'); }
+
+/* ---- Dialogue preferences: which portrait scenes play. One settings home
+   (see the Settings panel); the encounter screens read these gates. Campaign
+   is 3-way (always / only until the boss is first cleared / off); the Circuit
+   and event scenes are simple on/off. Defaults: everything on. ---- */
+const DLG_KEY = 'stonelock-dialogue';
+const DLG_DEFAULTS = { campaign: 'always', elites: true, cbosses: true, events: true };
+function dialoguePrefs() {
+  let p = null; try { p = JSON.parse(ls.get(DLG_KEY)); } catch (e) {}
+  return Object.assign({}, DLG_DEFAULTS, p && typeof p === 'object' ? p : {});
+}
+function setDialoguePref(k, v) { const p = dialoguePrefs(); p[k] = v; ls.set(DLG_KEY, JSON.stringify(p)); }
+function bossBeatenAny(bossVal) { return RAID_DIFF_ORDER.some(d => campaignBeaten().has(`${bossVal}-${d}`)); }
+// Show the campaign boss's intro? 'firstclear' shows it only until you've broken
+// that boss at least once (the story beat lands, then stops nagging on retries).
+function showCampaignIntro(bossVal) { const c = dialoguePrefs().campaign; return c === 'always' || (c === 'firstclear' && !bossBeatenAny(bossVal)); }
+// The defeat line rides the same setting; 'firstclear' shows it on the run that
+// first breaks the boss (G.firstClearThisBoss is stamped before the win records).
+function showCampaignDefeat() { const c = dialoguePrefs().campaign; return c === 'always' || (c === 'firstclear' && !!G.firstClearThisBoss); }
+function showCircuitScene(nodeType) { const p = dialoguePrefs(); return nodeType === 'boss' ? p.cbosses : nodeType === 'elite' ? p.elites : false; }
+function showEventScene() { return !!dialoguePrefs().events; }
 function raidUnlocked(boss, diff) { return alphaUnlock() || bossDiffEarned(boss, diff, campaignBeaten()); }
 // The real progression rule (independent of the alpha bypass) — used both for
 // gating and for reporting what a win newly earns.
@@ -4970,7 +4991,9 @@ function unlockSnapshot(beaten) {
 }
 // Record the win and return the tokens it newly earned (independent of alpha).
 function recordCampaignWin(boss, diff) {
-  const before = unlockSnapshot(campaignBeaten());
+  const beatenBefore = campaignBeaten();
+  if (typeof G !== 'undefined' && G) G.firstClearThisBoss = !RAID_DIFF_ORDER.some(d => beatenBefore.has(`${boss}-${d}`));
+  const before = unlockSnapshot(beatenBefore);
   markCampaignWin(boss, diff);
   const after = unlockSnapshot(campaignBeaten());
   return [...after].filter(x => !before.has(x));
@@ -5244,12 +5267,20 @@ function renderRaidSetup() {
   const begin = document.createElement('button');
   begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = `Face ${raidBossName(RAIDSET.boss)}`;
   begin.onclick = () => {
-    // Slide the choice column out (as Back does) before the boss steps in — so
-    // the settings→dialogue hand-off is one motion, not a hard cut.
+    // Intro disabled (setting off, or already first-cleared): drop straight in.
+    if (!showCampaignIntro(RAIDSET.boss)) { raidLaunch(); return; }
+    // Otherwise slide the choice column out (as Back does) before the boss steps
+    // in — so the settings→dialogue hand-off is one motion, not a hard cut.
     if (raidShouldAnimate()) { layout.classList.remove('in'); layout.classList.add('out'); setTimeout(raidBossIntroScreen, 250); }
     else raidBossIntroScreen();
   };
   btns.appendChild(begin);
+}
+// Drop from the setup/intro into the actual raid match.
+function raidLaunch() {
+  closeModal('setupModal');
+  logEl.innerHTML = '';
+  newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, allyBot: RAIDSET.allyBot, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
 }
 // The boss’s one spoken word before the raid — a portrait plate over the setup
 // modal, then a Sit-down that drops into the match.
@@ -5259,7 +5290,9 @@ function raidBossIntroScreen() {
   const card = $('setupModal').querySelector('.modalcard');
   if (card) card.classList.remove('raidcompact');
   $('setupModal').querySelector('h2').textContent = `${boss} takes the high seat`;
-  body.className = 'raidintro'; body.innerHTML = dialoguePlate(boss, bossIntroLine(boss), { side: 'right', foe: true });
+  body.className = 'raidintro';
+  body.innerHTML = dialoguePlate(boss, bossIntroLine(boss), { side: 'right', foe: true }) + dialogueSkipLink('campaign');
+  wireDialogueSkipLink(body);
   // Let the boss settle in from the right — one frame in the pre-state first.
   if (raidShouldAnimate()) requestAnimationFrame(() => requestAnimationFrame(() => body.classList.add('in')));
   else body.classList.add('in');
@@ -5273,12 +5306,22 @@ function raidBossIntroScreen() {
   };
   const go = document.createElement('button');
   go.id = 'startBtn'; go.className = 'btn primary big'; go.textContent = 'Sit down';
-  go.onclick = () => {
-    closeModal('setupModal');
-    logEl.innerHTML = '';
-    newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, allyBot: RAIDSET.allyBot, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
-  };
+  go.onclick = () => raidLaunch();
   btns.append(back, go);
+}
+// The one in-context concession: a quiet link under an encounter plate that
+// disables that category on the spot (source of truth still lives in Settings).
+// `kind` is a dialoguePrefs key: 'campaign' turns Off, the on/off kinds toggle off.
+function dialogueSkipLink(kind) {
+  return `<div class="dlgskip"><button class="dlgskip-b" data-dlg="${kind}">Turn these off ›</button></div>`;
+}
+function wireDialogueSkipLink(root) {
+  const b = root.querySelector('.dlgskip-b'); if (!b) return;
+  b.onclick = () => {
+    setDialoguePref(b.dataset.dlg, b.dataset.dlg === 'campaign' ? 'off' : false);
+    const wrap = b.closest('.dlgskip');
+    if (wrap) wrap.innerHTML = '<span class="dlgskip-done">Off — re-enable in Settings</span>';
+  };
 }
 
 /* ============================================================
@@ -5836,7 +5879,8 @@ function circuitEnterNode(node) {
 function circuitBeginFight(node) {
   const foe = node && node.foe;
   const speaks = typeof document !== 'undefined' && foe && portraitFor(foe)
-    && (node.type === 'elite' || node.type === 'boss') && FOE_SOLO_TAUNTS[foe];
+    && (node.type === 'elite' || node.type === 'boss') && FOE_SOLO_TAUNTS[foe]
+    && showCircuitScene(node.type);
   if (speaks) { circuitPrefightScreen(node); return; }
   circuitSetupFight(node);
 }
@@ -5846,8 +5890,10 @@ function circuitPrefightScreen(node) {
   const body = eventShell(boss ? 'The road’s end — a Boss' : 'A named hand bars the road',
     `Standing ${g.standing}/${g.maxStanding}. ${node.foe} holds this stretch of ${node.type === 'boss' ? 'the act' : 'the road'}. There’s no going around.`);
   const sec = document.createElement('div'); sec.className = 'ldsection';
-  sec.innerHTML = dialoguePlate(node.foe, foeSoloTaunt(node.foe), { side: 'right', foe: true });
+  sec.innerHTML = dialoguePlate(node.foe, foeSoloTaunt(node.foe), { side: 'right', foe: true })
+    + dialogueSkipLink(boss ? 'cbosses' : 'elites');
   body.appendChild(sec);
+  wireDialogueSkipLink(sec);
   const row = document.createElement('div'); row.className = 'eventopts';
   const go = document.createElement('button'); go.className = 'eventopt'; go.style.maxWidth = '260px';
   go.innerHTML = `<div class="eventopt-l">Sit down</div><div class="eventopt-n">Take ${node.foe} across the table${boss ? ' — break them to clear the act' : ''}.</div>`;
@@ -6210,7 +6256,7 @@ function circuitRewardScreen() {
   body.innerHTML = '';
 
   // The 2v1 victory — your ally's parting word as they hand you the trophy.
-  if (node.coop && node.ally) {
+  if (node.coop && node.ally && showEventScene()) {
     const q = document.createElement('div');
     q.innerHTML = dialoguePlate(node.ally, allyWinLine(node.ally), { side: 'left' });
     body.appendChild(q);
@@ -6874,12 +6920,18 @@ function renderRivalEvent(g) {
   const ev = g.event;
   SFX.play('win');
   const body = eventShell('An Old Rival', `Standing ${g.standing}/${g.maxStanding}. A familiar figure falls into step beside you on the road — ${ev.ally}, the master you broke earlier. They’ve heard ${ev.foe} holds this stretch, and they don’t much care for ${ev.foe}.`);
-  const sec = document.createElement('div'); sec.className = 'ldsection';
   // The ally at your side (face left) and the foe barring the road (face right),
-  // turned toward one another across the plate.
-  sec.innerHTML =
-    dialoguePlate(ev.ally, allyLine(ev.ally), { side: 'left' }) +
-    dialoguePlate(ev.foe, foeTaunt(ev.foe), { side: 'right', foe: true });
+  // turned toward one another across the plate — unless event scenes are off, in
+  // which case the shell text above already names them and we skip the plates.
+  if (showEventScene()) {
+    const sec = document.createElement('div'); sec.className = 'ldsection';
+    sec.innerHTML =
+      dialoguePlate(ev.ally, allyLine(ev.ally), { side: 'left' }) +
+      dialoguePlate(ev.foe, foeTaunt(ev.foe), { side: 'right', foe: true }) +
+      dialogueSkipLink('events');
+    body.appendChild(sec);
+    wireDialogueSkipLink(sec);
+  }
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const fight = document.createElement('button');
   fight.className = 'eventopt';
@@ -6890,7 +6942,7 @@ function renderRivalEvent(g) {
   wave.innerHTML = `<div class="eventopt-l">Wave them on</div><div class="eventopt-n">Part ways and keep to your own road. They won’t offer twice.</div>`;
   wave.onclick = () => { g.allyOffered = true; g.event = null; circuitAfterNode(); };
   orow.appendChild(fight); orow.appendChild(wave);
-  sec.appendChild(orow); body.appendChild(sec);
+  body.appendChild(orow);
   eventReviewBtn(body);
   $('circuitNext').style.display = 'none'; // choices are the buttons above
   $('circuitModal').classList.add('open');
@@ -7844,7 +7896,20 @@ function boot() {
     $('sfxVol').value = sv; $('sfxVolVal').textContent = sv;
     $('musicVol').disabled = m; $('sfxVol').disabled = m;
   };
-  const openAudio = () => { syncAudio(); $('audioModal').classList.add('open'); };
+  // ---- Dialogue settings (which portrait scenes play) ----
+  const syncDialogue = () => {
+    const p = dialoguePrefs();
+    document.querySelectorAll('#dlgCampaign .segbtn').forEach(b => b.classList.toggle('on', b.dataset.v === p.campaign));
+    const tog = (id, on) => { const b = $(id); if (b) { b.textContent = on ? 'On' : 'Off'; b.classList.toggle('on', !!on); b.classList.toggle('off', !on); } };
+    tog('dlgElites', p.elites); tog('dlgCbosses', p.cbosses); tog('dlgEvents', p.events);
+  };
+  document.querySelectorAll('#dlgCampaign .segbtn').forEach(b => {
+    b.onclick = () => { setDialoguePref('campaign', b.dataset.v); syncDialogue(); };
+  });
+  [['dlgElites', 'elites'], ['dlgCbosses', 'cbosses'], ['dlgEvents', 'events']].forEach(([id, key]) => {
+    const b = $(id); if (b) b.onclick = () => { setDialoguePref(key, !dialoguePrefs()[key]); syncDialogue(); };
+  });
+  const openAudio = () => { syncAudio(); syncDialogue(); $('audioModal').classList.add('open'); };
   $('audioBtn').onclick = () => { menuPopSet(false); openAudio(); };
   $('titleAudio').onclick = openAudio;
   $('audioClose').onclick = () => closeModal('audioModal');
@@ -7937,6 +8002,7 @@ if (typeof window !== 'undefined') {
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
+    dialoguePrefs, setDialoguePref, showCampaignIntro, showCampaignDefeat, showCircuitScene, showEventScene, DLG_KEY,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitSetupCoopFight, circuitAllyDraftPool, pickFoeFor, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,

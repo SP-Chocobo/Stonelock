@@ -1881,6 +1881,29 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
 .audrow input[type="range"] { flex: 1; accent-color: var(--gold); height: 4px; cursor: pointer; }
 .audrow input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .audval { width: 30px; text-align: right; color: var(--parchment); font-size: 13px; font-variant-numeric: tabular-nums; }
+/* Settings panel: sectioned (Audio / Dialogue) with a shared header rule. */
+.setsection { margin: 6px 0 4px; padding-top: 12px; border-top: 1px solid var(--gold-dim); }
+.setsection:first-of-type { border-top: none; padding-top: 4px; }
+.seth { margin: 0 0 4px; font-family: 'Cinzel', Georgia, serif; color: var(--gold); font-size: 15px;
+  text-transform: uppercase; letter-spacing: 0.08em; }
+.setnote { margin: 0 0 10px !important; }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 9px 0; }
+.setrow > label { font-family: 'Cinzel', Georgia, serif; color: var(--parchment); font-size: 13.5px; }
+.settoggle { min-width: 62px; padding: 5px 12px; font-size: 12.5px; }
+.settoggle.on { border-color: var(--gold-bright); color: var(--gold-bright); }
+.settoggle.off { border-color: var(--gold-dim); color: var(--parchment-dim); }
+.segbtns { display: inline-flex; border: 1px solid var(--gold-dim); border-radius: 8px; overflow: hidden; }
+.segbtn { padding: 5px 12px; font-size: 12.5px; background: transparent; color: var(--parchment-dim);
+  border: none; border-left: 1px solid var(--gold-dim); cursor: pointer; font-family: 'Cinzel', Georgia, serif; }
+.segbtn:first-child { border-left: none; }
+.segbtn:hover { background: rgba(201,160,80,0.1); color: var(--parchment); }
+.segbtn.on { background: rgba(201,160,80,0.2); color: var(--gold-bright); }
+/* The in-context "turn these off" link under an encounter plate. */
+.dlgskip { text-align: center; margin: 8px 0 2px; min-height: 20px; }
+.dlgskip-b { background: none; border: none; color: var(--parchment-dim); font-size: 12px; cursor: pointer;
+  font-style: italic; padding: 2px 6px; text-decoration: underline dotted; }
+.dlgskip-b:hover { color: var(--gold-bright); }
+.dlgskip-done { color: var(--parchment-dim); font-size: 12px; font-style: italic; }
 .titlefoot { display: none; } /* the artwork carries the mood; tagline retired from the splash */
 
 /* ---------- Tutorial coach ---------- */

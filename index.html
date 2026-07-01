@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=263">
+<link rel="stylesheet" href="style.css?v=264">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=263" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=263" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=264" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=264" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=263" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=263" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=264" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=264" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -68,7 +68,7 @@
       <button id="titleTutorial" class="btn big">The Academy</button>
       <button id="titleRegulars" class="btn big">The Regulars</button>
       <button id="titleRules" class="btn big">Rules</button>
-      <button id="titleAudio" class="btn big">Audio</button>
+      <button id="titleAudio" class="btn big">Settings</button>
     </div>
     <div class="titlebtns titlemenu-play" id="titleMenuPlay" style="display:none">
       <button id="titleContinue" class="btn primary big" style="display:none">Continue match</button>
@@ -133,7 +133,7 @@
         <div id="menuPop" class="menupop" style="display:none">
           <div id="tableSummary" class="tablesummary"></div>
           <button id="newGameBtn" class="btn ghost">New match — set the table</button>
-          <button id="audioBtn" class="btn ghost">Audio…</button>
+          <button id="audioBtn" class="btn ghost">Settings…</button>
           <button id="fsBtn" class="btn ghost">Fullscreen</button>
           <button id="titleBtn" class="btn ghost">Return to title…</button>
         </div>
@@ -198,20 +198,38 @@
 <!-- Quit-to-title confirmation -->
 <div id="audioModal" class="modal">
   <div class="modalcard">
-    <h2>Audio</h2>
-    <p class="modalsub small">Set the levels, or silence the table.</p>
-    <div class="audiopanel">
-      <button id="muteToggle" class="btn audmute">Sound: On</button>
-      <div class="audrow">
-        <label for="musicVol">Music</label>
-        <input type="range" id="musicVol" min="0" max="100" step="1" value="50">
-        <span id="musicVolVal" class="audval">50</span>
+    <h2>Settings</h2>
+    <p class="modalsub small">Set the levels, and choose which scenes play.</p>
+    <div class="setsection">
+      <h3 class="seth">Audio</h3>
+      <div class="audiopanel">
+        <button id="muteToggle" class="btn audmute">Sound: On</button>
+        <div class="audrow">
+          <label for="musicVol">Music</label>
+          <input type="range" id="musicVol" min="0" max="100" step="1" value="50">
+          <span id="musicVolVal" class="audval">50</span>
+        </div>
+        <div class="audrow">
+          <label for="sfxVol">Effects</label>
+          <input type="range" id="sfxVol" min="0" max="100" step="1" value="50">
+          <span id="sfxVolVal" class="audval">50</span>
+        </div>
       </div>
-      <div class="audrow">
-        <label for="sfxVol">Effects</label>
-        <input type="range" id="sfxVol" min="0" max="100" step="1" value="50">
-        <span id="sfxVolVal" class="audval">50</span>
+    </div>
+    <div class="setsection">
+      <h3 class="seth">Dialogue</h3>
+      <p class="modalsub small setnote">Portrait scenes before fights and at the high seat.</p>
+      <div class="setrow">
+        <label>Campaign bosses</label>
+        <div class="segbtns" id="dlgCampaign">
+          <button class="segbtn" data-v="always">Always</button>
+          <button class="segbtn" data-v="firstclear">First clear</button>
+          <button class="segbtn" data-v="off">Off</button>
+        </div>
       </div>
+      <div class="setrow"><label>Circuit elites</label><button id="dlgElites" class="btn settoggle"></button></div>
+      <div class="setrow"><label>Circuit floor bosses</label><button id="dlgCbosses" class="btn settoggle"></button></div>
+      <div class="setrow"><label>Event scenes</label><button id="dlgEvents" class="btn settoggle"></button></div>
     </div>
     <div class="modalbtns"><button id="audioClose" class="btn primary">Close</button></div>
   </div>
@@ -450,6 +468,6 @@
   </div>
 </div>
 
-<script src="game.js?v=263"></script>
+<script src="game.js?v=264"></script>
 </body>
 </html>

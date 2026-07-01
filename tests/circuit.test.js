@@ -580,6 +580,37 @@ assert(/assets\/portraits\/ferryman\.jpg/.test(plate), 'plate uses the persona p
 const noface = M.dialoguePlate('A Drifter', 'No face here.', {});
 assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile with no portrait');
 
+// ---- Dialogue preferences: the four scene gates honour the settings ----
+{
+  const P = M.dialoguePrefs();
+  assert(P.campaign === 'always' && P.elites && P.cbosses && P.events, 'defaults: all dialogue on');
+  M.setDialoguePref('elites', false);
+  assert(!M.showCircuitScene('elite') && M.showCircuitScene('boss'), 'elites off, floor bosses still speak');
+  M.setDialoguePref('cbosses', false);
+  assert(!M.showCircuitScene('boss'), 'floor bosses off');
+  assert(!M.showCircuitScene('duel'), 'plain duels never speak, regardless of settings');
+  M.setDialoguePref('events', false);
+  assert(!M.showEventScene(), 'event scenes off');
+  M.setDialoguePref('events', true);
+  assert(M.showEventScene(), 'event scenes back on');
+  // Campaign 3-way: off / always / first-clear-only
+  M.setDialoguePref('campaign', 'off');
+  assert(!M.showCampaignIntro('warden') && !M.showCampaignDefeat(), 'campaign off: no intro, no defeat');
+  M.setDialoguePref('campaign', 'always');
+  assert(M.showCampaignIntro('warden'), 'campaign always: intro shows even once beaten');
+  M.setDialoguePref('campaign', 'firstclear');
+  assert(M.showCampaignIntro('crucible'), 'firstclear: an unbeaten boss shows its intro');
+  M.markCampaignWin('crucible', 'hard');
+  assert(!M.showCampaignIntro('crucible'), 'firstclear: a beaten boss no longer shows its intro');
+  const st = M._state();
+  st.firstClearThisBoss = true;
+  assert(M.showCampaignDefeat(), 'firstclear: the defeat line shows on the first-clear run');
+  st.firstClearThisBoss = false;
+  assert(!M.showCampaignDefeat(), 'firstclear: the defeat line is hidden on later clears');
+  // restore defaults so nothing downstream inherits a muted state
+  M.setDialoguePref('campaign', 'always'); M.setDialoguePref('elites', true); M.setDialoguePref('cbosses', true);
+}
+
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);
 M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });
