@@ -631,6 +631,38 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
   assert(M.kbPickInDirection(g, 99, 1, 0) === 0, 'out-of-range cursor → first element');
 }
 
+// ---- Map pathing: planar (non-crossing) edges, no dead ends, everything
+// reachable, and a clean symmetric entry fan ----
+{
+  for (let seed = 1; seed <= 60; seed++) {
+    M.seedRng(seed);
+    for (let act = 1; act <= 3; act++) {
+      const cols = M.buildAct(act).cols;
+      assert(cols[0].length === 1, `act ${act} seed ${seed}: single opener`);
+      assert(cols[1].length === 3, `act ${act} seed ${seed}: entry fans to a symmetric 3`);
+      for (let c = 0; c < cols.length; c++) {
+        const A = cols[c];
+        for (let i = 1; i < A.length; i++) assert(A[i].lane >= A[i - 1].lane, 'nodes ordered by lane');
+        if (c === cols.length - 1) continue;
+        const B = cols[c + 1];
+        A.forEach(n => {
+          assert((n.edges || []).length >= 1, `act ${act} seed ${seed} col ${c}: no dead-end node`);
+          n.edges.forEach(j => assert(j >= 0 && j < B.length, 'edge target in range'));
+        });
+        // Planar: for lane-ordered A[i], A[i+1], no edge of A[i] reaches past any
+        // edge of A[i+1] (they may share a target, but never cross).
+        for (let i = 0; i + 1 < A.length; i++) {
+          assert(Math.max(...A[i].edges) <= Math.min(...A[i + 1].edges),
+            `act ${act} seed ${seed} col ${c}: edges cross between rows ${i} and ${i + 1}`);
+        }
+        // Every next-column node has an incoming edge (nothing unreachable).
+        for (let j = 0; j < B.length; j++) assert(A.some(n => n.edges.includes(j)), `act ${act} seed ${seed} col ${c + 1} node ${j} unreachable`);
+      }
+    }
+  }
+  M.clearRng();
+}
+
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);
 M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });

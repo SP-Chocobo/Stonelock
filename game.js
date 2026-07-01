@@ -5735,16 +5735,27 @@ function linkColumns(A, B) {
   A.forEach(n => n.edges = []);
   if (a === 1) { A[0].edges = B.map((_, j) => j); return; }   // the entry fans out to the whole next column
   if (b === 1) { A.forEach(n => n.edges = [0]); return; }     // everything converges on the boss/shop
+  // Both columns are ordered by lane, so a monotonic projection gives every A a
+  // primary edge with no two edges crossing. Orphan B nodes are adopted into the
+  // bracket they fall in, and the optional 2nd branch is bounded by its
+  // neighbours — the whole graph stays planar, so branches spread instead of
+  // knotting. (No dead ends: every A keeps ≥1 out, every B ends with ≥1 in.)
   const proj = i => Math.round(i * (b - 1) / (a - 1));
-  for (let i = 0; i < a; i++) A[i].edges.push(proj(i));
+  for (let i = 0; i < a; i++) A[i].edges = [proj(i)];
   for (let j = 0; j < b; j++) {
-    if (!A.some(n => n.edges.includes(j))) { // give an orphaned B node an incoming edge
-      let bi = 0, bd = Infinity; for (let i = 0; i < a; i++) { const d = Math.abs(proj(i) - j); if (d < bd) { bd = d; bi = i; } }
-      if (!A[bi].edges.includes(j)) A[bi].edges.push(j);
-    }
+    if (A.some(n => n.edges.includes(j))) continue;
+    let i = 0; while (i < a - 1 && proj(i + 1) <= j) i++;      // the bracket proj(i) ≤ j < proj(i+1)
+    A[i].edges.push(j);
   }
-  for (let i = 0; i < a; i++) { // a little branching: a 2nd nearby edge sometimes
-    if (rnd() < 0.4) { const alt = A[i].edges[0] + (rnd() < 0.5 ? -1 : 1); if (alt >= 0 && alt < b && !A[i].edges.includes(alt)) A[i].edges.push(alt); }
+  for (let i = 0; i < a; i++) {                                // a little branching, kept in-lane so nothing crosses
+    if (rnd() >= 0.35) continue;
+    const lo = i > 0 ? Math.max(...A[i - 1].edges) : 0;
+    const hi = i < a - 1 ? Math.min(...A[i + 1].edges) : b - 1;
+    const cur = A[i].edges, down = Math.max(...cur) + 1, up = Math.min(...cur) - 1;
+    const cand = [];
+    if (down <= hi && !cur.includes(down)) cand.push(down);
+    if (up >= lo && !cur.includes(up)) cand.push(up);
+    if (cand.length) cur.push(cand[Math.floor(rnd() * cand.length)]);
   }
   A.forEach(n => n.edges.sort((x, y) => x - y));
 }
@@ -5762,7 +5773,9 @@ function buildAct(act) {
     else if (c === N - 2) arr = [mkNode('repose', c, 0, act)];   // a breather before the boss
     else if (c === 0) arr = [mkNode('duel', c, 0, act)];         // a safe opener
     else {
-      const count = 3 + (rnd() < 0.5 ? 1 : 0);                   // 3–4 nodes per column → interweaving lanes
+      // First fanned column is a clean symmetric 3 (lanes 0·2·4) so the entry
+      // spreads evenly; later columns vary 3–4 for robust, interweaving trees.
+      const count = (c === 1) ? 3 : 3 + (rnd() < 0.5 ? 1 : 0);
       const noElite = c === 1;                                   // no elites in the first two nodes
       arr = []; for (let i = 0; i < count; i++) arr.push(mkNode(rollNodeType(noElite, act), c, i, act));
     }
