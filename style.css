@@ -1338,18 +1338,18 @@ body[data-compact="1"] .board .cfx { display: none; }
 .circuitmap { margin: 8px 0; }
 /* Scroll viewport — the track inside centers when it fits and scrolls from the
    LEFT when it overflows (so the first node is always reachable on a phone). */
-.mapgrid { position: relative; overflow-x: auto; overflow-y: hidden; width: 100%; padding: 18px 0; -webkit-overflow-scrolling: touch;
-  border-radius: 12px; border: 1px solid var(--gold-dim); background-size: cover; background-position: center;
-  background-image: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92)); }
-/* Per-act backdrop slot: overlay + region texture + the dark fallback beneath, so
-   it looks intentional now and levels up the moment art lands at assets/maps/. */
-/* Overlay is tuned per image: Act 1 (green riverside) moderate; Act 2 (dark
-   slum) lighter so the murk shows; Act 3 (bright gilded court) heavier AND
-   cooler, to knock the gold down so the gold nodes still read against it. */
-.mapgrid.mapact1 { background-image: linear-gradient(rgba(18,12,7,0.44), rgba(12,8,4,0.72)), url('assets/maps/act1.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
-.mapgrid.mapact2 { background-image: linear-gradient(rgba(16,11,7,0.38), rgba(11,8,4,0.66)), url('assets/maps/act2.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
-.mapgrid.mapact3 { background-image: linear-gradient(rgba(13,12,15,0.56), rgba(9,9,12,0.82)), url('assets/maps/act3.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(40,36,30,0.6), rgba(14,12,12,0.92)); }
-.maptrack { position: relative; display: flex; gap: 46px; width: max-content; margin: 0 auto; align-items: stretch; }
+.mapgrid { position: relative; overflow-x: auto; overflow-y: hidden; width: 100%; -webkit-overflow-scrolling: touch;
+  border-radius: 12px; border: 1px solid var(--gold-dim); background: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92)); }
+/* The region texture lives on the TRACK (the scrolling content), not the viewport,
+   so it pans WITH the nodes as one continuous map. Overlay is tuned per image:
+   Act 1 (green riverside) moderate; Act 2 (dark slum) lighter so the murk shows;
+   Act 3 (bright gilded court) heavier AND cooler, to knock the gold down so the
+   gold nodes still read against it. Dark fallback beneath if a file is missing. */
+.maptrack { position: relative; display: flex; gap: 46px; width: max-content; margin: 0 auto; align-items: stretch;
+  padding: 18px 24px; background-size: cover; background-position: center; }
+.maptrack.mapact1 { background-image: linear-gradient(rgba(18,12,7,0.44), rgba(12,8,4,0.72)), url('assets/maps/act1.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.maptrack.mapact2 { background-image: linear-gradient(rgba(16,11,7,0.38), rgba(11,8,4,0.66)), url('assets/maps/act2.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.maptrack.mapact3 { background-image: linear-gradient(rgba(13,12,15,0.56), rgba(9,9,12,0.82)), url('assets/maps/act3.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(40,36,30,0.6), rgba(14,12,12,0.92)); }
 .mapcol { display: grid; grid-template-rows: repeat(5, 1fr); gap: 12px; min-width: 78px; align-items: center; }
 @media (max-width: 720px) {
   .maptrack { gap: 34px; }

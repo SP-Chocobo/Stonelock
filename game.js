@@ -5946,8 +5946,8 @@ function circuitMapScreen() {
   // margined, so it CENTERS when it fits but scrolls from the LEFT when it
   // overflows (a portrait phone). Centering the flex directly would push the
   // first column into unreachable overflow — the bug being fixed here.
-  const grid = document.createElement('div'); grid.className = 'mapgrid mapact' + Math.min(g.act, 3); // per-act backdrop slot (CSS fallback when no art)
-  const track = document.createElement('div'); track.className = 'maptrack';
+  const grid = document.createElement('div'); grid.className = 'mapgrid';
+  const track = document.createElement('div'); track.className = 'maptrack mapact' + Math.min(g.act, 3); // region texture on the TRACK so it pans with the nodes (CSS fallback when no art)
   m.cols.forEach((col) => {
     const colEl = document.createElement('div'); colEl.className = 'mapcol';
     for (let lane = 0; lane < MAP_LANES; lane++) {            // fixed lanes → diagonal branches
