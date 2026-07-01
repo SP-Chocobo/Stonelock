@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=264">
+<link rel="stylesheet" href="style.css?v=265">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=264" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=264" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=265" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=265" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=264" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=264" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=265" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=265" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -230,6 +230,17 @@
       <div class="setrow"><label>Circuit elites</label><button id="dlgElites" class="btn settoggle"></button></div>
       <div class="setrow"><label>Circuit floor bosses</label><button id="dlgCbosses" class="btn settoggle"></button></div>
       <div class="setrow"><label>Event scenes</label><button id="dlgEvents" class="btn settoggle"></button></div>
+    </div>
+    <div class="setsection">
+      <h3 class="seth">Controls</h3>
+      <div class="setrow">
+        <label>Input</label>
+        <div class="segbtns" id="inputMode">
+          <button class="segbtn" data-v="mouse">Mouse</button>
+          <button class="segbtn" data-v="keyboard">Keyboard</button>
+        </div>
+      </div>
+      <p class="modalsub small setnote">Keyboard: <b>arrows</b> move the cursor, <b>1–9</b> pick a card or stone, <b>Space</b> selects, <b>Enter</b> confirms, <b>Esc</b> backs out. The focused slot is ringed; mouse mode is unchanged.</p>
     </div>
     <div class="modalbtns"><button id="audioClose" class="btn primary">Close</button></div>
   </div>
@@ -468,6 +479,6 @@
   </div>
 </div>
 
-<script src="game.js?v=264"></script>
+<script src="game.js?v=265"></script>
 </body>
 </html>

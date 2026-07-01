@@ -3228,7 +3228,116 @@ function render() {
   UI.flashIds = []; // flash plays once per action, not per re-render
   animateMoves(prevRects);
   if (TUT.active && TUT.phase === 'live') tutorialTick();
+  if (typeof KB !== 'undefined') KB.refresh(); // re-seat the keyboard cursor over the new board
 }
+
+/* ============================================================
+   KEYBOARD PLAY — an arrow-cursor + number-hotkey layer that rides on the
+   existing click handlers. Every interactive element already carries
+   .targetable + an onclick, so the cursor just moves a focus ring and calls the
+   focused element's .click() — no game logic is duplicated here. Number badges
+   label the hand/stone pick-lists (1-9); board targets use the moving ring.
+   Live only when Input = Keyboard (body.kbmode). Controller-ready by design:
+   arrows ⇒ d-pad, Enter/Space ⇒ A, Esc ⇒ B.
+   ============================================================ */
+// Nearest focusable in the pressed direction (dx,dy ∈ {-1,0,1}). Projects each
+// candidate onto the travel axis (must be ahead) and penalises lateral offset,
+// so the ring jumps to the most in-line neighbour. Returns -1 if none ahead.
+function kbPickInDirection(rects, cur, dx, dy) {
+  if (!rects.length) return -1;
+  if (cur < 0 || cur >= rects.length) return 0;
+  const c = rects[cur];
+  let best = -1, bestScore = Infinity;
+  for (let i = 0; i < rects.length; i++) {
+    if (i === cur) continue;
+    const ex = rects[i].x - c.x, ey = rects[i].y - c.y;
+    const along = ex * dx + ey * dy;          // distance in the travel direction
+    if (along <= 1) continue;                 // must be ahead of the cursor
+    const perp = Math.abs(ex * dy - ey * dx); // lateral offset off the axis
+    const score = along + perp * 2;           // in-line + closest wins
+    if (score < bestScore) { bestScore = score; best = i; }
+  }
+  return best;
+}
+const KB = {
+  els: [], idx: -1, key: null,
+  enabled() { return typeof document !== 'undefined' && inputMode() === 'keyboard'; },
+  // A live match board is showing and no blocking modal sits over it.
+  liveBoard() { return typeof document !== 'undefined' && INGAME && G && !G.over && !document.querySelector('.modal.open'); },
+  gather() {
+    if (!this.liveBoard()) return [];
+    const sel = '#hand .targetable, #trayStones .targetable, [id^="board-"] .targetable, #actionBar button:not([disabled])';
+    return Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
+  },
+  picks() {
+    return Array.from(document.querySelectorAll('#hand .targetable, #trayStones .targetable')).filter(el => el.offsetParent !== null);
+  },
+  badge() {
+    document.querySelectorAll('.kbkey').forEach(b => b.remove());
+    if (!this.enabled()) return;
+    this.picks().slice(0, 9).forEach((el, i) => {
+      const b = document.createElement('span'); b.className = 'kbkey'; b.textContent = i + 1;
+      el.appendChild(b);
+    });
+  },
+  clearRing() { this.els.forEach(el => el.classList && el.classList.remove('kbfocus')); },
+  applyRing() {
+    this.clearRing();
+    if (this.idx >= 0 && this.idx < this.els.length) { const el = this.els[this.idx]; el.classList.add('kbfocus'); this.key = el; }
+  },
+  clear() {
+    if (typeof document === 'undefined') return;
+    this.clearRing(); document.querySelectorAll('.kbkey').forEach(b => b.remove());
+    this.els = []; this.idx = -1; this.key = null;
+  },
+  refresh() {
+    if (!this.enabled()) { this.clear(); return; }
+    this.clearRing();
+    this.els = this.gather();
+    this.badge();
+    // Keep the ring on the same element across a re-render if it survives; else
+    // seat it on the first pick (hand/tray), falling back to the first focusable.
+    let i = this.key ? this.els.indexOf(this.key) : -1;
+    if (i < 0) { const fp = this.els.find(el => el.closest('#hand, #trayStones')); i = fp ? this.els.indexOf(fp) : (this.els.length ? 0 : -1); }
+    this.idx = i; this.applyRing();
+  },
+  move(dx, dy) {
+    if (!this.els.length) this.refresh();
+    if (!this.els.length) return;
+    if (this.idx < 0) { this.idx = 0; this.applyRing(); return; }
+    const rects = this.els.map(el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const n = kbPickInDirection(rects, this.idx, dx, dy);
+    if (n >= 0) { this.idx = n; this.applyRing(); this.els[this.idx].scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  },
+  activate() { if (this.idx >= 0 && this.idx < this.els.length) this.els[this.idx].click(); },
+  // Enter prefers confirming — the primary action button if one is live, else it
+  // activates the focused element (so Enter on a target still applies the stone).
+  confirm() { const prim = document.querySelector('#actionBar button.primary:not([disabled])'); if (prim) prim.click(); else this.activate(); },
+  cancel() {
+    const back = Array.from(document.querySelectorAll('#actionBar button:not([disabled])')).find(b => /‹|back|cancel/i.test(b.textContent));
+    if (back) { back.click(); return true; } return false;
+  },
+  hotkey(n) {
+    const el = this.picks()[n - 1]; if (!el) return;
+    const i = this.els.indexOf(el); if (i >= 0) { this.idx = i; this.applyRing(); }
+    el.click();
+  },
+  onKey(e) {
+    if (!this.enabled() || !this.liveBoard()) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    switch (e.key) {
+      case 'ArrowLeft':  e.preventDefault(); this.move(-1, 0); break;
+      case 'ArrowRight': e.preventDefault(); this.move(1, 0); break;
+      case 'ArrowUp':    e.preventDefault(); this.move(0, -1); break;
+      case 'ArrowDown':  e.preventDefault(); this.move(0, 1); break;
+      case ' ': case 'Spacebar': e.preventDefault(); this.activate(); break;
+      case 'Enter': e.preventDefault(); this.confirm(); break;
+      case 'Escape': if (this.cancel()) e.preventDefault(); break;
+      default: if (/^[1-9]$/.test(e.key)) { e.preventDefault(); this.hotkey(+e.key); }
+    }
+  },
+};
 
 /* ============================================================
    TITLE SCREEN, QUIT, TUTORIAL
@@ -4949,6 +5058,18 @@ function showCampaignIntro(bossVal) { const c = dialoguePrefs().campaign; return
 function showCampaignDefeat() { const c = dialoguePrefs().campaign; return c === 'always' || (c === 'firstclear' && !!G.firstClearThisBoss); }
 function showCircuitScene(nodeType) { const p = dialoguePrefs(); return nodeType === 'boss' ? p.cbosses : nodeType === 'elite' ? p.elites : false; }
 function showEventScene() { return !!dialoguePrefs().events; }
+
+/* ---- Input mode: 'mouse' (default) or 'keyboard' (arrow-cursor + number
+   hotkeys; see the KB module). Persisted like the other settings. ---- */
+const INPUT_KEY = 'stonelock-input';
+function inputMode() { return ls.get(INPUT_KEY) === 'keyboard' ? 'keyboard' : 'mouse'; }
+function setInputMode(m) { ls.set(INPUT_KEY, m === 'keyboard' ? 'keyboard' : 'mouse'); if (typeof document !== 'undefined') applyInputMode(); }
+function applyInputMode() {
+  if (typeof document === 'undefined') return;
+  const on = inputMode() === 'keyboard';
+  document.body.classList.toggle('kbmode', on);
+  if (typeof KB !== 'undefined') { if (on) KB.refresh(); else KB.clear(); }
+}
 function raidUnlocked(boss, diff) { return alphaUnlock() || bossDiffEarned(boss, diff, campaignBeaten()); }
 // The real progression rule (independent of the alpha bypass) — used both for
 // gating and for reporting what a win newly earns.
@@ -7909,7 +8030,14 @@ function boot() {
   [['dlgElites', 'elites'], ['dlgCbosses', 'cbosses'], ['dlgEvents', 'events']].forEach(([id, key]) => {
     const b = $(id); if (b) b.onclick = () => { setDialoguePref(key, !dialoguePrefs()[key]); syncDialogue(); };
   });
-  const openAudio = () => { syncAudio(); syncDialogue(); $('audioModal').classList.add('open'); };
+  // ---- Input mode (mouse / keyboard cursor) ----
+  const syncInput = () => { document.querySelectorAll('#inputMode .segbtn').forEach(b => b.classList.toggle('on', b.dataset.v === inputMode())); };
+  document.querySelectorAll('#inputMode .segbtn').forEach(b => {
+    b.onclick = () => { setInputMode(b.dataset.v); syncInput(); };
+  });
+  window.addEventListener('keydown', e => KB.onKey(e));
+  applyInputMode();
+  const openAudio = () => { syncAudio(); syncDialogue(); syncInput(); $('audioModal').classList.add('open'); };
   $('audioBtn').onclick = () => { menuPopSet(false); openAudio(); };
   $('titleAudio').onclick = openAudio;
   $('audioClose').onclick = () => closeModal('audioModal');
@@ -8003,6 +8131,7 @@ if (typeof window !== 'undefined') {
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
     campaignBeaten, markCampaignWin, recordCampaignWin, unlockLines, setAlphaUnlock,
     dialoguePrefs, setDialoguePref, showCampaignIntro, showCampaignDefeat, showCircuitScene, showEventScene, DLG_KEY,
+    inputMode, setInputMode, kbPickInDirection, INPUT_KEY,
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitSetupCoopFight, circuitAllyDraftPool, pickFoeFor, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,

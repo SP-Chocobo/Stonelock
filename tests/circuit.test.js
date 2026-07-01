@@ -611,6 +611,26 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
   M.setDialoguePref('campaign', 'always'); M.setDialoguePref('elites', true); M.setDialoguePref('cbosses', true);
 }
 
+// ---- Keyboard play: input mode persists, and the spatial cursor picks the
+// most in-line neighbour in the pressed direction ----
+{
+  assert(M.inputMode() === 'mouse', 'input defaults to mouse');
+  M.setInputMode('keyboard'); assert(M.inputMode() === 'keyboard', 'input mode persists to keyboard');
+  M.setInputMode('bogus'); assert(M.inputMode() === 'mouse', 'unknown input mode falls back to mouse');
+  // A little grid:  0 1 2   (row y=0)
+  //                 3 4     (row y=100)
+  const g = [ {x:0,y:0}, {x:100,y:0}, {x:200,y:0}, {x:0,y:100}, {x:100,y:100} ];
+  assert(M.kbPickInDirection(g, 0, 1, 0) === 1, 'right from 0 → 1');
+  assert(M.kbPickInDirection(g, 1, 1, 0) === 2, 'right from 1 → 2');
+  assert(M.kbPickInDirection(g, 1, -1, 0) === 0, 'left from 1 → 0');
+  assert(M.kbPickInDirection(g, 0, 0, 1) === 3, 'down from 0 → 3');
+  assert(M.kbPickInDirection(g, 3, 0, -1) === 0, 'up from 3 → 0');
+  assert(M.kbPickInDirection(g, 0, 0, -1) === -1, 'nothing above 0 → -1');
+  assert(M.kbPickInDirection(g, 2, 1, 0) === -1, 'nothing right of the last-in-row → -1');
+  assert(M.kbPickInDirection([], 0, 1, 0) === -1, 'empty set → -1');
+  assert(M.kbPickInDirection(g, 99, 1, 0) === 0, 'out-of-range cursor → first element');
+}
+
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);
 M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });
