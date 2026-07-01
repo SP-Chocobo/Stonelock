@@ -1350,7 +1350,14 @@ body[data-compact="1"] .board .cfx { display: none; }
 /* Scroll viewport — the track inside centers when it fits and scrolls from the
    LEFT when it overflows (so the first node is always reachable on a phone). */
 .mapgrid { position: relative; overflow-x: auto; overflow-y: hidden; width: 100%; -webkit-overflow-scrolling: touch;
-  border-radius: 12px; border: 1px solid var(--gold-dim); background: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92)); }
+  border-radius: 12px; border: 1px solid var(--gold-dim); background: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92));
+  scrollbar-width: thin; scrollbar-color: #6e5a2e rgba(16,11,6,0.55); }
+/* A slim gilded scrollbar in place of the bright OS default (WebKit). */
+.mapgrid::-webkit-scrollbar { height: 9px; }
+.mapgrid::-webkit-scrollbar-track { background: rgba(16,11,6,0.55); border-radius: 0 0 11px 11px; }
+.mapgrid::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--gold-dim), #5c4a26); border-radius: 8px;
+  border: 2px solid rgba(16,11,6,0.55); background-clip: padding-box; }
+.mapgrid::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, var(--gold), #7a5f2c); background-clip: padding-box; }
 /* The region texture lives on the TRACK (the scrolling content), not the viewport,
    so it pans WITH the nodes as one continuous map. Overlay is tuned per image:
    Act 1 (green riverside) moderate; Act 2 (dark slum) lighter so the murk shows;
