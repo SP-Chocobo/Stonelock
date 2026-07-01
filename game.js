@@ -4470,6 +4470,8 @@ function showVictory() {
   const m = $('victoryModal');
   const uw = $('victoryUnlocks');
   if (uw) { uw.style.display = 'none'; uw.innerHTML = ''; }
+  const vdp = $('victoryDialogue');
+  if (vdp) { vdp.style.display = 'none'; vdp.innerHTML = ''; }
   if (G.mode === 'raid') {
     const won = G.ledger >= G.target;
     SFX.play(won ? 'win' : 'lose');
@@ -4477,6 +4479,9 @@ function showVictory() {
     $('victoryText').textContent = won
       ? `Your party drove the marker the full ${G.target} after ${G.handNum} hands. The high seat is empty — for now.`
       : `${playerName(1)} held the table after ${G.handNum} hands, grinding the marker ${G.target} the other way. It was never going to be fair.`;
+    // The broken boss’s parting word, face to face (reset to hidden up top).
+    const dp = $('victoryDialogue');
+    if (dp && won) { dp.style.display = ''; dp.innerHTML = dialoguePlate(playerName(1), bossDefeatLine(playerName(1)), { side: 'left' }); }
     const lines = won ? unlockLines(G.unlocked) : [];
     if (uw && lines.length) {
       uw.style.display = '';
@@ -5238,12 +5243,30 @@ function renderRaidSetup() {
   btns.appendChild(back);
   const begin = document.createElement('button');
   begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = `Face ${raidBossName(RAIDSET.boss)}`;
-  begin.onclick = () => {
+  begin.onclick = () => raidBossIntroScreen();
+  btns.appendChild(begin);
+}
+// The boss’s one spoken word before the raid — a portrait plate over the setup
+// modal, then a Sit-down that drops into the match.
+function raidBossIntroScreen() {
+  const boss = raidBossName(RAIDSET.boss);
+  const body = $('setupBody'), btns = $('setupBtns');
+  const card = $('setupModal').querySelector('.modalcard');
+  if (card) card.classList.remove('raidcompact');
+  $('setupModal').querySelector('h2').textContent = `${boss} takes the high seat`;
+  body.className = 'raidintro'; body.innerHTML = dialoguePlate(boss, bossIntroLine(boss), { side: 'right', foe: true });
+  btns.innerHTML = '';
+  const back = document.createElement('button');
+  back.className = 'btn'; back.textContent = '‹ Back';
+  back.onclick = () => { RAIDSET.anim = null; renderRaidSetup(); };
+  const go = document.createElement('button');
+  go.id = 'startBtn'; go.className = 'btn primary big'; go.textContent = 'Sit down';
+  go.onclick = () => {
     closeModal('setupModal');
     logEl.innerHTML = '';
     newGame({ mode: 'raid', raidBoss: RAIDSET.boss, raidAlly: RAIDSET.ally, allyBot: RAIDSET.allyBot, raidDiff: RAIDSET.diff, target: RAIDSET.target, targeting: RAIDSET.targeting, names: RAIDSET.names.map(s => s.trim()) });
   };
-  btns.appendChild(begin);
+  btns.append(back, go);
 }
 
 /* ============================================================
@@ -5794,7 +5817,31 @@ function circuitEnterNode(node) {
   if (node.type === 'repose') { g.event = { kind: 'interlude', choice: null, cardIdx: null, stoneColor: null, srcIdx: null, dstIdx: null }; circuitEventScreen(); return; }
   if (node.type === 'shop') { g.shop = makeShop(); circuitShopScreen(); return; }
   if (node.type === 'puzzle') { g.puzzle = { key: node.puzzle || PUZZLE_KEYS[0], tryN: 0, sel: null }; circuitPuzzleScreen(); return; }
+  circuitBeginFight(node);
+}
+// Named foes (Elites & Bosses — the regulars with a face) get a spoken plate as
+// you sit down; the frequent neutral duels stay quick and silent.
+function circuitBeginFight(node) {
+  const foe = node && node.foe;
+  const speaks = typeof document !== 'undefined' && foe && portraitFor(foe)
+    && (node.type === 'elite' || node.type === 'boss') && FOE_SOLO_TAUNTS[foe];
+  if (speaks) { circuitPrefightScreen(node); return; }
   circuitSetupFight(node);
+}
+function circuitPrefightScreen(node) {
+  const g = GAUNTLET;
+  const boss = node.type === 'boss';
+  const body = eventShell(boss ? 'The road’s end — a Boss' : 'A named hand bars the road',
+    `Standing ${g.standing}/${g.maxStanding}. ${node.foe} holds this stretch of ${node.type === 'boss' ? 'the act' : 'the road'}. There’s no going around.`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = dialoguePlate(node.foe, foeSoloTaunt(node.foe), { side: 'right', foe: true, coach: true });
+  body.appendChild(sec);
+  const row = document.createElement('div'); row.className = 'eventopts';
+  const go = document.createElement('button'); go.className = 'eventopt'; go.style.maxWidth = '260px';
+  go.innerHTML = `<div class="eventopt-l">Sit down</div><div class="eventopt-n">Take ${node.foe} across the table${boss ? ' — break them to clear the act' : ''}.</div>`;
+  go.onclick = () => { closeModal('circuitModal'); circuitSetupFight(node); };
+  row.appendChild(go);
+  body.appendChild(row);
 }
 // Set up a duel/elite/boss for the given node (foe, venue, Standing, foe charms).
 function circuitSetupFight(node) {
@@ -6152,8 +6199,8 @@ function circuitRewardScreen() {
 
   // The 2v1 victory — your ally's parting word as they hand you the trophy.
   if (node.coop && node.ally) {
-    const q = document.createElement('div'); q.className = 'rivalquote';
-    q.innerHTML = `<div class="rivalquote-who">${node.ally}</div><div class="rivalquote-line">“${allyWinLine(node.ally)}”</div>`;
+    const q = document.createElement('div');
+    q.innerHTML = dialoguePlate(node.ally, allyWinLine(node.ally), { side: 'left' });
     body.appendChild(q);
   }
 
@@ -6731,6 +6778,63 @@ const CIRCUIT_ALLY_WINLINES = {
   'The Clerk':    'Settled in full, with interest. The books are balanced and you’re in the black. This is yours by right.',
 };
 function allyWinLine(name) { return CIRCUIT_ALLY_WINLINES[name] || 'We make a fine table, you and I. Take this — you earned the both of us.'; }
+
+/* ---- Portrait dialogue: a Fire Emblem-style plate (face beside a speech box).
+   The lines below are the voice these characters only ever had in the rival
+   event; now they speak when you sit down against them and when they fall. ---- */
+// A lone regular sizing you up across the Circuit table (1v1 — distinct from the
+// two-on-one CIRCUIT_FOE_TAUNTS, which assume a partner at your side).
+const FOE_SOLO_TAUNTS = {
+  'The Ferryman': 'The crossing has a price, and today it’s paid in cards. Sit — let’s see what you’re carrying.',
+  'The Wagoner':  'Another traveller on my road. Everything you’re hauling looks like cargo to me. Climb down.',
+  'The Deckhand': 'Just you, me, and an honest deck. No tricks from my end — can’t vouch for yours. Deal.',
+  'The Old Hand': 'Forty years at this table. I’ve read your whole hand before you’ve drawn it. Sit, and be quick.',
+  'The Miner':    'It’s all just ore to me — dig it out, or blast it flat. Let’s see which you are.',
+  'The Stranger': 'You don’t know me, and by the end you’ll know me less. Every card I show you is one I chose to.',
+  'The Lady':     'How charming — a challenger. Do sit. I’ll try to leave you something to walk away with.',
+  'The Tinker':   'Ooh — a fresh hand to test my rigs on. Mind the stones, they bite. Sit, sit.',
+  'The Clerk':    'I’ve a column open for your losses. Take a seat, and we’ll start filling it.',
+};
+function foeSoloTaunt(name) { return FOE_SOLO_TAUNTS[name] || 'You’ve the look of a player. Sit, and we’ll find out.'; }
+// The campaign bosses take the high seat — their one spoken word before the raid.
+const BOSS_INTRO = {
+  'The Magistrate': 'You come before the bench. I field my board face-up — I’ve nothing to hide, and nothing to fear. Outscore my two best hands, if the law allows it. It rarely does.',
+  'The Warden': 'You’ll spend your stones and find them spent — I never run dry. Grind against me if you like. I’ve all night; you’ve only so many hands.',
+  'The Apothecary': 'A healer keeps poisons for a reason. Lay out your prizes — I’ll admire them a while. When it matters most, I’ll cut the finest to nothing. Lock what you love. Or don’t.',
+  'The Quartermaster': 'The pouch is mine to ration. Each hand I lock a colour away — yours and my own — and you’ll never keep a favourite long. Adapt every turn, or don’t bother sitting.',
+  'The Archivist': 'Every move is filed in order and read back to you. Commit your layout, place your stones, and wait — nothing fires until the ledger is full. Then we see whose sequence holds. Mine always has.',
+  'The Crucible': 'Every trial you’ve survived, at once — and one you haven’t. Read back to front. A colour gone each hand. Every stone you spend, exhausted. And buried somewhere, a scalpel you’ll never see. Sit, and be tempered — or break.',
+};
+function bossIntroLine(name) { return BOSS_INTRO[name] || 'You’ve climbed far to reach this seat. Sit, and let us see if you belong in it.'; }
+// The boss’s parting word when you break them — gracious or grudging, in voice.
+const BOSS_DEFEAT = {
+  'The Magistrate': 'The bench… yields. You scored fair, and the law is nothing if not fair. Rise — the seat is yours. For now.',
+  'The Warden': 'You rationed better than I judged. Twenty years holding this line, and worn through at last. Go — you earned the road past me.',
+  'The Apothecary': 'You locked the right card at the right moment. My scalpel found nothing worth the cutting. A clean win — rare, and rarer against me. Take your prizes. All of them.',
+  'The Quartermaster': 'You changed your plan every hand, exactly as the pouch demanded. Few can. The stores are open to you — on to the Academy, where every colour is always at hand.',
+  'The Archivist': 'You read the queue and bent it to your order, not mine. A loss, entered in my column — the first in a long ledger. It is… noted. Go.',
+  'The Crucible': 'Tempered, not broken. You held against every trial at once and did not shatter. There is nothing left in here to test you with. Well fought — truly.',
+};
+function bossDefeatLine(name) { return BOSS_DEFEAT[name] || 'Well played. The seat is cold, and it is yours.'; }
+// The plate itself: portrait framed beside a speech box. opts.side 'right' mirrors
+// it (face on the right) so two speakers face each other; opts.foe casts the
+// hostile palette; opts.coach appends the derived coach note (opts.coachFull for
+// the three-line form). Pure string — callers drop it into innerHTML.
+function dialoguePlate(name, line, opts) {
+  opts = opts || {};
+  const src = portraitFor(name);
+  const face = src
+    ? `<div class="dplate-face" style="background-image:url('${src}')"></div>`
+    : `<div class="dplate-face dplate-face--none">${String(name || '?').replace(/^The /, '').charAt(0)}</div>`;
+  const note = opts.coach ? coachNoteHtml(name, !!opts.coachFull) : '';
+  const box =
+    `<div class="dplate-box">` +
+      `<div class="dplate-name">${name}</div>` +
+      `<div class="dplate-line">“${line}”</div>` +
+      note +
+    `</div>`;
+  return `<div class="dplate${opts.foe ? ' foe' : ''}${opts.side === 'right' ? ' right' : ''}">${face}${box}</div>`;
+}
 // Build the rival reunion: the most recently bested boss returns, set against a
 // strong named foe of the current act (never the ally themself).
 function makeRivalEvent(g) {
@@ -6759,12 +6863,11 @@ function renderRivalEvent(g) {
   SFX.play('win');
   const body = eventShell('An Old Rival', `Standing ${g.standing}/${g.maxStanding}. A familiar figure falls into step beside you on the road — ${ev.ally}, the master you broke earlier. They’ve heard ${ev.foe} holds this stretch, and they don’t much care for ${ev.foe}.`);
   const sec = document.createElement('div'); sec.className = 'ldsection';
-  const quote = document.createElement('div'); quote.className = 'rivalquote';
-  quote.innerHTML = `<div class="rivalquote-who">${ev.ally}</div><div class="rivalquote-line">“${allyLine(ev.ally)}”</div>` + coachNoteHtml(ev.ally, true);
-  sec.appendChild(quote);
-  const taunt = document.createElement('div'); taunt.className = 'rivalquote foe';
-  taunt.innerHTML = `<div class="rivalquote-who">${ev.foe}</div><div class="rivalquote-line">“${foeTaunt(ev.foe)}”</div>` + coachNoteHtml(ev.foe, false);
-  sec.appendChild(taunt);
+  // The ally at your side (face left) and the foe barring the road (face right),
+  // turned toward one another across the plate.
+  sec.innerHTML =
+    dialoguePlate(ev.ally, allyLine(ev.ally), { side: 'left', coach: true, coachFull: true }) +
+    dialoguePlate(ev.foe, foeTaunt(ev.foe), { side: 'right', foe: true, coach: true });
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const fight = document.createElement('button');
   fight.className = 'eventopt';
@@ -7829,6 +7932,7 @@ if (typeof window !== 'undefined') {
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast,
     CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
+    FOE_SOLO_TAUNTS, BOSS_INTRO, BOSS_DEFEAT, dialoguePlate, foeSoloTaunt, bossIntroLine, bossDefeatLine,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
     circuitDrawStones: n => pileDrawStones(GAUNTLET.piles[0], n),
     _gauntlet: () => GAUNTLET,

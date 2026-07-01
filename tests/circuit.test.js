@@ -553,7 +553,22 @@ for (const p of ROSTER9) {
   assert(M.CIRCUIT_ALLY_LINES[p] && M.CIRCUIT_ALLY_LINES[p].length > 10, `${p} has a recruit line`);
   assert(M.CIRCUIT_FOE_TAUNTS[p] && M.CIRCUIT_FOE_TAUNTS[p].length > 10, `${p} has a foe taunt`);
   assert(M.CIRCUIT_ALLY_WINLINES[p] && M.CIRCUIT_ALLY_WINLINES[p].length > 10, `${p} has a victory line`);
+  assert(M.FOE_SOLO_TAUNTS[p] && M.FOE_SOLO_TAUNTS[p].length > 10, `${p} has a 1v1 pre-fight taunt`);
 }
+// Every campaign boss has an intro AND a defeat line, and both fall back safely.
+const BOSSES6 = ['The Magistrate','The Warden','The Apothecary','The Quartermaster','The Archivist','The Crucible'];
+for (const b of BOSSES6) {
+  assert(M.BOSS_INTRO[b] && M.BOSS_INTRO[b].length > 10, `${b} has an intro line`);
+  assert(M.BOSS_DEFEAT[b] && M.BOSS_DEFEAT[b].length > 10, `${b} has a defeat line`);
+}
+assert(M.foeSoloTaunt('A Nobody').length > 10 && M.bossIntroLine('A Nobody').length > 10 && M.bossDefeatLine('A Nobody').length > 10, 'dialogue lookups fall back for unknown names');
+// The plate renders a face + name + line; .right/.foe are reflected in the markup.
+const plate = M.dialoguePlate('The Ferryman', 'Pay the toll.', { side: 'right', foe: true });
+assert(/dplate/.test(plate) && /dplate-face/.test(plate) && /The Ferryman/.test(plate) && /Pay the toll\./.test(plate), 'plate carries face, name, and line');
+assert(/\bright\b/.test(plate) && /\bfoe\b/.test(plate), 'plate reflects side + foe classes');
+assert(/assets\/portraits\/ferryman\.jpg/.test(plate), 'plate uses the persona portrait when one exists');
+const noface = M.dialoguePlate('A Drifter', 'No face here.', {});
+assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile with no portrait');
 
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);
