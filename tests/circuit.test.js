@@ -634,12 +634,10 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
 // ---- Map pathing: planar (non-crossing) edges, no dead ends, everything
 // reachable, and a clean symmetric entry fan ----
 {
-  let ceilOver = 0, mapCount = 0, worstCeil = 0; // ceiling is a firm target, tracked statistically
   for (let seed = 1; seed <= 200; seed++) {
     M.seedRng(seed);
     for (let act = 1; act <= 3; act++) {
       const cols = M.buildAct(act).cols;
-      mapCount++;
       assert(cols[0].length === 1, `act ${act} seed ${seed}: single opener`);
       assert(cols[1].length === 3, `act ${act} seed ${seed}: entry fans to a symmetric 3`);
       for (let c = 0; c < cols.length; c++) {
@@ -670,28 +668,21 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
       });
       assert(ff[cols.length - 1][0] >= M.CIRCUIT_MIN_FIGHTS,
         `act ${act} seed ${seed}: fewest-fight route is ${ff[cols.length - 1][0]}, below the ${M.CIRCUIT_MIN_FIGHTS} floor`);
-      // Rule 4: the most-fight route stays at/under the ceiling. This is a firm
-      // TARGET, not a per-map guarantee — a hard cap is infeasible with the floor
-      // on rare dense graphs — so it's tracked and asserted statistically below.
+      // Rule 4 CEILING (hard at 7): the most-fight route never exceeds it.
       const mf = cols.map(col => col.map(() => -Infinity));
       cols[0].forEach((n, k) => mf[0][k] = isFight(n.type) ? 1 : 0);
       for (let c = 1; c < cols.length; c++) cols[c].forEach((n, k) => {
         const preds = cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
         if (preds.length) mf[c][k] = Math.max(...preds.map(pi => mf[c - 1][pi])) + (isFight(n.type) ? 1 : 0);
       });
-      const most = mf[cols.length - 1][0];
-      if (most > M.CIRCUIT_MAX_FIGHTS) ceilOver++;
-      if (most > worstCeil) worstCeil = most;
+      assert(mf[cols.length - 1][0] <= M.CIRCUIT_MAX_FIGHTS,
+        `act ${act} seed ${seed}: most-fight route is ${mf[cols.length - 1][0]}, over the ${M.CIRCUIT_MAX_FIGHTS} ceiling`);
       // The pre-boss breather is resolute: the column before the boss is always a
       // single Repose, never demoted by any rule.
       const pre = cols[cols.length - 2];
       assert(pre.length === 1 && pre[0].type === 'repose', `act ${act} seed ${seed}: pre-boss node stays a Repose`);
     }
   }
-  // The ceiling holds on the vast majority — a regression (rule broken) would send
-  // this well over the threshold; the inherent floor-conflict residue is <0.5%.
-  assert(ceilOver / mapCount < 0.02, `ceiling exceeded on ${ceilOver}/${mapCount} maps (worst ${worstCeil}) — over 2%, the ceiling rule likely regressed`);
-  assert(worstCeil <= M.CIRCUIT_MAX_FIGHTS + 1, `worst-case route ${worstCeil} exceeds the target by more than one — rule regressed`);
   M.clearRng();
 }
 

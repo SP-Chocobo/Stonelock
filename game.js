@@ -5469,7 +5469,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 9, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.3,
+  acts: 3, actRows: 10, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.3,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5765,7 +5765,10 @@ const MAP_LANES = 5; // vertical slots — nodes sit in lanes so paths visibly i
 const CIRCUIT_MIN_FIGHTS = 4;
 // …but no route is an all-fight slog: at most this many fights on the most-fight
 // path, so every path also carries a few Encounters/Shops/Reposes for variety.
-const CIRCUIT_MAX_FIGHTS = 6;
+// 7 leaves enough slack to coexist with the floor as a HARD per-map guarantee
+// (a 6-cap is infeasible on rare dense graphs); it also widens the spread so a
+// map offers a chill 4-fight line and a greedy 7-fight line side by side.
+const CIRCUIT_MAX_FIGHTS = 7;
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
 function laneFor(count, i) {
   if (count <= 1) return Math.floor(MAP_LANES / 2);
@@ -5806,8 +5809,10 @@ function buildAct(act) {
     cols[c][idx].lane = laneFor(cols[c].length, idx);
     return c;
   };
-  const s1 = placeOne('shop', 2, N - 3); if (s1 != null) shopCols.push(s1);
-  const s2 = placeOne('shop', 2, N - 3, shopCols); if (s2 != null) shopCols.push(s2); // 2nd shop ≥2 cols off the 1st
+  // Shops go no later than N-4 so one can never feed the pre-boss Repose (two
+  // protected rests back to back — Rule 1 could resolve neither). Keeps them ≥2 apart.
+  const s1 = placeOne('shop', 2, N - 4); if (s1 != null) shopCols.push(s1);
+  const s2 = placeOne('shop', 2, N - 4, shopCols); if (s2 != null) shopCols.push(s2); // 2nd shop ≥2 cols off the 1st
   for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3);
   if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
@@ -5821,23 +5826,31 @@ function buildAct(act) {
        Rule 2  no run of 4+ non-fight nodes (cap a rest/encounter streak at 3).
        Rule 3  FLOOR (hard): every route has ≥ CIRCUIT_MIN_FIGHTS fights
                (start + ≥2 + boss) — always satisfiable by demoting non-fights.
-       Rule 4  CEILING (firm target): no route exceeds CIRCUIT_MAX_FIGHTS fights,
-               by promoting fights to Encounters where it won't undercut Rule 3 or
-               Rule 2. A hard cap is infeasible with the floor on rare dense
-               graphs, so this holds >99% of maps rather than every one.
+       Rule 4  CEILING (hard): no route exceeds CIRCUIT_MAX_FIGHTS fights, by
+               promoting fights to Encounters where it won't undercut Rule 3 or
+               Rule 2. At 7 this holds on every map (a 6-cap would be infeasible
+               with the floor on rare dense graphs).
      A "rest" is a Repose/Shop; a "fight" is Duel/Elite/Boss; everything else
      (Encounter/Puzzle) is a non-fight. ------------------------------------------ */
   const isFight = t => t === 'duel' || t === 'elite' || t === 'boss';
   const isRest = t => t === 'repose' || t === 'shop';
   const lastCol = cols.length - 1;
   const demote = n => { n.type = 'duel'; n.foe = pickFoeFor('duel', act); n.foeCharms = []; n.puzzle = undefined; }; // in place — keeps edges
+  // Protected non-fights — authored content the structure rules won't casually
+  // eat: the Shops (spend coin), the one tailored Puzzle, and the resolute
+  // pre-boss Repose. (Rule 3 may still demote a Shop/Puzzle as a LAST resort to
+  // keep the fight floor hard, but never the breather.)
+  const protectedRest = (node, c) => node.type === 'shop' || (c === lastCol - 1 && node.type === 'repose');
+  const protectedNode = (node, c) => protectedRest(node, c) || node.type === 'puzzle';
   // Rule 1 — no two rest stops back to back on any path (kills repose→shop→repose at its source).
   for (let c = 1; c < cols.length; c++) {
     cols[c].forEach((node, k) => {
       if (!isRest(node.type)) return;
       const restPreds = cols[c - 1].filter(p => isRest(p.type) && (p.edges || []).includes(k));
       if (!restPreds.length) return;
-      if (c === lastCol - 1 && node.type === 'repose') restPreds.forEach(demote); // protect the pre-boss breather
+      // Keep a protected rest (Shop / pre-boss Repose): clear the colliding rest
+      // that leads into it instead. Otherwise demote this node.
+      if (protectedRest(node, c)) restPreds.forEach(p => { if (!protectedRest(p, c - 1)) demote(p); });
       else demote(node);
     });
   }
@@ -5849,8 +5862,16 @@ function buildAct(act) {
       const preds = c === 0 ? [] : cols[c - 1].map((p, pi) => ({ p, pi })).filter(o => (o.p.edges || []).includes(k));
       const inRun = () => preds.length ? Math.max(...preds.map(o => run[c - 1][o.pi])) : 0;
       if (inRun() + 1 > 3) {
+        // The resolute breather is never the one demoted — break the chain behind
+        // it instead. A protected Shop/Puzzle is spared where an unprotected
+        // predecessor can take its place, but yields to the hard no-4-chain rule
+        // if the run can't be broken any other way.
         if (c === lastCol - 1 && node.type === 'repose') {
           while (preds.length && inRun() + 1 > 3) { const w = preds.reduce((a, b) => run[c - 1][b.pi] > run[c - 1][a.pi] ? b : a); demote(w.p); run[c - 1][w.pi] = 0; }
+        } else if (protectedNode(node, c)) {
+          let open = preds.filter(o => !protectedNode(o.p, c - 1));
+          while (open.length && inRun() + 1 > 3) { const w = open.reduce((a, b) => run[c - 1][b.pi] > run[c - 1][a.pi] ? b : a); demote(w.p); run[c - 1][w.pi] = 0; open = open.filter(o => o !== w); }
+          if (inRun() + 1 > 3) { demote(node); run[c][k] = 0; return; } // couldn't break behind it — yield
         } else { demote(node); run[c][k] = 0; return; }
       }
       run[c][k] = inRun() + 1;
@@ -5881,11 +5902,11 @@ function buildAct(act) {
       const preds = cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
       k = preds.reduce((best, pi) => ff[c - 1][pi] < ff[c - 1][best] ? pi : best, preds[0]); c--;
     }
-    // Demote a non-fight on that route. The pre-boss breather is resolute — never
-    // demoted — so the boss always sits behind a Repose; shops are spared first
-    // but may be demoted as a last resort before we'd ever touch that breather.
+    // Demote a non-fight on that route. Plain Encounters/Reposes go first; the
+    // authored Shops & Puzzle are spared unless nothing else is left; the pre-boss
+    // breather is resolute and never demoted (so the boss always sits behind it).
     const breather = ({ c, k }) => c === lastCol - 1 && cols[c][k].type === 'repose';
-    let did = path.find(({ c, k }) => { const n = cols[c][k]; return !isFight(n.type) && n.type !== 'shop' && !breather({ c, k }); })
+    let did = path.find(({ c, k }) => { const n = cols[c][k]; return !isFight(n.type) && n.type !== 'shop' && n.type !== 'puzzle' && !breather({ c, k }); })
            || path.find(o => !isFight(cols[o.c][o.k].type) && !breather(o) && o.c !== lastCol);
     if (!did) break; // route already all fights (or only the protected breather left) — nothing to add
     demote(cols[did.c][did.k]);
@@ -5938,6 +5959,36 @@ function buildAct(act) {
       n.type = st; n.foe = fo; n.foeCharms = ch;        // would break the floor or the rest cap — revert
     }
     if (!did) break; // nothing safely promotable on the max route — leave it
+  }
+  // Restore pass — authored content the fight rules may have eaten on rare dense
+  // maps (~2–6%): re-seat a missing Shop (2 per act) or the Puzzle (1) in place
+  // onto a safe non-fight slot, preserving edges. Non-fight → the type only; a
+  // Shop also avoids the first two columns, the pre-boss column, rest-adjacency,
+  // and stays ≥2 columns from the other shop.
+  const setType = (node, c, k, type) => {
+    node.type = type; node.foe = null; node.foeCharms = []; node.puzzle = undefined;
+    if (type === 'puzzle' && PUZZLE_KEYS.length) node.puzzle = PUZZLE_KEYS[Math.floor(rnd() * PUZZLE_KEYS.length)];
+  };
+  const restAdjacent = (c, k) => cols[c - 1].some(p => isRest(p.type) && (p.edges || []).includes(k))
+    || (cols[c][k].edges || []).some(j => isRest(cols[c + 1][j].type));
+  if (PUZZLE_KEYS.length && !cols.flat().some(n => n.type === 'puzzle')) {
+    outer: for (let c = 2; c < lastCol - 1; c++) for (let k = 0; k < cols[c].length; k++) {
+      const n = cols[c][k]; if (!isFight(n.type) && !isRest(n.type)) { setType(n, c, k, 'puzzle'); break outer; }
+    }
+  }
+  const shopColsNow = () => cols.map((col, c) => col.some(n => n.type === 'shop') ? c : -1).filter(c => c >= 0);
+  for (let guard = 0; guard < 4 && cols.flat().filter(n => n.type === 'shop').length < 2; guard++) {
+    const have = shopColsNow(); let placed = false;
+    for (let c = 2; c <= lastCol - 3 && !placed; c++) {
+      if (have.some(sc => Math.abs(sc - c) < 2)) continue;               // ≥2 columns off any shop
+      for (let k = 0; k < cols[c].length; k++) {
+        const n = cols[c][k];
+        if (isFight(n.type) || isRest(n.type) || n.type === 'puzzle') continue; // convert a plain Encounter
+        if (restAdjacent(c, k)) continue;                                 // don't create a rest pair
+        setType(n, c, k, 'shop'); placed = true; break;
+      }
+    }
+    if (!placed) break; // no safe slot — leave it (rare)
   }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
