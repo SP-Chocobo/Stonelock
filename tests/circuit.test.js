@@ -658,6 +658,16 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
         // Every next-column node has an incoming edge (nothing unreachable).
         for (let j = 0; j < B.length; j++) assert(A.some(n => n.edges.includes(j)), `act ${act} seed ${seed} col ${c + 1} node ${j} unreachable`);
       }
+      // Rule 3: the fewest-fight route to the boss meets the floor (start + ≥2 + boss).
+      const isFight = t => t === 'duel' || t === 'elite' || t === 'boss';
+      const ff = cols.map(col => col.map(() => Infinity));
+      cols[0].forEach((n, k) => ff[0][k] = isFight(n.type) ? 1 : 0);
+      for (let c = 1; c < cols.length; c++) cols[c].forEach((n, k) => {
+        const preds = cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
+        if (preds.length) ff[c][k] = Math.min(...preds.map(pi => ff[c - 1][pi])) + (isFight(n.type) ? 1 : 0);
+      });
+      assert(ff[cols.length - 1][0] >= M.CIRCUIT_MIN_FIGHTS,
+        `act ${act} seed ${seed}: fewest-fight route is ${ff[cols.length - 1][0]}, below the ${M.CIRCUIT_MIN_FIGHTS} floor`);
     }
   }
   M.clearRng();

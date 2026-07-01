@@ -5760,6 +5760,9 @@ function linkColumns(A, B) {
   A.forEach(n => n.edges.sort((x, y) => x - y));
 }
 const MAP_LANES = 5; // vertical slots — nodes sit in lanes so paths visibly interweave
+// Every route to the boss must be earned: at least this many fights on the
+// fewest-fight path, counting the opener AND the boss (so: start + ≥2 more + boss).
+const CIRCUIT_MIN_FIGHTS = 4;
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
 function laneFor(count, i) {
   if (count <= 1) return Math.floor(MAP_LANES / 2);
@@ -5835,6 +5838,38 @@ function buildAct(act) {
       }
       run[c][k] = inRun() + 1;
     });
+  }
+  // Rule 3 — no cheap run to the boss: guarantee CIRCUIT_MIN_FIGHTS fights on the
+  // fewest-fight path (start + ≥2 more + boss). A forward DP finds the easiest
+  // route; if it's short, demote a non-fight node ON that route to a duel and
+  // repeat — so only the too-easy paths gain fights, richer paths keep variety.
+  const fewestFights = () => {
+    const ff = cols.map(col => col.map(() => Infinity));
+    cols[0].forEach((n, k) => ff[0][k] = isFight(n.type) ? 1 : 0);
+    for (let c = 1; c < cols.length; c++) cols[c].forEach((n, k) => {
+      const preds = cols[c - 1].map((p, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
+      if (!preds.length) return;
+      ff[c][k] = Math.min(...preds.map(pi => ff[c - 1][pi])) + (isFight(n.type) ? 1 : 0);
+    });
+    return ff;
+  };
+  for (let guard = 0; guard < 60; guard++) {
+    const ff = fewestFights();
+    if (ff[lastCol][0] >= CIRCUIT_MIN_FIGHTS) break;
+    // Backtrack the fewest-fight route from the boss.
+    const path = []; let c = lastCol, k = 0;
+    while (c >= 0) {
+      path.push({ c, k });
+      if (c === 0) break;
+      const preds = cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
+      k = preds.reduce((best, pi) => ff[c - 1][pi] < ff[c - 1][best] ? pi : best, preds[0]); c--;
+    }
+    // Demote a non-fight on that route — keep shops and the pre-boss breather if
+    // there's another option; fall back to any non-fight so we always progress.
+    let did = path.find(({ c, k }) => { const n = cols[c][k]; return !isFight(n.type) && n.type !== 'shop' && !(c === lastCol - 1 && n.type === 'repose'); })
+           || path.find(({ c, k }) => c !== lastCol && !isFight(cols[c][k].type));
+    if (!did) break; // route already all fights — nothing to add
+    demote(cols[did.c][did.k]);
   }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
@@ -8193,7 +8228,7 @@ if (typeof window !== 'undefined') {
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
-    PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast,
+    PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS,
     CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
     FOE_SOLO_TAUNTS, BOSS_INTRO, BOSS_DEFEAT, dialoguePlate, foeSoloTaunt, bossIntroLine, bossDefeatLine,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
