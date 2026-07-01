@@ -6221,7 +6221,26 @@ function circuitMapScreen() {
   lwrap.appendChild(lbtn); lwrap.appendChild(pop); body.appendChild(lwrap);
   $('circuitNext').style.display = 'none'; // navigation is by clicking a node
   $('circuitModal').classList.add('open');
-  requestAnimationFrame(() => { drawMapEdges(track, m); ensureCurrentNodeVisible(grid, track); });
+  requestAnimationFrame(() => { drawMapEdges(track, m); fitMapToWidth(grid, track); ensureCurrentNodeVisible(grid, track); });
+}
+// On a roomy (mouse) viewport, scale the whole map down to fit the panel so no
+// horizontal scrollbar is needed — the edges live inside the track, so they
+// scale with the nodes. Touch/small screens keep scrolling (shrinking there
+// would make nodes un-tappable); a very wide act that would shrink too far also
+// falls back to scroll rather than becoming unreadable.
+function fitMapToWidth(grid, track) {
+  if (typeof window === 'undefined') return;
+  track.style.transform = ''; track.style.transformOrigin = 'top left';
+  grid.style.overflowX = ''; grid.style.height = '';
+  const roomy = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (!roomy) return;
+  const natural = track.scrollWidth, avail = grid.clientWidth;
+  if (natural <= avail + 1) return;          // already fits — nothing to do
+  const s = avail / natural;
+  if (s < 0.62) return;                       // would shrink too far — keep scroll
+  track.style.transform = `scale(${s})`;
+  grid.style.overflowX = 'hidden';
+  grid.style.height = Math.ceil(track.offsetHeight * s) + 'px';
 }
 // On a narrow screen the map scrolls; bring the player's current position into
 // view so the next choices are on-screen without manual panning.

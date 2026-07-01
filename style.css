@@ -1352,6 +1352,12 @@ body[data-compact="1"] .board .cfx { display: none; }
 .mapgrid { position: relative; overflow-x: auto; overflow-y: hidden; width: 100%; -webkit-overflow-scrolling: touch;
   border-radius: 12px; border: 1px solid var(--gold-dim); background: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92));
   scrollbar-width: thin; scrollbar-color: #6e5a2e rgba(16,11,6,0.55); }
+/* Give the map modal more of the screen on larger viewports so a full act fits
+   (paired with the JS fit-to-width scale), while other circuit screens — text,
+   rewards — keep the narrower card. Scoped by :has() so no JS cleanup is needed. */
+@media (min-width: 900px) {
+  .modalcard.wide:has(.circuitmap) { max-width: min(1200px, 94vw); }
+}
 /* A slim gilded scrollbar in place of the bright OS default (WebKit). */
 .mapgrid::-webkit-scrollbar { height: 9px; }
 .mapgrid::-webkit-scrollbar-track { background: rgba(16,11,6,0.55); border-radius: 0 0 11px 11px; }
