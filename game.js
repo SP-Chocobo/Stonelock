@@ -857,6 +857,11 @@ const RAID_BOSS_CARDS = 7;
 // Raids are a fixed-length trial (no picking a lucky short race) — uniform across
 // the campaign so the tuned win-rates are honest and unlocks mean the same thing.
 const RAID_TARGET = (typeof process !== 'undefined' && process.env.RAID_TARGET) ? +process.env.RAID_TARGET : 15;
+// Sudden death: a raid dragging past this many hands escalates the marker swing
+// each hand toward whoever's ahead, so a stalemate resolves fast instead of
+// grinding on (a battery put the median win at 10 hands, the slow tail at 30–45).
+// Not a punishment — the better side still wins, just sooner. Uniform for every boss.
+const RAID_SUDDEN_DEATH = (typeof process !== 'undefined' && process.env.RAID_SUDDEN) ? +process.env.RAID_SUDDEN : 20;
 // Difficulty = how many stones the Magistrate spends, and the swing
 // order it spends them in (it always closes with the last word).
 // Party places three stones each (seats 0, 2); the boss 5/6/7.
@@ -983,6 +988,7 @@ function dealOrder() { return orderFrom((G.dealer + 1) % G.nPlayers); }
 
 function startHand() {
   G.handNum++;
+  if (G.mode === 'raid' && G.handNum === RAID_SUDDEN_DEATH + 1) flashSuddenDeath(); // the moment you cross into it
   G.events = [];
   G.cards = [];
   G.armed = false; // telegraphed stones become "spendable" once arming runs
@@ -2963,7 +2969,17 @@ function raidShowdown(sel) {
     G.region.values, variantOpts()
   );
   const diff = teamScore - boss.score; // positive = the party out-scored the Magistrate
-  G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + diff));
+  // Sudden death past RAID_SUDDEN_DEATH hands: DOUBLE the ledger swing, plus an
+  // escalating momentum toward the hand's winner (or, on a dead-even hand, the
+  // marker leader — a total tie tips to the boss, which holds ties) so even an
+  // oscillating raid resolves within a few hands.
+  let move = diff, sudden = 0;
+  if (G.handNum > RAID_SUDDEN_DEATH) {
+    sudden = G.handNum - RAID_SUDDEN_DEATH; // 1, 2, 3, …
+    const dir = diff !== 0 ? Math.sign(diff) : (G.ledger !== 0 ? Math.sign(G.ledger) : -1);
+    move = diff * 2 + dir * sudden;
+  }
+  G.ledger = Math.max(-G.target, Math.min(G.target, G.ledger + move));
 
   let matchWinner = null;
   if (G.ledger >= G.target) { matchWinner = 'party'; G.unlocked = recordCampaignWin(G.raidBoss, G.raidDiff); }
@@ -2973,6 +2989,10 @@ function raidShowdown(sel) {
   if (diff > 0) log(`The party fields ${teamScore} to ${bn}'s ${boss.score} — you press the advantage by ${diff}.`, 'sys');
   else if (diff < 0) log(`${bn} fields ${boss.score} to the party's ${teamScore}. It gains ${-diff} ground.`, 'sys');
   else log(`Dead level at ${teamScore}. ${bn} holds — the marker doesn't move.`, 'sys');
+  if (sudden > 0) {
+    const toward = (move > 0) ? 'your side' : (move < 0 ? bn : 'no one');
+    log(`Sudden death — the swing doubles and lurches toward ${toward} (marker ${move >= 0 ? '+' + move : move}).`, 'sys');
+  }
 
   if (matchWinner) G.over = true;
   G.lastShowdown = { raid: true, sel, boss, teamScore, diff, matchWinner, hand: G.handNum };
@@ -3061,6 +3081,19 @@ function announce(msg, stoneColor, actor) {
   el.classList.remove('pop');
   void el.offsetWidth; // restart the animation
   el.classList.add('pop');
+}
+
+// A big, short-lived "SUDDEN DEATH" bubble slammed over the middle of the play
+// area — you cannot miss that the swing has doubled. Auto-clears after ~2s.
+let suddenFlashTimer = null;
+function flashSuddenDeath() {
+  if (typeof document === 'undefined') return;
+  const el = $('suddenFlash'); if (!el) return;
+  SFX && SFX.play && SFX.play('lose'); // a heavy toll
+  el.style.display = '';
+  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+  clearTimeout(suddenFlashTimer);
+  suddenFlashTimer = setTimeout(() => { el.classList.remove('go'); el.style.display = 'none'; }, 2000);
 }
 
 function toast(msg) {
@@ -3959,7 +3992,15 @@ function coachRestoreShow() {
 }
 
 function renderScore() {
-  $('handNum').textContent = `Hand ${G.handNum}`;
+  // The raid shows a visible countdown to Sudden Death (then flags it live).
+  if (G.mode === 'raid') {
+    const sd = G.handNum > RAID_SUDDEN_DEATH;
+    $('handNum').textContent = sd ? `Hand ${G.handNum} · Sudden Death` : `Hand ${G.handNum} / ${RAID_SUDDEN_DEATH}`;
+    $('handNum').classList.toggle('sudden', sd);
+  } else {
+    $('handNum').textContent = `Hand ${G.handNum}`;
+    $('handNum').classList.remove('sudden');
+  }
   $('regionBadge').textContent = `${G.venue.label} · ${G.region.subtitle}`;
   const cb = $('cursedBadge');
   cb.style.display = G.cursedType ? '' : 'none';
@@ -5363,7 +5404,7 @@ function renderRaidSetup() {
   if (isArch || isCru) {
     const note = document.createElement('div');
     note.className = 'rolesline';
-    note.innerHTML = `Targeting: <b>Advanced (forced)</b> · Length: <b>race to ${RAID_TARGET}</b>`;
+    note.innerHTML = `Targeting: <b>Advanced (forced)</b> · Length: <b>race to ${RAID_TARGET}</b> · <b>Sudden Death</b> past hand ${RAID_SUDDEN_DEATH}`;
     choices.appendChild(note);
   } else {
     chips('Targeting', 'targeting', [
@@ -5372,7 +5413,7 @@ function renderRaidSetup() {
     ]);
     const note = document.createElement('div');
     note.className = 'rolesline';
-    note.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid.`;
+    note.innerHTML = `Length: <b>race the marker to ${RAID_TARGET}</b> — fixed for every raid. <b>Sudden Death</b> past hand ${RAID_SUDDEN_DEATH}: the swing escalates until it breaks.`;
     choices.appendChild(note);
   }
 
