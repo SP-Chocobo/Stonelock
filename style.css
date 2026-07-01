@@ -1074,6 +1074,13 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   .campselect.preanim { opacity: 0; transform: translateX(-32px); }
   .campselect.out { opacity: 0; transform: translateX(-32px);
     transition: opacity 0.22s ease, transform 0.24s ease; }
+  /* Boss intro plate: the boss steps in from the right, matching the setup
+     portrait's motion, so settings → dialogue is one continuous gesture. */
+  .raidintro .dplate { opacity: 0; transform: translateX(52px) scale(0.98);
+    transition: opacity 0.36s ease, transform 0.46s cubic-bezier(0.22,0.61,0.36,1); }
+  .raidintro.in .dplate { opacity: 1; transform: none; }
+  .raidintro.out .dplate { opacity: 0; transform: translateX(52px) scale(0.98);
+    transition: opacity 0.2s ease, transform 0.24s ease; }
 }
 
 /* Compact chip-row pickers (party / difficulty / targeting on the raid setup) */

@@ -5243,7 +5243,12 @@ function renderRaidSetup() {
   btns.appendChild(back);
   const begin = document.createElement('button');
   begin.id = 'startBtn'; begin.className = 'btn primary big'; begin.textContent = `Face ${raidBossName(RAIDSET.boss)}`;
-  begin.onclick = () => raidBossIntroScreen();
+  begin.onclick = () => {
+    // Slide the choice column out (as Back does) before the boss steps in — so
+    // the settings→dialogue hand-off is one motion, not a hard cut.
+    if (raidShouldAnimate()) { layout.classList.remove('in'); layout.classList.add('out'); setTimeout(raidBossIntroScreen, 250); }
+    else raidBossIntroScreen();
+  };
   btns.appendChild(begin);
 }
 // The boss’s one spoken word before the raid — a portrait plate over the setup
@@ -5255,10 +5260,17 @@ function raidBossIntroScreen() {
   if (card) card.classList.remove('raidcompact');
   $('setupModal').querySelector('h2').textContent = `${boss} takes the high seat`;
   body.className = 'raidintro'; body.innerHTML = dialoguePlate(boss, bossIntroLine(boss), { side: 'right', foe: true });
+  // Let the boss settle in from the right — one frame in the pre-state first.
+  if (raidShouldAnimate()) requestAnimationFrame(() => requestAnimationFrame(() => body.classList.add('in')));
+  else body.classList.add('in');
   btns.innerHTML = '';
   const back = document.createElement('button');
   back.className = 'btn'; back.textContent = '‹ Back';
-  back.onclick = () => { RAIDSET.anim = null; renderRaidSetup(); };
+  back.onclick = () => {
+    const go = () => { RAIDSET.anim = 'options'; renderRaidSetup(); };
+    if (raidShouldAnimate()) { body.classList.remove('in'); body.classList.add('out'); setTimeout(go, 220); }
+    else go();
+  };
   const go = document.createElement('button');
   go.id = 'startBtn'; go.className = 'btn primary big'; go.textContent = 'Sit down';
   go.onclick = () => {
