@@ -7987,7 +7987,14 @@ function boot() {
       showShowdownModal(G.lastShowdown, true);
     }
   };
-  $('rulesBtn').onclick = () => $('rulesModal').classList.add('open');
+  // Open Rules fully collapsed every time — no accordion carries a stale
+  // open state from a prior visit (title or in-match, either entry point).
+  const openRules = () => {
+    const m = $('rulesModal'); if (!m) return;
+    m.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
+    m.classList.add('open');
+  };
+  $('rulesBtn').onclick = openRules;
   $('passBtn').onclick = passConfirm;
   // The Menu dropdown: new match, sound, fullscreen, and quit-to-title all
   // live here so the sidebar stays uncluttered.
@@ -8114,7 +8121,7 @@ function boot() {
   if ($('circuitQuit')) $('circuitQuit').onclick = () => { closeModal('circuitModal'); showTitle(); };
   $('titleTutorial').onclick = openAcademy;
   // academyBack's handler is set per-view (Academy vs Stones submenu) in academyMenu().
-  $('titleRules').onclick = () => $('rulesModal').classList.add('open');
+  $('titleRules').onclick = openRules;
   $('titleRegulars').onclick = openRegulars;
   // Alpha bypass lives on the title now: ignore campaign locks while testing.
   const syncAlpha = () => {
