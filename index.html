@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=265">
+<link rel="stylesheet" href="style.css?v=266">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=265" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=265" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=266" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=266" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=265" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=265" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=266" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=266" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -231,7 +231,7 @@
       <div class="setrow"><label>Circuit floor bosses</label><button id="dlgCbosses" class="btn settoggle"></button></div>
       <div class="setrow"><label>Event scenes</label><button id="dlgEvents" class="btn settoggle"></button></div>
     </div>
-    <div class="setsection">
+    <div class="setsection" id="ctrlSection">
       <h3 class="seth">Controls</h3>
       <div class="setrow">
         <label>Input</label>
@@ -352,11 +352,11 @@
 <div id="rulesModal" class="modal">
   <div class="modalcard wide rules">
     <h2>How Stonelock Is Played</h2>
-    <p>You are seizing assets. At the showdown you field <b>any three cards</b> from your final table
+    <p class="ruleslead">You are seizing assets. At the showdown you field <b>any three cards</b> from your final table
     layout. Matching cards earn flat bonuses; Interaction Stones warp the board. Card values shift
-    with the venue — see <b>The Venues</b> below.</p>
+    with the venue — see <b>The Venues</b> below. Tap a heading to open it.</p>
 
-    <h3>The Hand</h3>
+    <details class="ruleacc" open><summary>A Hand, Step by Step</summary>
     <ol>
       <li><b>The Deal</b> — five cards each from a fresh-shuffled pool.</li>
       <li><b>The Foundation</b> — each player telegraphs a stone, then both commit 2 cards <b>face-up</b>.</li>
@@ -367,14 +367,16 @@
       <li><b>The Showdown</b> — all cards flip; best 3 of your 4 are scored.</li>
     </ol>
 
-    <h3>Scoring</h3>
+    </details>
+    <details class="ruleacc"><summary>Scoring &amp; Ties</summary>
     <p>Add the regional values of your three fielded cards. <b>Pair</b> (two identical): +2.
     <b>Triad</b> (three identical): +6. A phantom duplicate from a Red Stone may stand as one of your
     three for the Pair/Triad bonus, but it <b>adds no point value of its own</b> — a weak phantom may
     not even make your scoring set. Ties break by structure — Triad beats Pair beats Singles;
     identical structure is a <b>Push</b> and the marker holds.</p>
 
-    <h3>The Interaction Stones</h3>
+    </details>
+    <details class="ruleacc"><summary>The Interaction Stones</summary>
     <ul>
       <li><b class="rword">Red — Duplication.</b> A phantom duplicate rides one of your cards, standing in as the second or third copy for a Pair or Triad bonus. The phantom scores no points itself — insurance on your Triad, not a free one.</li>
       <li><b class="wword">White — Lock.</b> The card cannot be altered, stolen, or neutralized for the rest of the hand.</li>
@@ -382,7 +384,8 @@
       <li><b class="kword">Black — Disruption.</b> Played on your turn like any other stone: it undoes the last stone effect upon a card — including unwinding a trade, with every riding stone traveling home. Cannot itself be undone, and cannot touch a locked card.</li>
     </ul>
 
-    <h3>Formats &amp; Scoring</h3>
+    </details>
+    <details class="ruleacc"><summary>Formats &amp; Tables</summary>
     <p>No betting at these tables — all honor play. The Dealer Token rotates every hand.</p>
     <ul>
       <li><b>Solo 1v1 / Paired Teams:</b> the Ledger Stone shifts by the <b>net difference</b> between
@@ -403,7 +406,8 @@
       Draft — 9 cards, a 2-2-1 footprint, best 3 of 5, leftovers discarded dead.</li>
     </ul>
 
-    <h3>Raid Boss — The Magistrate</h3>
+    </details>
+    <details class="ruleacc"><summary>The Campaign &amp; Its Bosses</summary>
     <p>A co-op fight, reached from the title's <b>Campaign</b> button. You and an ally (a bot, or a
     second player in co-op hotseat) take the standard game — five cards, three stones each. The
     <b>Magistrate</b> is a single boss who fields a larger board (<b>seven cards, all face-up</b>),
@@ -431,7 +435,8 @@
     <p>A locked card shields more than itself: if either card of a trade is later locked, a Black
     Stone can no longer unwind that trade.</p>
 
-    <h3>The Venues</h3>
+    </details>
+    <details class="ruleacc"><summary>The Venues</summary>
     <ul>
       <li><b>The Roadside Tavern</b> — the Practical Common: Bread, Coin, Road high (3); Sword, Ferry mid (2); Quill, Crest, Chain low (1). No house rules.</li>
       <li><b>The Sovereign Court</b> — statecraft values: Chain, Crest, Quill high; Ferry, Road mid; Bread, Coin, Sword low. Formal play, no deviations.</li>
@@ -441,7 +446,8 @@
       <li><b>The Academy Gauntlet</b> — common values, but a different game: <b>no telegraphing and no thinning</b>. Every player holds one of each stone and must place all four, one per round, in serpentine turn order (deal order, then reversed, and so on). The cards are a fixed canvas — it's a drill in pure interaction.</li>
     </ul>
 
-    <h3>The Circuit</h3>
+    </details>
+    <details class="ruleacc"><summary>The Circuit</summary>
     <p>A seeded roguelike run, reached from the title. You set out with a small <b>deck</b> of cards
     and a <b>pouch</b> of stones — both depleting draw piles that reshuffle when they run dry — and
     cross <b>three acts</b>, each a branching <b>map</b> of nodes you pick a path through to an act
@@ -465,6 +471,7 @@
     Triad — though it falls inert if an opponent steals it. The run is <b>seeded</b>: the same seed
     always plays the same run, so you can replay a daily or share one to race a friend. Your best
     runs and everything you've discovered are kept in the <b>Records &amp; Compendium</b>.</p>
+    </details>
 
     <div class="modalbtns"><button id="rulesClose" class="btn primary">‹ Back to the table</button></div>
   </div>
@@ -479,6 +486,6 @@
   </div>
 </div>
 
-<script src="game.js?v=265"></script>
+<script src="game.js?v=266"></script>
 </body>
 </html>

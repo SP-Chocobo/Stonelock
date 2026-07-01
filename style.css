@@ -1763,6 +1763,22 @@ body[data-compact="1"] .board .cfx { display: none; }
 .rules h3 { color: var(--gold); margin: 14px 0 4px; }
 .rules ol, .rules ul { padding-left: 22px; margin: 6px 0; }
 .rules li { margin: 4px 0; }
+.rules .ruleslead { color: var(--parchment); margin: 0 0 10px; }
+/* Rules as native <details> accordions — one tidy list of topics, expand what
+   you need. No JS: the browser drives it, and it stays keyboard-accessible. */
+.ruleacc { border-top: 1px solid var(--gold-dim); }
+.ruleacc:last-of-type { border-bottom: 1px solid var(--gold-dim); }
+.ruleacc > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 9px;
+  padding: 11px 4px; font-family: 'Cinzel', Georgia, serif; font-size: 15.5px; color: var(--gold);
+  transition: color 0.12s ease; }
+.ruleacc > summary::-webkit-details-marker { display: none; }
+.ruleacc > summary::before { content: '▸'; font-size: 11px; color: var(--gold-dim);
+  transition: transform 0.15s ease, color 0.12s ease; }
+.ruleacc[open] > summary { color: var(--gold-bright); }
+.ruleacc[open] > summary::before { transform: rotate(90deg); color: var(--gold-bright); }
+.ruleacc > summary:hover { color: var(--gold-bright); }
+.ruleacc > *:not(summary) { margin-top: 0; }
+.ruleacc > :last-child { padding-bottom: 12px; }
 .rword { color: var(--curse); } .wword { color: #efe9d8; } .bword { color: #7aa6c6; } .kword { color: #9b948c; }
 
 /* Toast */

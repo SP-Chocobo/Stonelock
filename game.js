@@ -5062,7 +5062,15 @@ function showEventScene() { return !!dialoguePrefs().events; }
 /* ---- Input mode: 'mouse' (default) or 'keyboard' (arrow-cursor + number
    hotkeys; see the KB module). Persisted like the other settings. ---- */
 const INPUT_KEY = 'stonelock-input';
-function inputMode() { return ls.get(INPUT_KEY) === 'keyboard' ? 'keyboard' : 'mouse'; }
+// Keyboard mode is offered only on a mouse-driven computer (a device that can
+// hover with a fine pointer) — phones and tablets report coarse/none and never
+// see it. No API reveals a physical keyboard, so this pointer signal is the
+// robust proxy. Headless/no-matchMedia contexts count as capable (tests, etc.).
+function kbCapable() {
+  if (typeof window === 'undefined' || !window.matchMedia) return true;
+  return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+function inputMode() { return (kbCapable() && ls.get(INPUT_KEY) === 'keyboard') ? 'keyboard' : 'mouse'; }
 function setInputMode(m) { ls.set(INPUT_KEY, m === 'keyboard' ? 'keyboard' : 'mouse'); if (typeof document !== 'undefined') applyInputMode(); }
 function applyInputMode() {
   if (typeof document === 'undefined') return;
@@ -8030,8 +8038,11 @@ function boot() {
   [['dlgElites', 'elites'], ['dlgCbosses', 'cbosses'], ['dlgEvents', 'events']].forEach(([id, key]) => {
     const b = $(id); if (b) b.onclick = () => { setDialoguePref(key, !dialoguePrefs()[key]); syncDialogue(); };
   });
-  // ---- Input mode (mouse / keyboard cursor) ----
-  const syncInput = () => { document.querySelectorAll('#inputMode .segbtn').forEach(b => b.classList.toggle('on', b.dataset.v === inputMode())); };
+  // ---- Input mode (mouse / keyboard cursor) — hidden on touch devices ----
+  const syncInput = () => {
+    const sec = $('ctrlSection'); if (sec) sec.style.display = kbCapable() ? '' : 'none';
+    document.querySelectorAll('#inputMode .segbtn').forEach(b => b.classList.toggle('on', b.dataset.v === inputMode()));
+  };
   document.querySelectorAll('#inputMode .segbtn').forEach(b => {
     b.onclick = () => { setInputMode(b.dataset.v); syncInput(); };
   });
