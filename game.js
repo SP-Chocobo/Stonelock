@@ -8072,6 +8072,10 @@ function boot() {
   window.addEventListener('pointerdown', tryStartMusic);
   window.addEventListener('keydown', tryStartMusic);
   $('rulesClose').onclick = () => closeModal('rulesModal');
+  // Collapsing the turn-order section resets its nested mode accordions, so it
+  // reopens to a clean "pick a mode" state rather than remembering old expansions.
+  const toa = $('turnOrderAcc');
+  if (toa) toa.addEventListener('toggle', () => { if (!toa.open) toa.querySelectorAll('.turnacc[open]').forEach(d => d.removeAttribute('open')); });
   // Table Talk is cramped and hard to scroll on a phone — tap it there to read
   // the full log in a roomy, scrollable overlay.
   $('logClose').onclick = () => closeModal('logModal');

@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=267">
+<link rel="stylesheet" href="style.css?v=268">
 </head>
 <body>
 
@@ -16,13 +16,13 @@
 <!-- Looping menu music (starts after a user gesture; volume/mute in Audio settings).
      OGG first for gapless looping in Chrome/Firefox; MP3 fallback for Safari/iOS. -->
 <audio id="bgm" loop preload="auto">
-  <source src="assets/audio/lost-at-sea-loop.ogg?v=267" type="audio/ogg">
-  <source src="assets/audio/lost-at-sea-loop.mp3?v=267" type="audio/mpeg">
+  <source src="assets/audio/lost-at-sea-loop.ogg?v=268" type="audio/ogg">
+  <source src="assets/audio/lost-at-sea-loop.mp3?v=268" type="audio/mpeg">
 </audio>
 <!-- Boss-raid theme (Lost Ruins) -->
 <audio id="bgmBoss" loop preload="auto">
-  <source src="assets/audio/lost-ruins-loop.ogg?v=267" type="audio/ogg">
-  <source src="assets/audio/lost-ruins-loop.mp3?v=267" type="audio/mpeg">
+  <source src="assets/audio/lost-ruins-loop.ogg?v=268" type="audio/ogg">
+  <source src="assets/audio/lost-ruins-loop.mp3?v=268" type="audio/mpeg">
 </audio>
 
 <!-- Title screen -->
@@ -368,7 +368,7 @@
     </ol>
 
     </details>
-    <details class="ruleacc"><summary>The Order of Play (Seat by Seat)</summary>
+    <details class="ruleacc" id="turnOrderAcc"><summary>The Order of Play (Seat by Seat)</summary>
     <p>Seats sit in a ring, labelled <b class="st">A</b>–<b class="st">D</b>. The <b>dealer button (◉)</b> rotates
     one seat each hand, and every phase runs in one of two directions:</p>
     <ul>
@@ -377,8 +377,7 @@
     </ul>
     <p class="turnnote">Below, the button sits on the last seat shown, so deal order simply reads left to right.</p>
 
-    <div class="turnmode">
-      <div class="turnhead">Solo &amp; Hotseat — 1v1</div>
+    <details class="turnacc"><summary>Solo &amp; Hotseat — 1v1</summary>
       <div class="seatstrip"><span class="seatchip">A</span><span class="seatchip dealer">B ◉</span></div>
       <ol class="turnsteps">
         <li><b>Foundation</b> — declare 1st stone <span class="seq">A · B</span>, then both commit <b>two cards face-up</b>.</li>
@@ -388,10 +387,9 @@
         <li><b>Resolution</b> — first stone <span class="seq">A · B</span>, then second stone <span class="seq">A · B</span>.</li>
         <li><b>Showdown</b> — cards flip; best three of four scored.</li>
       </ol>
-    </div>
+    </details>
 
-    <div class="turnmode">
-      <div class="turnhead">Free-for-All &amp; Paired Teams — 4 seats</div>
+    <details class="turnacc"><summary>Free-for-All &amp; Paired Teams — 4 seats</summary>
       <div class="seatstrip"><span class="seatchip">A</span><span class="seatchip">B</span><span class="seatchip">C</span><span class="seatchip dealer">D ◉</span></div>
       <ol class="turnsteps">
         <li><b>Foundation</b> — declare 1st stone <span class="seq">A · B · C · D</span>, then all commit <b>two face-up</b>.</li>
@@ -401,10 +399,9 @@
         <li><b>Resolution</b> — first stone <span class="seq">A · B · C · D</span>, then second stone <span class="seq">A · B · C · D</span>.</li>
         <li><b>Showdown</b> — best three scored. In Teams, partners <b class="st">A</b>·<b class="st">C</b> sit opposite <b class="st">B</b>·<b class="st">D</b>; team totals decide it.</li>
       </ol>
-    </div>
+    </details>
 
-    <div class="turnmode">
-      <div class="turnhead">Campaign co-op — 2 vs 1</div>
+    <details class="turnacc"><summary>Campaign co-op — 2 vs 1</summary>
       <div class="seatstrip"><span class="seatchip you">A · you</span><span class="seatchip foe">B · boss</span><span class="seatchip ally">C · ally</span></div>
       <p class="turnnote">The boss never waits its turn — it <b>answers every move and keeps the last word</b>, and there is no thinning.</p>
       <ol class="turnsteps">
@@ -416,7 +413,7 @@
         <li><b>Showdown</b> — your two hands combine against the boss's two best; the boss holds any tie.</li>
       </ol>
       <p class="turnnote">The exact spend order shifts with the boss and the difficulty — a harder boss may <b>open</b> the Reckoning, spend more stones, or (like the Apothecary) close with a stroke all its own. The rule that holds: the boss answers, and the boss ends.</p>
-    </div>
+    </details>
     </details>
     <details class="ruleacc"><summary>Scoring &amp; Ties</summary>
     <p>Add the regional values of your three fielded cards. <b>Pair</b> (two identical): +2.
@@ -536,6 +533,6 @@
   </div>
 </div>
 
-<script src="game.js?v=267"></script>
+<script src="game.js?v=268"></script>
 </body>
 </html>
