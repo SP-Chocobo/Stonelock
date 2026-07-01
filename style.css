@@ -1343,9 +1343,12 @@ body[data-compact="1"] .board .cfx { display: none; }
   background-image: radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.55), rgba(16,11,6,0.92)); }
 /* Per-act backdrop slot: overlay + region texture + the dark fallback beneath, so
    it looks intentional now and levels up the moment art lands at assets/maps/. */
-.mapgrid.mapact1 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act1.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
-.mapgrid.mapact2 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act2.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
-.mapgrid.mapact3 { background-image: linear-gradient(rgba(18,12,7,0.5), rgba(14,9,4,0.76)), url('assets/maps/act3.jpg?v=1'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+/* Overlay is tuned per image: Act 1 (green riverside) moderate; Act 2 (dark
+   slum) lighter so the murk shows; Act 3 (bright gilded court) heavier AND
+   cooler, to knock the gold down so the gold nodes still read against it. */
+.mapgrid.mapact1 { background-image: linear-gradient(rgba(18,12,7,0.44), rgba(12,8,4,0.72)), url('assets/maps/act1.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.mapgrid.mapact2 { background-image: linear-gradient(rgba(16,11,7,0.38), rgba(11,8,4,0.66)), url('assets/maps/act2.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(46,34,19,0.6), rgba(16,11,6,0.92)); }
+.mapgrid.mapact3 { background-image: linear-gradient(rgba(13,12,15,0.56), rgba(9,9,12,0.82)), url('assets/maps/act3.jpg?v=2'), radial-gradient(130% 100% at 50% 0%, rgba(40,36,30,0.6), rgba(14,12,12,0.92)); }
 .maptrack { position: relative; display: flex; gap: 46px; width: max-content; margin: 0 auto; align-items: stretch; }
 .mapcol { display: grid; grid-template-rows: repeat(5, 1fr); gap: 12px; min-width: 78px; align-items: center; }
 @media (max-width: 720px) {
