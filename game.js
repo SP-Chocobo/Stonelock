@@ -5763,6 +5763,9 @@ const MAP_LANES = 5; // vertical slots — nodes sit in lanes so paths visibly i
 // Every route to the boss must be earned: at least this many fights on the
 // fewest-fight path, counting the opener AND the boss (so: start + ≥2 more + boss).
 const CIRCUIT_MIN_FIGHTS = 4;
+// …but no route is an all-fight slog: at most this many fights on the most-fight
+// path, so every path also carries a few Encounters/Shops/Reposes for variety.
+const CIRCUIT_MAX_FIGHTS = 6;
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
 function laneFor(count, i) {
   if (count <= 1) return Math.floor(MAP_LANES / 2);
@@ -5808,8 +5811,22 @@ function buildAct(act) {
   for (let k = 0; k < actTuning(act).reposes; k++) placeOne('repose', 1, N - 3);
   if (PUZZLE_KEYS.length) placeOne('puzzle', 2, N - 3); // one tailored riddle per act
   for (let c = 0; c < cols.length - 1; c++) linkColumns(cols[c], cols[c + 1]);
-  // Structure rules (edge-aware, after linking). A "rest" is a Repose/Shop; a
-  // "fight" is Duel/Elite/Boss; everything else (Encounter/Puzzle) is non-fight.
+  /* ---- Structure rules (edge-aware, applied after linking) --------------------
+     A coherent system, not a pile of patches. The skeleton is fixed for every
+     act (per-act WEIGHTS in actTuning only flavour the middle node types, so
+     these rules read the same on Acts 1–3):
+       • Fixed spine: a single opener (fight), a resolute pre-boss Repose, the boss.
+       • Edges are planar (linkColumns) and every node is reachable — no dead ends.
+       Rule 1  no two rests back to back on a path.
+       Rule 2  no run of 4+ non-fight nodes (cap a rest/encounter streak at 3).
+       Rule 3  FLOOR (hard): every route has ≥ CIRCUIT_MIN_FIGHTS fights
+               (start + ≥2 + boss) — always satisfiable by demoting non-fights.
+       Rule 4  CEILING (firm target): no route exceeds CIRCUIT_MAX_FIGHTS fights,
+               by promoting fights to Encounters where it won't undercut Rule 3 or
+               Rule 2. A hard cap is infeasible with the floor on rare dense
+               graphs, so this holds >99% of maps rather than every one.
+     A "rest" is a Repose/Shop; a "fight" is Duel/Elite/Boss; everything else
+     (Encounter/Puzzle) is a non-fight. ------------------------------------------ */
   const isFight = t => t === 'duel' || t === 'elite' || t === 'boss';
   const isRest = t => t === 'repose' || t === 'shop';
   const lastCol = cols.length - 1;
@@ -5872,6 +5889,55 @@ function buildAct(act) {
            || path.find(o => !isFight(cols[o.c][o.k].type) && !breather(o) && o.c !== lastCol);
     if (!did) break; // route already all fights (or only the protected breather left) — nothing to add
     demote(cols[did.c][did.k]);
+  }
+  // Rule 4 — variety ceiling: no route is an all-fight slog. Cap fights on the
+  // MOST-fight path; promote a mid-route fight to an Encounter, but only where it
+  // won't drop another route below the min-fight floor (Rule 3 stays intact).
+  const promote = n => { n.type = 'event'; n.foe = null; n.foeCharms = []; n.puzzle = undefined; };
+  // Longest run of non-fight nodes on any path (mirrors Rule 2's cap of 3) — so a
+  // promotion can't quietly create a 4-in-a-row rest chain.
+  const longestNonFightRun = () => {
+    let mx = 0; const run = cols.map(col => col.map(() => 0));
+    for (let c = 0; c < cols.length; c++) cols[c].forEach((n, k) => {
+      if (isFight(n.type)) { run[c][k] = 0; return; }
+      const preds = c === 0 ? [] : cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
+      run[c][k] = 1 + (preds.length ? Math.max(...preds.map(pi => run[c - 1][pi])) : 0);
+      if (run[c][k] > mx) mx = run[c][k];
+    });
+    return mx;
+  };
+  // Most fights on any route through each node — forward (entry→node) and
+  // backward (node→boss); a node lies on a global-max route when fw+bw-1 == max.
+  const mostFightsDir = back => {
+    const mf = cols.map(col => col.map(() => -Infinity)), edge0 = back ? lastCol : 0;
+    for (const c of (back ? [...cols.keys()].reverse() : [...cols.keys()])) cols[c].forEach((n, k) => {
+      const adj = back
+        ? (c < lastCol ? (cols[c][k].edges || []).map(j => mf[c + 1][j]) : [])
+        : (c > 0 ? cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k)).map(pi => mf[c - 1][pi]) : []);
+      if (c === edge0 || adj.length) mf[c][k] = (adj.length ? Math.max(...adj) : 0) + (isFight(n.type) ? 1 : 0);
+    });
+    return mf;
+  };
+  // Variety ceiling: no route exceeds CIRCUIT_MAX_FIGHTS fights, so every path
+  // carries a few Encounters/Shops/Reposes. Search ALL fights on a most-fight
+  // route (not one backtracked path) and promote the first that won't drop a route
+  // below the floor or spawn a 4-rest chain. (This also trims most 3-fight slogs,
+  // though a lone 2→3 streak can survive when breaking it would undercut the floor.)
+  for (let guard = 0; guard < 80; guard++) {
+    const fw = mostFightsDir(false), gmax = fw[lastCol][0];
+    if (gmax <= CIRCUIT_MAX_FIGHTS) break;
+    const bw = mostFightsDir(true), cands = [];
+    for (let c = 1; c < lastCol; c++) cols[c].forEach((n, k) => {
+      if (isFight(n.type) && fw[c][k] > -Infinity && bw[c][k] > -Infinity && fw[c][k] + bw[c][k] - 1 === gmax) cands.push({ c, k });
+    });
+    let did = null;
+    for (const { c, k } of cands) {
+      const n = cols[c][k], st = n.type, fo = n.foe, ch = n.foeCharms;
+      promote(n);
+      if (fewestFights()[lastCol][0] >= CIRCUIT_MIN_FIGHTS && longestNonFightRun() <= 3) { did = { c, k }; break; }
+      n.type = st; n.foe = fo; n.foeCharms = ch;        // would break the floor or the rest cap — revert
+    }
+    if (!did) break; // nothing safely promotable on the max route — leave it
   }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
 }
@@ -8230,7 +8296,7 @@ if (typeof window !== 'undefined') {
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
-    PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS,
+    PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS, CIRCUIT_MAX_FIGHTS,
     CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
     FOE_SOLO_TAUNTS, BOSS_INTRO, BOSS_DEFEAT, dialoguePlate, foeSoloTaunt, bossIntroLine, bossDefeatLine,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
