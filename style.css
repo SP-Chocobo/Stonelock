@@ -1539,7 +1539,10 @@ body[data-compact="1"] .board .cfx { display: none; }
 .dplate-name { font-family: 'Cinzel', Georgia, serif; font-weight: 700; color: var(--gold-bright);
   font-size: 14.5px; letter-spacing: 0.5px; margin-bottom: 5px; }
 .dplate-line { font-family: 'Alegreya', Georgia, serif; font-style: italic; color: var(--parchment);
-  font-size: 15px; line-height: 1.5; }
+  font-size: 15px; line-height: 1.5;
+  /* Balance the wrap so a short last word never gets stranded on its own line
+     (a 'try.' widow); falls back to normal wrapping in older browsers. */
+  text-wrap: balance; text-wrap: pretty; }
 .dplate .coachnote { margin-top: 8px; }
 .dplate.right .coachnote { text-align: right; }
 /* Foe cast — colder, hostile. */

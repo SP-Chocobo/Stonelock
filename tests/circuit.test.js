@@ -562,6 +562,16 @@ for (const b of BOSSES6) {
   assert(M.BOSS_DEFEAT[b] && M.BOSS_DEFEAT[b].length > 10, `${b} has a defeat line`);
 }
 assert(M.foeSoloTaunt('A Nobody').length > 10 && M.bossIntroLine('A Nobody').length > 10 && M.bossDefeatLine('A Nobody').length > 10, 'dialogue lookups fall back for unknown names');
+// Structural guard: every spoken line carries enough words that the wrap has
+// something to balance — no one- or two-word fragments that render as a lonely
+// widow line. (The visual fix is CSS text-wrap; this keeps the writing honest.)
+const words = s => s.trim().split(/\s+/).length;
+const MIN_WORDS = 8;
+for (const [tbl, dict] of [['ALLY', M.CIRCUIT_ALLY_LINES], ['TAUNT', M.CIRCUIT_FOE_TAUNTS], ['WIN', M.CIRCUIT_ALLY_WINLINES], ['SOLO', M.FOE_SOLO_TAUNTS], ['INTRO', M.BOSS_INTRO], ['DEFEAT', M.BOSS_DEFEAT]]) {
+  for (const [who, line] of Object.entries(dict)) {
+    assert(words(line) >= MIN_WORDS, `${tbl} line for ${who} has ${words(line)} words (min ${MIN_WORDS}) — too short, would widow`);
+  }
+}
 // The plate renders a face + name + line; .right/.foe are reflected in the markup.
 const plate = M.dialoguePlate('The Ferryman', 'Pay the toll.', { side: 'right', foe: true });
 assert(/dplate/.test(plate) && /dplate-face/.test(plate) && /The Ferryman/.test(plate) && /Pay the toll\./.test(plate), 'plate carries face, name, and line');
