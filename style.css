@@ -1362,7 +1362,7 @@ body[data-compact="1"] .board .cfx { display: none; }
   .mapslot { min-height: 44px; }
 }
 .mapslot { min-height: 52px; } /* keeps empty lanes spaced so branches read as paths */
-.mapnode:not(.reach):not(.here):not(.done) { opacity: 0.4; } /* unreachable-this-step nodes recede */
+.mapnode:not(.reach):not(.here):not(.done) { opacity: 0.62; } /* not reachable THIS step — visible (read the road ahead), just not lit like your choices */
 .mapnode.here { border-color: var(--gold-bright); opacity: 1; animation: mapHere 1.7s ease-in-out infinite; }
 @keyframes mapHere {
   0%, 100% { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 12px rgba(232,196,119,0.4), 0 3px 8px rgba(0,0,0,0.5); }
