@@ -668,6 +668,10 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
       });
       assert(ff[cols.length - 1][0] >= M.CIRCUIT_MIN_FIGHTS,
         `act ${act} seed ${seed}: fewest-fight route is ${ff[cols.length - 1][0]}, below the ${M.CIRCUIT_MIN_FIGHTS} floor`);
+      // The pre-boss breather is resolute: the column before the boss is always a
+      // single Repose, never demoted by any rule.
+      const pre = cols[cols.length - 2];
+      assert(pre.length === 1 && pre[0].type === 'repose', `act ${act} seed ${seed}: pre-boss node stays a Repose`);
     }
   }
   M.clearRng();

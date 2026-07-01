@@ -5864,11 +5864,13 @@ function buildAct(act) {
       const preds = cols[c - 1].map((_, pi) => pi).filter(pi => (cols[c - 1][pi].edges || []).includes(k));
       k = preds.reduce((best, pi) => ff[c - 1][pi] < ff[c - 1][best] ? pi : best, preds[0]); c--;
     }
-    // Demote a non-fight on that route — keep shops and the pre-boss breather if
-    // there's another option; fall back to any non-fight so we always progress.
-    let did = path.find(({ c, k }) => { const n = cols[c][k]; return !isFight(n.type) && n.type !== 'shop' && !(c === lastCol - 1 && n.type === 'repose'); })
-           || path.find(({ c, k }) => c !== lastCol && !isFight(cols[c][k].type));
-    if (!did) break; // route already all fights — nothing to add
+    // Demote a non-fight on that route. The pre-boss breather is resolute — never
+    // demoted — so the boss always sits behind a Repose; shops are spared first
+    // but may be demoted as a last resort before we'd ever touch that breather.
+    const breather = ({ c, k }) => c === lastCol - 1 && cols[c][k].type === 'repose';
+    let did = path.find(({ c, k }) => { const n = cols[c][k]; return !isFight(n.type) && n.type !== 'shop' && !breather({ c, k }); })
+           || path.find(o => !isFight(cols[o.c][o.k].type) && !breather(o) && o.c !== lastCol);
+    if (!did) break; // route already all fights (or only the protected breather left) — nothing to add
     demote(cols[did.c][did.k]);
   }
   return { act, cols, pos: null }; // pos = the node you're currently on (null = before the entry)
