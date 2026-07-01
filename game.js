@@ -5508,7 +5508,9 @@ function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]}
 
 let circuitSeed = 0;
 function startCircuit(seed) {
-  if (typeof document !== 'undefined') $('titleScreen').classList.add('hidden');
+  // Sit the intro/loadout/first-map over the title (as the other setups do), not
+  // over a stale paused-match board — newGame hides the title at the first fight.
+  if (typeof document !== 'undefined') $('titleScreen').classList.remove('hidden');
   // Seed the run BEFORE dealing options, so the seed reproduces the whole run
   // (loadout offers, map, fights, AI). An explicit seed = a shared/daily run.
   circuitSeed = (seed != null) ? (seed >>> 0) : freshSeed();

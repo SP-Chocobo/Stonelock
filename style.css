@@ -1779,6 +1779,22 @@ body[data-compact="1"] .board .cfx { display: none; }
 .ruleacc > summary:hover { color: var(--gold-bright); }
 .ruleacc > *:not(summary) { margin-top: 0; }
 .ruleacc > :last-child { padding-bottom: 12px; }
+/* Turn-order guide: per-mode seat strip + numbered play-by-play. */
+.st { display: inline-block; min-width: 1.05em; text-align: center; color: var(--gold-bright); font-weight: 700; }
+.rules .turnmode { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--gold-dim); border-radius: 9px; background: rgba(20,14,8,0.4); }
+.turnhead { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); font-size: 14px; margin-bottom: 8px; }
+.seatstrip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+.seatchip { font-family: 'Cinzel', Georgia, serif; font-size: 12px; color: var(--parchment);
+  background: rgba(40,30,17,0.7); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 3px 9px; }
+.seatchip.dealer { border-color: var(--gold-bright); color: var(--gold-bright); }
+.seatchip.you { border-color: #7fb069; color: #a9d69a; }
+.seatchip.foe { border-color: #a8474a; color: #d98a8c; }
+.seatchip.ally { border-color: #6f9fce; color: #9dc0e6; }
+.rules .turnsteps { padding-left: 20px; margin: 4px 0 0; }
+.turnsteps li { margin: 5px 0; }
+.seq { font-family: 'Cinzel', Georgia, serif; font-size: 12px; color: var(--gold-bright);
+  background: rgba(201,160,80,0.13); border-radius: 5px; padding: 1px 7px; white-space: nowrap; }
+.turnnote { font-style: italic; color: var(--parchment-dim); font-size: 12.5px; margin: 4px 0 8px; }
 .rword { color: var(--curse); } .wword { color: #efe9d8; } .bword { color: #7aa6c6; } .kword { color: #9b948c; }
 
 /* Toast */
