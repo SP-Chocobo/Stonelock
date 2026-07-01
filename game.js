@@ -7835,5 +7835,6 @@ if (typeof window !== 'undefined') {
     _state: () => G, _ui: () => UI, _run: () => run(),
     // AI internals, exposed for decision-level effect tests.
     _ai: { estimate, sideSwing, aiBestBlueTarget, aiBestRedTarget, aiBestBlackTarget, aiChooseDeploy, aiStonePreference, aiStoneValue, effVal, EFFECTS, positionDeploy, isPositionalFx },
+    _personas: { PERSONALITIES, BOT_POOL, personaCoachNote, coachNoteHtml },
   };
 }
