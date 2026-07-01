@@ -5834,7 +5834,7 @@ function circuitPrefightScreen(node) {
   const body = eventShell(boss ? 'The road’s end — a Boss' : 'A named hand bars the road',
     `Standing ${g.standing}/${g.maxStanding}. ${node.foe} holds this stretch of ${node.type === 'boss' ? 'the act' : 'the road'}. There’s no going around.`);
   const sec = document.createElement('div'); sec.className = 'ldsection';
-  sec.innerHTML = dialoguePlate(node.foe, foeSoloTaunt(node.foe), { side: 'right', foe: true, coach: true });
+  sec.innerHTML = dialoguePlate(node.foe, foeSoloTaunt(node.foe), { side: 'right', foe: true });
   body.appendChild(sec);
   const row = document.createElement('div'); row.className = 'eventopts';
   const go = document.createElement('button'); go.className = 'eventopt'; go.style.maxWidth = '260px';
@@ -6798,22 +6798,22 @@ const FOE_SOLO_TAUNTS = {
 function foeSoloTaunt(name) { return FOE_SOLO_TAUNTS[name] || 'You’ve the look of a player. Sit, and we’ll find out.'; }
 // The campaign bosses take the high seat — their one spoken word before the raid.
 const BOSS_INTRO = {
-  'The Magistrate': 'You come before the bench. I field my board face-up — I’ve nothing to hide, and nothing to fear. Outscore my two best hands, if the law allows it. It rarely does.',
-  'The Warden': 'You’ll spend your stones and find them spent — I never run dry. Grind against me if you like. I’ve all night; you’ve only so many hands.',
-  'The Apothecary': 'A healer keeps poisons for a reason. Lay out your prizes — I’ll admire them a while. When it matters most, I’ll cut the finest to nothing. Lock what you love. Or don’t.',
-  'The Quartermaster': 'The pouch is mine to ration. Each hand I lock a colour away — yours and my own — and you’ll never keep a favourite long. Adapt every turn, or don’t bother sitting.',
-  'The Archivist': 'Every move is filed in order and read back to you. Commit your layout, place your stones, and wait — nothing fires until the ledger is full. Then we see whose sequence holds. Mine always has.',
-  'The Crucible': 'Every trial you’ve survived, at once — and one you haven’t. Read back to front. A colour gone each hand. Every stone you spend, exhausted. And buried somewhere, a scalpel you’ll never see. Sit, and be tempered — or break.',
+  'The Magistrate': 'Another petitioner, hat in hand, quite sure of himself. They always are. Sit down. I have sentenced better players than you before luncheon, and taken no pleasure in it. This one I might.',
+  'The Warden': 'Soft hands. The hands of a man who’s never been worn down slow. Sit — I’ve nothing but nights, and I intend to spend one on you.',
+  'The Apothecary': 'Oh, don’t look so pale. I mend far more than I harm. …Well. Roughly as much. Sit, sit — let me get a proper look at what I’m working with.',
+  'The Quartermaster': 'Everything at this table is inventory, and inventory answers to me — you included. Sit. Let’s find out what you’re worth, and then let’s watch it depreciate.',
+  'The Archivist': 'I keep a file on everyone who sits here. Yours is thin, and what’s in it is dull. Sit, and give me something worth the ink. You won’t — but do try.',
+  'The Crucible': 'So. The last door, and you knock so politely. Everything that broke the others is behind me, and it has grown so terribly bored. Sit down. Let’s see what you’re made of — before I take it apart.',
 };
 function bossIntroLine(name) { return BOSS_INTRO[name] || 'You’ve climbed far to reach this seat. Sit, and let us see if you belong in it.'; }
 // The boss’s parting word when you break them — gracious or grudging, in voice.
 const BOSS_DEFEAT = {
-  'The Magistrate': 'The bench… yields. You scored fair, and the law is nothing if not fair. Rise — the seat is yours. For now.',
-  'The Warden': 'You rationed better than I judged. Twenty years holding this line, and worn through at last. Go — you earned the road past me.',
-  'The Apothecary': 'You locked the right card at the right moment. My scalpel found nothing worth the cutting. A clean win — rare, and rarer against me. Take your prizes. All of them.',
-  'The Quartermaster': 'You changed your plan every hand, exactly as the pouch demanded. Few can. The stores are open to you — on to the Academy, where every colour is always at hand.',
-  'The Archivist': 'You read the queue and bent it to your order, not mine. A loss, entered in my column — the first in a long ledger. It is… noted. Go.',
-  'The Crucible': 'Tempered, not broken. You held against every trial at once and did not shatter. There is nothing left in here to test you with. Well fought — truly.',
+  'The Magistrate': 'The verdict goes against me. How… novel. Take the seat, then. I’ll be watching how you keep it — and I am a patient man.',
+  'The Warden': 'Worn through. Twenty years, and it’s you who does it. Go on — through the gate. You’ve earned the walk. Don’t make me regret opening it.',
+  'The Apothecary': 'Ah. You kept the one thing that mattered just out of my reach. Clever. Irritating. …Take your prizes, before I think better of letting you.',
+  'The Quartermaster': 'Balanced against me, hand for hand — and the books don’t lie, more’s the pity. The stores are yours. Go, before I find a clerical error.',
+  'The Archivist': 'A loss. In my own hand, in my own ledger. I shall have to open a new volume. You are… noted. Now get out of my records.',
+  'The Crucible': 'Tempered. Not broken. There is nothing back here you haven’t now survived. Go — there’s no door left to knock on. You’re finished. In the best of ways.',
 };
 function bossDefeatLine(name) { return BOSS_DEFEAT[name] || 'Well played. The seat is cold, and it is yours.'; }
 // The plate itself: portrait framed beside a speech box. opts.side 'right' mirrors
@@ -6866,8 +6866,8 @@ function renderRivalEvent(g) {
   // The ally at your side (face left) and the foe barring the road (face right),
   // turned toward one another across the plate.
   sec.innerHTML =
-    dialoguePlate(ev.ally, allyLine(ev.ally), { side: 'left', coach: true, coachFull: true }) +
-    dialoguePlate(ev.foe, foeTaunt(ev.foe), { side: 'right', foe: true, coach: true });
+    dialoguePlate(ev.ally, allyLine(ev.ally), { side: 'left' }) +
+    dialoguePlate(ev.foe, foeTaunt(ev.foe), { side: 'right', foe: true });
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const fight = document.createElement('button');
   fight.className = 'eventopt';

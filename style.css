@@ -1549,6 +1549,21 @@ body[data-compact="1"] .board .cfx { display: none; }
   .dplate-name { font-size: 13px; }
   .dplate-line { font-size: 13.5px; }
 }
+/* Laptop and up: a full-size plate that actually fills the screen it owns. */
+@media (min-width: 761px) {
+  .dplate { margin: 16px 0; }
+  .dplate-face { flex-basis: 132px; width: 132px; min-height: 160px; }
+  .dplate-face--none { font-size: 56px; }
+  .dplate-box { padding: 20px 28px; }
+  .dplate-name { font-size: 20px; margin-bottom: 9px; }
+  .dplate-line { font-size: 21px; line-height: 1.55; }
+}
+@media (min-width: 1100px) {
+  .dplate-face { flex-basis: 156px; width: 156px; min-height: 184px; }
+  .dplate-box { padding: 24px 34px; }
+  .dplate-name { font-size: 22px; }
+  .dplate-line { font-size: 23px; }
+}
 /* A Windfall: a big coin find. */
 .goldfind { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; }
 .goldfind-ic { font-size: 40px; color: var(--gold-pale); text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
