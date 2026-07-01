@@ -1131,6 +1131,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   width: 100%;
   max-height: 92vh;
   overflow-y: auto;
+  /* Clip the x-axis explicitly: overflow-y:auto alone makes overflow-x compute
+     to auto, so a slide-transition element pushed past the edge would flash a
+     horizontal scrollbar for a frame. Nothing here ever scrolls sideways. */
+  overflow-x: hidden;
 }
 .modalcard.wide { max-width: 860px; }
 .modalcard h2 { margin: 0 0 6px; color: var(--gold); font-size: 24px; }
