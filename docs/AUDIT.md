@@ -85,3 +85,58 @@ Run K≈150 pre-fix and post-fix. Pre-fix baseline TBD by Opus (supervising sess
 4. A3 (pick fizzle-if-moved vs origin-tracking; test the chained-swap repro)
 5. A7/A8 (design calls — confirm with owner, then align)
 6. A4 (interim mitigation now; full variant support in slot engine as scheduled work)
+
+---
+
+## Lens B — State-mutation coupling — SALVAGE REPORT (token-cut; findings as traced)
+
+### B1. "Run it again" always replays seed 0 — MouseEvent passed as seed — HIGH, CONFIRMED-BY-REVIEWER
+- game.js 6505 & 8095: `next.onclick = startCircuit` — the click passes the MouseEvent; `startCircuit(seed)` (5551-58) does `(seed != null) ? (seed >>> 0)` → MouseEvent >>> 0 = **0**. Every "Run it again" (victory AND defeat screens) replays the identical seed-0 run — same offers, map, foes, AI rolls — and banks "seed 0" into records.
+- Correct wiring exists at 5604 (`() => startCircuit()`), proving intent. **Fix**: wrap both handlers in `() => startCircuit()`. Trivial + high player impact.
+
+### B2. Seeded Circuit RNG leaks into a resumed non-run match — MED, CONFIRMED (agent-traced)
+- startCircuit seeds the RNG at the intro (5557-58) before any fight; quitting the Circuit intro back to title and resuming a paused custom duel leaves the global `_rng` seeded — the plain match's deals become deterministic (violates newGame:720's own "non-run matches use true randomness"; clearRng only fires in newGame for non-gauntlet).
+- **Fix**: clearRng() in showTitle/circuitQuit, or seed only at circuitBegin (first fight), or clearRng in resumeMatch.
+
+### B3. New match from in-game Menu during a Circuit fight leaves GAUNTLET.active + stale HUD — MED, LIKELY
+- newGameBtn (8319) → openSetup → newGame never clears GAUNTLET.active / #circuitHud (writers: showTitle 3393, circuitEnd, circuitVictory only). Stale Standing HUD paints over the new custom match; abandoned run records nothing.
+- **Fix**: in newGame (non-gauntlet path): GAUNTLET.active = false + hide circuitHud (or route newGameBtn through the same abandon path as showTitle).
+
+### B4. Pending SUDDEN DEATH flash survives into a replacement match — LOW, CONFIRMED (cosmetic, self-heals ≤2s)
+- flashSuddenDeath timer/element not cleared by showTitle/newGame. **Fix**: clear suddenFlashTimer + hide #suddenFlash in both.
+
+### B5. Academy puzzle stamps GAUNTLET.puzzle outside any run — LOW, SPECULATIVE (latent; currently shielded by showTitle abandoning runs).
+
+**Lens B verified clean**: newGame/startHand rebuild G and UI wholesale (no per-match/per-hand leaks: exhaustHands, cursedType, archQueue, slum, pendingStone/blueOwn all safe); GAUNTLET rebuilt wholesale in circuitBegin; ally piles cleared defensively; charm couplings gated on G.gauntlet; circuitHandResult early-returns on !g.active; resumeMatch restores backdrop/music/.sudden correctly; KB gated by liveBoard(); non-runTimer async callbacks are idempotent paints (drawMapEdges guards isConnected).
+
+---
+
+## Lens C — Hand-loop soft-locks — SALVAGE REPORT (token-cut; findings as traced)
+
+### C1. Variant stone keys crash renderControls mid-render — MED-HIGH, CONFIRMED-BY-REVIEWER
+- renderControls 4442/4451: `stoneHasValidTarget(UI.pendingStone)` switches on base colors only (2051-68) → variant keys ('twinred','deadbolt',…) fall to default **false** → `noTargets` true even with valid targets → `STONES[UI.pendingStone].name` **TypeError** (STONES lacks variant keys — that's what getStone() is for).
+- Every human selection of an upgraded stone for targeting throws in render: mouse limps through (board affordances wired before the throw) but KB.refresh is skipped (keyboard nav dies until next full render), and the UI wrongly offers "Set it down without effect".
+- **Fix**: `stoneHasValidTarget(stoneBase(UI.pendingStone))` + `getStone(UI.pendingStone).name`. Two-line fix; add a variant-key render test.
+
+### C2. Pause/resume during arch-commit re-inflates UI.commitLeft — MED, CONFIRMED-LOGIC (needs pause mid-step)
+- promptHuman 'archcommit' (1567-72) recomputes `commitLeft = min(step.count, hand.length)` from the FULL step count on every re-prompt; humanCommitToSlot only decrements the UI counter (step carries no progress). Pause (title) after committing 1 of 2, then Continue → required to commit 3 for a 2-card step; can steal cards from the later veiled step (face-up cards that should be veiled) or, on the final step, outrun the empty slots → **hard soft-lock** (renderControls has no 'arch-commit' branch: no Back/skip).
+- **Fix**: store progress on the step (e.g. step.done count), or derive commitLeft from empty-own-slots/step remainder; add an 'arch-commit' Back affordance.
+
+### C3. 'target-green' mode has zero affordances — LOW-MED, CONFIRMED but LATENT
+- humanChooseStone 1740-42 can set UI.mode='target-green', but decorateTarget has no green branch (nothing .targetable) and renderControls has no green case (no Back/skip) → guaranteed soft-lock IF a human ever holds a live green in the main loop. Currently unreachable (greens are boss-only/puzzle-only; Circuit rewards exclude green) — but one config line away. **Fix**: add the green branch (own-board unlocked targets + skip), or hard-guard humans out of green.
+
+### C4 (fragile invariant, not a bug): Crucible declare margin is exactly zero — pool 8 − 2 denied − 3 exhausted = 3 for 3 declares. Any future +1 to party stones or exhaustion makes a human face a declare with an empty tray and no pass affordance. Note in tuning docs.
+
+**Lens C verified clean**: every step type covered by exactly one of stepNeedsHuman/executeStep in every template (no unpromptable steps); empty-pool declare unreachable in shipped configs; target-black/blue/white always have skip affordances (for BASE keys — see C1); 'place' with empty active auto-skips; G.over mid-queue drains safely (no double showdown, nextHand branches on G.over); resume re-invokes promptHuman for all step-level modes (only intra-step counters are lossy — C2); hotseat pass screen blocks KB and review peeking.
+**Not fully traced (out of budget)**: multi-human deploy out-of-order fill-in veil privacy of step.choices during pass renders; pause mid-archresolve dynamic steps.
+
+---
+
+## Consolidated fix priority (all three lenses)
+1. **B1** seed-0 "Run it again" (trivial fix, high player impact)
+2. **A1+A2** co-op scoring (evalue + cross-team) — with the rebalance measurement
+3. **C1** variant-key render crash (two-liner + test)
+4. **B2** RNG leak, **B3** GAUNTLET/HUD leak, **C2** arch-commit counter (small, clear fixes)
+5. **A5/A9/B4** text & cosmetic
+6. **A3** trade-unwind semantics, **A6** slumlock variants, **C3** green affordances, **A7/A8** consistency calls (design decisions)
+7. **A4** Act-3 variant stones (interim mitigation now; slot-engine variant support as scheduled work) — NOTE: C1 and A4 are the same root theme (variant keys unhandled outside the happy path); fix as a family.
