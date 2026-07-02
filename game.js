@@ -717,7 +717,16 @@ const TEAM_MODES = new Set(['teams', 'hs-team', 'hs-rivals']);
 function newGame(cfg) {
   clearTimeout(runTimer);
   INGAME = true;
-  if (!cfg.gauntlet) clearRng(); // non-run matches use true randomness; the Circuit keeps its seeded stream
+  // A new non-Circuit match abandons any Circuit run outright: reset its seeded
+  // RNG (else a run's seed leaks into this match's deals), drop GAUNTLET.active,
+  // and hide the Standing HUD — starting from the in-match Menu skips showTitle,
+  // which is the only other place that did this.
+  if (!cfg.gauntlet) {
+    clearRng();
+    if (typeof GAUNTLET !== 'undefined') GAUNTLET.active = false;
+    if (typeof document !== 'undefined' && $('circuitHud')) $('circuitHud').style.display = 'none';
+  }
+  clearSuddenFlash();
   hideTitle();
   const raid = cfg.mode === 'raid';
   if (typeof Music !== 'undefined') Music.setTrack(raid ? 'boss' : 'menu'); // boss raids get their own theme; standard play keeps the menu loop unbroken
@@ -2111,7 +2120,9 @@ const EFFECTS = {
     label: 'Drain', blurb: 'The facing card in the same slot reads −1.',
     ownerLocked: true,
     cross: (c, i, boards, ownerBoard) => {
-      for (let j = 0; j < boards.length; j++) { if (j === ownerBoard || !boards[j][i]) continue; boards[j][i].evalue -= 1; }
+      // Only opponents' facing cards — never your own board or an ally's (teamOf
+      // makes this a no-op in duel/ffa, and correctly spares partners in teams/coop).
+      for (let j = 0; j < boards.length; j++) { if (teamOf(j) === teamOf(ownerBoard) || !boards[j][i]) continue; boards[j][i].evalue -= 1; }
     },
     aiKeep: () => 1, // shaves the facing card
   },
@@ -2134,7 +2145,7 @@ const EFFECTS = {
     label: 'Siphon', blurb: '+1 to itself, and the facing card in the same slot reads −1.',
     self: () => 1,
     ownerLocked: true,
-    cross: (c, i, boards, ownerBoard) => { for (let j = 0; j < boards.length; j++) { if (j === ownerBoard || !boards[j][i]) continue; boards[j][i].evalue -= 1; } },
+    cross: (c, i, boards, ownerBoard) => { for (let j = 0; j < boards.length; j++) { if (teamOf(j) === teamOf(ownerBoard) || !boards[j][i]) continue; boards[j][i].evalue -= 1; } }, // opponents only (spares ally/partner)
     aiKeep: () => 1.6, // a vampiric Drain: lifts you and shaves them
   },
   gleam: {
@@ -3006,7 +3017,9 @@ function coopShowdown(sel) {
   const party = [0, 2];
   const teamScore = party.reduce((s, m) => s + sel[m].score, 0);
   const foe = twoBestHands(
-    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c), poisoned: isPoisoned(c) })),
+    // Score the foe by the SAME per-card map every other seat gets (see showdown()):
+    // it fields effect cards by design, so it must count their evalue too.
+    G.players[1].board.map(c => ({ type: c.type, hasRed: hasRed(c), phantoms: redPhantoms(c), poisoned: isPoisoned(c), evalue: c.evalue })),
     G.region.values, scoreOptsFor(1) // the foe's charms boost its two hands (scoring leverage)
   );
   const diff = teamScore - foe.score; // positive = your side out-scores the foe
@@ -3086,6 +3099,12 @@ function announce(msg, stoneColor, actor) {
 // A big, short-lived "SUDDEN DEATH" bubble slammed over the middle of the play
 // area — you cannot miss that the swing has doubled. Auto-clears after ~2s.
 let suddenFlashTimer = null;
+// Kill any pending Sudden Death bubble so it can't linger over the next match.
+function clearSuddenFlash() {
+  if (typeof document === 'undefined') return;
+  clearTimeout(suddenFlashTimer);
+  const el = $('suddenFlash'); if (el) { el.classList.remove('go'); el.style.display = 'none'; }
+}
 function flashSuddenDeath() {
   if (typeof document === 'undefined') return;
   const el = $('suddenFlash'); if (!el) return;
@@ -3391,6 +3410,8 @@ function showTitle() {
   Music.setTrack('menu'); // back to the menu loop
   TUT.active = false;
   if (typeof GAUNTLET !== 'undefined') GAUNTLET.active = false; // returning to the title abandons a Circuit run
+  clearRng(); // a run seeds the global RNG at its intro; drop it so a resumed non-run match deals truly random
+  clearSuddenFlash();
   coachHide();
   for (const id of ['quitModal', 'setupModal', 'showdownModal', 'victoryModal', 'rulesModal', 'passModal', 'academyModal', 'logModal', 'circuitModal']) closeModal(id);
   $('showdownResume').style.display = 'none';
@@ -4439,8 +4460,12 @@ function renderControls() {
     cancel.textContent = '‹ Back';
     cancel.onclick = humanCancelStone;
     bar.appendChild(cancel);
-    const noTargets = !stoneHasValidTarget(UI.pendingStone);
-    if (UI.pendingStone === 'black' || UI.pendingStone === 'blue' || noTargets) {
+    // Resolve variant keys (twinred/deadbolt/riptide/onyx) to their base colour:
+    // STONES has no variant entries and stoneHasValidTarget switches on base
+    // colours, so using the raw key here threw a TypeError mid-render.
+    const baseColor = stoneBase(UI.pendingStone);
+    const noTargets = !stoneHasValidTarget(baseColor);
+    if (baseColor === 'black' || baseColor === 'blue' || noTargets) {
       const skip = document.createElement('button');
       skip.className = 'btn ghost';
       skip.textContent = 'Set it down without effect';
@@ -4448,7 +4473,7 @@ function renderControls() {
       bar.appendChild(skip);
     }
     if (noTargets) {
-      setPrompt(`${STONES[UI.pendingStone].name} — no valid target remains. Set it down without effect.`);
+      setPrompt(`${getStone(UI.pendingStone).name} — no valid target remains. Set it down without effect.`);
     }
   }
   // Slot modes (Court of Precedence / Archivist): the same escapes, so a Black
@@ -5510,7 +5535,7 @@ const CIRCUIT = {
   startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
-  acts: 3, actRows: 10, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.3,
+  acts: 3, actRows: 10, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.2,
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
@@ -5553,8 +5578,9 @@ function startCircuit(seed) {
   // over a stale paused-match board — newGame hides the title at the first fight.
   if (typeof document !== 'undefined') $('titleScreen').classList.remove('hidden');
   // Seed the run BEFORE dealing options, so the seed reproduces the whole run
-  // (loadout offers, map, fights, AI). An explicit seed = a shared/daily run.
-  circuitSeed = (seed != null) ? (seed >>> 0) : freshSeed();
+  // (loadout offers, map, fights, AI). An explicit NUMERIC seed = a shared/daily
+  // run; anything else (incl. a stray MouseEvent from a bare onclick) is fresh.
+  circuitSeed = (typeof seed === 'number' && isFinite(seed)) ? (seed >>> 0) : freshSeed();
   seedRng(circuitSeed);
   // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
   const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
@@ -6502,7 +6528,7 @@ function circuitVictory() {
     `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>`;
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
   $('circuitStats').appendChild(rb);
-  const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = startCircuit;
+  const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = () => startCircuit();
   $('circuitModal').classList.add('open');
 }
 
@@ -8092,7 +8118,7 @@ function circuitScreen(over) {
     const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
     stats.appendChild(rb);
     next.textContent = 'Run it again';
-    next.onclick = startCircuit;
+    next.onclick = () => startCircuit(); // no arg = fresh random seed (a bare onclick passes the MouseEvent → seed 0)
   } else {
     SFX.play('win');
     const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];

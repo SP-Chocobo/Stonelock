@@ -524,6 +524,26 @@ assert(allyDeck.length === 24, 'the ally deck is 2-of-each (16) + 8 drafted = 24
 assert((cg.allyPouch.red + cg.allyPouch.white + cg.allyPouch.blue + cg.allyPouch.black) === 10, 'the ally pouch is 2-of-each (8) + 2 drafted = 10');
 // Sides: you (0) and the ally (2) stand together against the lone foe (1).
 assert(M.isOpponent(0, 1) && M.isOpponent(2, 1) && !M.isOpponent(0, 2), 'sides group you + ally vs the foe');
+// A2 regression: cross effects (Drain/Siphon) hit only OPPONENTS — never your
+// ally's board (they were shaving same-team cards in 2v1). Craft slot-0 boards
+// on the live 3-seat coop table and run the effect pass.
+{
+  const G = M._state();
+  const mk = (type, fx, owner) => ({ type, fx: fx || null, owner, origOwner: owner, zone: 'table', faceUp: true, stones: [], evalue: undefined, known: [true, true, true] });
+  const base = G.region.values['Coin'];
+  G.players[0].board = [mk('Sword', 'drain', 0)];   // you: a Drain at slot 0
+  G.players[1].board = [mk('Coin', null, 1)];        // foe: a Coin at slot 0
+  G.players[2].board = [mk('Coin', null, 2)];        // ally: a Coin at slot 0
+  M.applyCardEffects();
+  assert(G.players[1].board[0].evalue === base - 1, 'A2: your Drain shaves the FOE facing card');
+  assert(G.players[2].board[0].evalue === base, "A2: your Drain spares your ALLY's facing card");
+}
+// C1 regression: every variant stone key resolves to a base colour + a real name
+// (STONES has no variant entries — renderControls threw a TypeError using the raw key).
+for (const key of Object.keys(M.STONE_VARIANTS)) {
+  assert(['red', 'white', 'blue', 'black'].includes(M.stoneBase(key)), `variant ${key} resolves to a base colour`);
+  assert(typeof M.getStone(key).name === 'string' && M.getStone(key).name.length, `variant ${key} has a display name via getStone`);
+}
 assert(node.ally === ev.ally, 'the node remembers its ally (for the victory line on the spoils screen)');
 assert(cg.foeMax === Math.round((M.CIRCUIT.foeBase + ((2 - 1) * M.CIRCUIT.actRows + 3) * M.CIRCUIT.foeStep) * M.CIRCUIT.coopFoeMult), 'the lone foe carries the co-op Standing multiplier');
 // The foe is boss-tier: a developed (modded) deck and scoring foe-charms, so it
