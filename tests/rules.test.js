@@ -57,4 +57,21 @@ check('teams: seats 1 and 3 oppose you', M.isOpponent(0, 1) && M.isOpponent(0, 3
 M.newGame({ mode: 'ffa', deal: 'small', target: 10, region: 'bar' });
 check('ffa: everyone opposes everyone', M.isOpponent(0, 1) && M.isOpponent(1, 2) && M.isOpponent(2, 3));
 
+// A3 regression: a trade whose partner card was RE-TRADED away can't be unwound
+// (the trail is cold — else Black would teleport a card to a seat never in the
+// original trade). Real events carry giveOwner/takeOwner; synthetic ones (above)
+// don't, so the guard is opt-in and the earlier trade tests still pass.
+{
+  const Gf = M._state();
+  const mk = (id, owner) => { const c = { id, type: 'Coin', owner, zone: 'board', faceUp: true, stones: [], prov: null, known: [true, true, true, true] }; Gf.cards.push(c); return c; };
+  const A = mk(920, 1), B = mk(921, 3), C = mk(922, 0); // post-state after two trades
+  // event1: You(0) traded A↔B; post-trade A sat on seat 1, B on seat 0.
+  Gf.events.push({ id: 600, color: 'blue', actor: 0, undone: false, cards: [A, B], give: A, take: B, giveOwner: 1, takeOwner: 0 });
+  // event2: seat 2 then re-traded B away (B now on seat 3) — the first trade is cold.
+  Gf.events.push({ id: 601, color: 'blue', actor: 2, undone: false, cards: [C, B], give: C, take: B, giveOwner: 0, takeOwner: 3 });
+  check('A3: a re-traded partner makes the earlier trade un-unwindable (no teleport)', M.undoableEventFor(A) === null);
+  // The intact (later) trade is still unwindable from its own cards.
+  check('A3: the intact trade still unwinds from its partner', M.undoableEventFor(C) && M.undoableEventFor(C).id === 601);
+}
+
 process.exit(fails ? 1 : 0);

@@ -140,3 +140,30 @@ Run K≈150 pre-fix and post-fix. Pre-fix baseline TBD by Opus (supervising sess
 5. **A5/A9/B4** text & cosmetic
 6. **A3** trade-unwind semantics, **A6** slumlock variants, **C3** green affordances, **A7/A8** consistency calls (design decisions)
 7. **A4** Act-3 variant stones (interim mitigation now; slot-engine variant support as scheduled work) — NOTE: C1 and A4 are the same root theme (variant keys unhandled outside the happy path); fix as a family.
+
+---
+
+## RESOLUTION LOG (Opus fix session, 2026-07-02)
+
+All findings addressed. `?v=280`. Full suite green throughout.
+
+**Fixed (code):**
+- B1 seed-0 replay — `() => startCircuit()` at both onclicks + numeric-seed guard.
+- C1 variant-key render crash — `stoneBase()`/`getStone()` in renderControls. Regression test.
+- A1 co-op foe scored without evalue — foe scored by the same per-card map as every seat.
+- A2 Drain/Siphon friendly-fire — `teamOf` skip (spares ally/partner). Regression test.
+- A1 rebalance — foe +2.2/hand stronger; offset via `coopFoeMult` 1.3→1.2. **Needs human playtest confirm** (AI-vs-AI can't measure it).
+- B2 seeded-RNG leak into resumed match — `clearRng()` in showTitle + newGame.
+- B3 stale GAUNTLET/HUD over a new match — cleared in newGame (non-gauntlet).
+- B4 lingering Sudden Death flash — `clearSuddenFlash()` in newGame/showTitle.
+- A6 Slumlock skipped variant stones — pool rebuild subtracts over the pool's real keys.
+- C2 arch-commit counter re-inflates on resume — track `step.done`.
+- C3 `target-green` soft-lock — added decorateTarget + renderControls branches.
+- A3 trade-unwind teleport — record post-trade owners; a re-traded partner makes the unwind fizzle. Regression test.
+- A7 Green now un-undoable live — matches the printed rule + slot engine.
+- A4 (interim) Court Circuit tables arm the drawn pouch as base-colour multiset — variants revert to base, nothing dead. **Full slot-engine variant support remains scheduled work.**
+
+**Fixed (text/docs):**
+- A5 Warden Rules text now says party-only exhaustion. A8 Onyx desc matches code. A9 FFA header comment + Sudden-Death "marker doesn't move" log.
+
+**Deferred (design, not started):** none outstanding from the audit; the only remaining item is A4's full variant support in the slot engine (a scheduled feature, not a bug).

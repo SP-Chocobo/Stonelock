@@ -6,7 +6,7 @@
    Formats: Solo 1v1, 4-player Free-for-All, 2v2 Paired Teams.
    Deals: Small Game (5 cards, best 3 of 4) or House Deep Draft
    (9 cards, best 3 of 5). Sovereign Honor scoring throughout —
-   the FFA table banks the winner's margin over the runner-up.
+   each FFA seat banks its margin over the LOWEST hand each showdown.
    ============================================================ */
 
 /* ---------------- Static data ---------------- */
@@ -71,7 +71,7 @@ const STONE_VARIANTS = {
   twinred:  { base: 'red',   name: 'Twin Red',     power: 'Double Duplication',  desc: 'Places TWO phantoms onto your card — enough to stand as a whole Triad on its own.' },
   deadbolt: { base: 'white', name: 'Deadbolt White', power: 'Double Lock',       desc: 'Locks your card AND an adjacent one — two cards shielded by a single stone.' },
   riptide:  { base: 'blue',  name: 'Riptide Blue', power: 'Undertow Exchange',     desc: 'Swaps a card like Blue, but the pull is strong: a Black Stone only weakens it back to an ordinary swap. It takes a SECOND Black to actually unwind the trade.' },
-  onyx:     { base: 'black', name: 'Onyx Black',   power: 'Double Disruption',     desc: 'Undoes the last TWO stone effects on the table — two disruptions from a single stone.' },
+  onyx:     { base: 'black', name: 'Onyx Black',   power: 'Double Disruption',     desc: 'Undoes the last stone effect on the target card, then the latest remaining effect elsewhere on the table — two disruptions from a single stone.' },
 };
 function isVariant(key) { return !!STONE_VARIANTS[key]; }
 function stoneBase(key) { return STONE_VARIANTS[key] ? STONE_VARIANTS[key].base : key; }
@@ -1031,7 +1031,10 @@ function startHand() {
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands && !(p === 0 && G.gauntlet && charmVal('noExhaust'))) {
-      for (const color of STONE_KEYS) pool[color] = Math.max(0, pool[color] - slumBlocked(p, color));
+      // Iterate the pool's ACTUAL keys (base + variant): consumeActive records the
+      // exact stone spent, so an exhausted Riptide/Twin Red must block its own key,
+      // not just base colours (it was dodging Slumlock entirely).
+      for (const key of Object.keys(pool)) pool[key] = Math.max(0, pool[key] - slumBlocked(p, key));
     }
     // The Quartermaster (and the super boss) lock away one colour from all this hand.
     const denied = deniedColor();
@@ -1045,8 +1048,13 @@ function startHand() {
       removed: null,
       // Pre-armed stones (no telegraph): the gauntlet variant & precedence use
       // one-of-each colours; the Circuit arms the actual drawn pouch as a
-      // multiset (so a drawn pair of the same colour is both placeable).
+      // multiset (so a drawn pair of the same colour is both placeable). At Court
+      // (stone-first) Circuit tables the slot engine speaks only base colours, so
+      // the drawn pouch is armed as a multiset of BASE colours — variants revert
+      // to their base for the fight and duplicates/Green stay placeable, instead
+      // of silently vanishing from the set (and still being spent from the pouch).
       active: (G.gauntlet && !isStoneFirst()) ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(c)) // base colours + variant keys
+        : (G.gauntlet && isStoneFirst()) ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(stoneBase(c)))
         : (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
     });
@@ -1575,7 +1583,10 @@ function promptHuman(step) {
       break;
     case 'archcommit':
       UI.mode = 'arch-commit';
-      UI.commitLeft = Math.min(step.count, G.players[seat].hand.length);
+      // Resume from what's already committed this step (step.done), not the full
+      // count — else pausing mid-step (title → Continue) re-inflates the counter
+      // and forces extra commits / a slot-starved soft-lock.
+      UI.commitLeft = Math.min(step.count - (step.done || 0), G.players[seat].hand.length);
       UI.commitFaceUp = step.faceUp;
       UI.commitCard = null;
       setPrompt(`Place ${UI.commitLeft} card${UI.commitLeft === 1 ? '' : 's'} ${step.faceUp ? 'face-up' : 'face-down (veiled)'} — click a card in hand, then an empty slot of yours to commit it.`);
@@ -1872,6 +1883,7 @@ function humanCommitToSlot(gi) {
   log(`${playerName(me)} ${verb(me, 'commit')} ${UI.commitFaceUp ? card.type : 'a veiled card'} to ${archSlotLabel(gi)}.`, 'you');
   UI.commitCard = null;
   UI.commitLeft--;
+  if (G.queue[0]) G.queue[0].done = (G.queue[0].done || 0) + 1; // record progress so a pause/resume can't re-inflate the count
   if (UI.commitLeft <= 0) { UI.flashIds = []; finishHumanStep(); }
   else { setPrompt(`Place ${UI.commitLeft} more ${UI.commitFaceUp ? 'face-up' : 'face-down'} — click a card, then an empty slot.`); render(); }
 }
@@ -1955,6 +1967,7 @@ function applyStone(actor, key, target) {
       swapCards(give, take);
       ev.cards = [give, take];
       ev.give = give; ev.take = take;
+      ev.giveOwner = give.owner; ev.takeOwner = take.owner; // post-trade seats — if either card is re-traded away, this unwind goes cold (see undoableEventFor)
       if (key === 'riptide') ev.riptide = true; // sticky: first Black only downgrades it
       give.prov = { by: actor, partnerId: take.id };
       take.prov = { by: actor, partnerId: give.id };
@@ -2033,9 +2046,15 @@ function swapCards(a, b) {
 function undoableEventFor(card) {
   for (let i = G.events.length - 1; i >= 0; i--) {
     const ev = G.events[i];
-    if (ev.undone || ev.color === 'black' || ev.color === 'white') continue;
+    // Green is un-undoable, like Black/White: the printed rule and the slot engine
+    // agree only a White lock set in time shields against poison — Black cannot pull it.
+    if (ev.undone || ev.color === 'black' || ev.color === 'white' || ev.color === 'green') continue;
     if (!ev.cards.includes(card)) continue;
     if (ev.cards.some(isLocked)) return null; // locked cards cannot be altered
+    // A trade only unwinds cleanly if both cards still sit where it left them. If
+    // either was re-traded away since, the trail is cold — unwinding would fling a
+    // card onto a seat never party to the trade, so Black fizzles instead.
+    if (ev.color === 'blue' && ev.giveOwner != null && (ev.give.owner !== ev.giveOwner || ev.take.owner !== ev.takeOwner)) return null;
     return ev;
   }
   return null;
@@ -2050,7 +2069,7 @@ function anyUndoable() {
 function nextUndoableEvent(excludeId) {
   for (let i = G.events.length - 1; i >= 0; i--) {
     const e = G.events[i];
-    if (e.id === excludeId || e.undone || e.color === 'black' || e.color === 'white') continue;
+    if (e.id === excludeId || e.undone || e.color === 'black' || e.color === 'white' || e.color === 'green') continue; // green is un-undoable (only White shields poison)
     if (e.cards.some(isLocked)) continue;
     return e;
   }
@@ -2999,6 +3018,7 @@ function raidShowdown(sel) {
   const bn = playerName(1);
   if (diff > 0) log(`The party fields ${teamScore} to ${bn}'s ${boss.score} — you press the advantage by ${diff}.`, 'sys');
   else if (diff < 0) log(`${bn} fields ${boss.score} to the party's ${teamScore}. It gains ${-diff} ground.`, 'sys');
+  else if (sudden > 0) log(`Dead level at ${teamScore} — but the table can't hold.`, 'sys'); // sudden death moves it anyway (below)
   else log(`Dead level at ${teamScore}. ${bn} holds — the marker doesn't move.`, 'sys');
   if (sudden > 0) {
     const toward = (move > 0) ? 'your side' : (move < 0 ? bn : 'no one');
@@ -4296,6 +4316,9 @@ function decorateTarget(card, el) {
     if (UI.blueOwn === card) el.classList.add('selected');
   } else if (UI.mode === 'target-black') {
     targetable = !!undoableEventFor(card);
+  } else if (UI.mode === 'target-green') {
+    // Green (poison) voids a rival's unlocked board card (any board when Open).
+    targetable = (isOpponent(me, card.owner) || G.open) && card.zone === 'board' && !isLocked(card);
   }
   if (targetable) {
     el.classList.add('targetable');
@@ -4454,7 +4477,7 @@ function renderControls() {
     b.onclick = humanConfirmDisrupt;
     bar.appendChild(b);
   }
-  if (['target-own', 'target-blue-own', 'target-blue-opp', 'target-black'].includes(UI.mode)) {
+  if (['target-own', 'target-blue-own', 'target-blue-opp', 'target-black', 'target-green'].includes(UI.mode)) {
     const cancel = document.createElement('button');
     cancel.className = 'btn';
     cancel.textContent = '‹ Back';
