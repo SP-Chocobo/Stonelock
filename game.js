@@ -5555,7 +5555,12 @@ function wireDialogueSkipLink(root) {
    All numbers are first-guess, meant to be tuned by playtest.
    ============================================================ */
 const CIRCUIT = {
-  startStanding: 20, maxStanding: 20, dmgCap: 6, heal: 7, foeBase: 7, foeStep: 0.8, drawStones: 3,
+  // Standing 24 (was 20) buffers the opening so a fresh build survives long enough
+  // to stabilise — it broke a brutal early wall (median run died at node ~2). The
+  // steeper foe ramp (foeStep 1.2, was 0.8; foeBase 6, was 7) is a gentler opener
+  // but a harder late game, moving deaths out of act 1 and into act 3. (Act 2 stays
+  // a relative breather — that's a foe-SCORING problem, not HP; see docs/AUDIT.md.)
+  startStanding: 24, maxStanding: 24, dmgCap: 6, heal: 7, foeBase: 6, foeStep: 1.2, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
   acts: 3, actRows: 10, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.2,
