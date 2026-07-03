@@ -326,6 +326,17 @@
   </div>
 </div>
 
+<!-- Map peek (the Circuit) — a read-only look at the run map mid-fight, for
+     planning how hard to push. Navigation still happens on the between-fights map. -->
+<div id="mapPeekModal" class="modal">
+  <div class="modalcard wide">
+    <h2 id="mapPeekTitle"></h2>
+    <p id="mapPeekText" class="mappeek-sub"></p>
+    <div id="mapPeekBody" class="circuitmap"></div>
+    <div class="modalbtns"><button id="mapPeekClose" class="btn primary">Close</button></div>
+  </div>
+</div>
+
 <!-- Deck / pouch viewer (the Circuit) -->
 <div id="deckModal" class="modal">
   <div class="modalcard wide">
@@ -535,6 +546,6 @@
   </div>
 </div>
 
-<script src="game.js?v=283"></script>
+<script src="game.js?v=284"></script>
 </body>
 </html>

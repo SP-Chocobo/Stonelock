@@ -6502,6 +6502,66 @@ function wireMapTip(btn, node) {
   btn.addEventListener('touchend', hideMapTip); // touch fires no mouseleave — dismiss on tap-up
 }
 // The act map — pick a node in the current column to advance toward the boss.
+// Build the map's node track (columns × lanes). Interactive on the between-fights
+// map — reachable nodes click to enter. Read-only for the in-match peek: every
+// node disabled, but `done` history, your `here` position, and the branches ahead
+// still render, so it reads as a reference of the route. `hereKey` ("col,idx")
+// marks which node is lit as your position (last-cleared between fights, the
+// current node during a peek).
+function buildMapTrack(m, act, interactive, hereKey) {
+  const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
+  const track = document.createElement('div'); track.className = 'maptrack mapact' + Math.min(act, 3); // region texture on the TRACK so it pans with the nodes
+  m.cols.forEach((col) => {
+    const colEl = document.createElement('div'); colEl.className = 'mapcol';
+    for (let lane = 0; lane < MAP_LANES; lane++) {            // fixed lanes → diagonal branches
+      const node = col.find(n => n.lane === lane);
+      if (!node) { const sp = document.createElement('div'); sp.className = 'mapslot'; colEl.appendChild(sp); continue; }
+      const here = hereKey && hereKey === node.col + ',' + node.idx;
+      const ok = reach.has(node.col + ',' + node.idx);
+      const b = document.createElement('button');
+      b.className = 'mapnode mapnode-' + node.type + (node.done ? ' done' : '') + (here ? ' here' : '') + (ok ? ' reach' : '');
+      b.dataset.col = node.col; b.dataset.idx = node.idx;
+      b.disabled = interactive ? !ok : true; // the peek is look-only
+      b.innerHTML = mapNodeHtml(node);
+      wireMapTip(b, node); // styled hover tooltip names the node
+      if (interactive && ok) b.onclick = () => circuitEnterNode(node);
+      colEl.appendChild(b);
+    }
+    track.appendChild(colEl);
+  });
+  return track;
+}
+// A read-only look at the run map, opened from the in-match HUD — the same map,
+// nodes un-clickable, your current node lit. It's a memory aid for pushing risk:
+// how many fights to the boss, whether a Repose or Shop is coming, what the path
+// forward costs. Navigation still happens only on the between-fights map.
+function showMapPeek() {
+  if (typeof document === 'undefined') return;
+  const g = GAUNTLET;
+  if (!g || !g.active || !g.map) return;
+  const m = g.map;
+  $('mapPeekTitle').textContent = `Act ${g.act} — ${(CIRCUIT_ACTS[g.act] || CIRCUIT_ACTS[3]).name}`;
+  const sub = $('mapPeekText');
+  if (sub) sub.textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Your route ahead — reference only; you move on the map between tables.`;
+  const body = $('mapPeekBody'); body.className = 'circuitmap'; body.innerHTML = '';
+  const tip0 = document.getElementById('maptip'); if (tip0) tip0.classList.remove('show');
+  const grid = document.createElement('div'); grid.className = 'mapgrid';
+  // Mid-fight you stand ON the current node (m.pos still points at the last-cleared
+  // one), so light the node you're fighting at.
+  const hereKey = g.curNode ? g.curNode.col + ',' + g.curNode.idx : (m.pos ? m.pos.col + ',' + m.pos.idx : null);
+  const track = buildMapTrack(m, g.act, false, hereKey);
+  grid.appendChild(track);
+  body.appendChild(grid);
+  $('mapPeekClose').onclick = () => closeMapPeek();
+  $('mapPeekModal').classList.add('open');
+  // Esc closes the peek — a light, self-removing listener so it never fights the
+  // rest of the app once the overlay is gone.
+  document.addEventListener('keydown', mapPeekEsc);
+  requestAnimationFrame(() => { drawMapEdges(track, m); fitMapToWidth(grid, track); ensureCurrentNodeVisible(grid, track); });
+}
+function mapPeekEsc(e) { if (e.key === 'Escape') closeMapPeek(); }
+function closeMapPeek() { document.removeEventListener('keydown', mapPeekEsc); closeModal('mapPeekModal'); }
+
 function circuitMapScreen() {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET, m = g.map;
@@ -6510,31 +6570,13 @@ function circuitMapScreen() {
   $('circuitText').textContent = `Standing ${g.standing}/${g.maxStanding} · ${g.coin} coin · score ${g.score}. Choose your path to the boss.`;
   const body = $('circuitStats'); body.className = 'circuitmap'; body.innerHTML = '';
   const tip0 = document.getElementById('maptip'); if (tip0) tip0.classList.remove('show'); // clear any stale hover tip
-  const reach = new Set(circuitReachable(m).map(n => n.col + ',' + n.idx));
   // A scroll viewport with an inner track: the track is max-content and auto-
   // margined, so it CENTERS when it fits but scrolls from the LEFT when it
   // overflows (a portrait phone). Centering the flex directly would push the
   // first column into unreachable overflow — the bug being fixed here.
   const grid = document.createElement('div'); grid.className = 'mapgrid';
-  const track = document.createElement('div'); track.className = 'maptrack mapact' + Math.min(g.act, 3); // region texture on the TRACK so it pans with the nodes (CSS fallback when no art)
-  m.cols.forEach((col) => {
-    const colEl = document.createElement('div'); colEl.className = 'mapcol';
-    for (let lane = 0; lane < MAP_LANES; lane++) {            // fixed lanes → diagonal branches
-      const node = col.find(n => n.lane === lane);
-      if (!node) { const sp = document.createElement('div'); sp.className = 'mapslot'; colEl.appendChild(sp); continue; }
-      const here = m.pos && m.pos.col === node.col && m.pos.idx === node.idx;
-      const ok = reach.has(node.col + ',' + node.idx);
-      const b = document.createElement('button');
-      b.className = 'mapnode mapnode-' + node.type + (node.done ? ' done' : '') + (here ? ' here' : '') + (ok ? ' reach' : '');
-      b.dataset.col = node.col; b.dataset.idx = node.idx;
-      b.disabled = !ok;
-      b.innerHTML = mapNodeHtml(node);
-      wireMapTip(b, node); // styled hover tooltip names the node
-      if (ok) b.onclick = () => circuitEnterNode(node);
-      colEl.appendChild(b);
-    }
-    track.appendChild(colEl);
-  });
+  const hereKey = m.pos ? m.pos.col + ',' + m.pos.idx : null; // between fights you stand on the last-cleared node
+  const track = buildMapTrack(m, g.act, true, hereKey);
   grid.appendChild(track);
   body.appendChild(grid);
   // Legend — tucked into a press-to-reveal popup (nodes themselves are icon-only).
@@ -8105,6 +8147,7 @@ function updateCircuitHud() {
   // only the map tree that keeps it hidden.
   const node = g.curNode, tag = node && node.type === 'boss' ? ' ⚔' : node && node.type === 'elite' ? ' ★' : '';
   hud.innerHTML = `<div class="chud-top"><span class="chud-k">The Circuit</span> · Act <b>${g.act}</b> · ⛁<b>${g.coin || 0}</b> · Score <b>${g.score}</b>` +
+      `<button id="circuitMapPeek" class="chud-deck" title="Peek at the run map — your route ahead, for planning how hard to push">Map</button>` +
       `<button id="circuitDeck" class="chud-deck" title="View your deck and pouch — what's left to draw">Deck (${drawN})</button></div>` +
     `<div class="chud-bars">` +
       `<div class="chud-bar you" data-tip-head="Your Standing" data-tip="Your footing at the table — ${g.standing}/${g.maxStanding}. Lose a showdown and it drops by the margin; if it hits zero, the run ends. Clearing a node restores some."><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
@@ -8112,6 +8155,7 @@ function updateCircuitHud() {
     `</div>` +
     ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
   const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
+  const mb = $('circuitMapPeek'); if (mb) mb.onclick = () => showMapPeek();
 }
 
 // The deck / pouch viewer: what's left to draw (composition, not order) or the
