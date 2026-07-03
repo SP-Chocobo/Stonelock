@@ -706,6 +706,31 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
   M.clearRng();
 }
 
+// --- Foe Menace: the act-scaled foe scoring buff that fixes the act-2 dead zone.
+// Standing is HP, not scoring; a build that out-scores every hand grinds any HP
+// down without threat, so act 2 saw 0 battery deaths. A flat per-card read on the
+// foe (seat 1 only, by act) lifts its scoring so it presses your Standing back.
+{
+  M.seedRng(313);
+  M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' }); // a duel neutral: no foe charms
+  const gg = M._gauntlet(), GG = M._state();
+  const menace = M.CIRCUIT.foeMenace || [];
+  const mkBoard = owner => [card('Sword', null, owner), card('Coin', null, owner), card('Bread', null, owner)];
+  // Identical plain boards on both seats: the ONLY seat-1 delta is the menace.
+  const foeDelta = act => {
+    gg.act = act; gg.foeCharms = [];
+    GG.players[0].board = mkBoard(0);
+    GG.players[1].board = mkBoard(1);
+    M.applyCardEffects();
+    return GG.players[1].board[0].evalue - GG.players[0].board[0].evalue;
+  };
+  assert(foeDelta(1) === (menace[0] || 0), 'act-1 foe menace matches config (the opener stays clean)');
+  assert(foeDelta(2) === (menace[1] || 0), 'act-2 foe reads +menace on every card — the dead-zone fix');
+  assert((menace[1] || 0) > 0, 'act 2 actually carries a foe menace buff');
+  assert(foeDelta(3) === (menace[2] || 0), 'act-3 foe menace matches config');
+  M.clearRng();
+}
+
 // A clean plain duel afterwards drops the ally pile (no stale third seat).
 M.seedRng(76);
 M.circuitSetupFight({ type: 'duel', col: 0, idx: 0, foe: 'A Drifter' });

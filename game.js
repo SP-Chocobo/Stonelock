@@ -2309,6 +2309,8 @@ const CHARMS = {
 // foe (GAUNTLET.foeCharms — only elites/bosses carry any). Foes use the passive
 // board/score levers only; the economy/event levers are the player's alone.
 function charmsOf(seat) { const g = (typeof GAUNTLET !== 'undefined') && GAUNTLET; if (!g) return []; return (seat === 0 ? g.charms : seat === 1 ? g.foeCharms : null) || []; }
+// The foe's per-card board read for the current act (Foe Menace — see CIRCUIT).
+function foeActBuff() { if (!G || !G.gauntlet || typeof GAUNTLET === 'undefined') return 0; return (CIRCUIT.foeMenace || [])[(GAUNTLET.act || 1) - 1] || 0; }
 function playerCharms() { return charmsOf(0); }
 function charmHas(key) { return playerCharms().indexOf(key) >= 0; }
 function charmValSeat(field, seat) { return charmsOf(seat).reduce((s, k) => { const v = CHARMS[k] && CHARMS[k][field]; return s + (typeof v === 'number' ? v : 0); }, 0); }
@@ -2380,12 +2382,20 @@ function resolveBoardEffects(boards) {
   // Gauntlet-only and a no-op without owned charms. A masked card's null type/fx
   // means a charm like Loaded Coin won't apply to a hidden card (correct fog).
   if (G.gauntlet) {
+    // Foe Menace: a flat per-card read the foe gains by act (seat 1 only, and not
+    // in the already-tuned 2v1 co-op). Charm-independent, so even a plain duel
+    // tough in act 2/3 scores hard enough to press your Standing — the fix for the
+    // act-2 dead zone where HP scaling alone never threatened a scoring build.
+    const foeBuff = (G.coop || G.mode === 'raid') ? 0 : foeActBuff();
     for (const seat of [0, 1]) {
-      const board = boards[seat]; if (!board || !charmsOf(seat).length) continue;
-      const floor = charmValSeat('valueFloor', seat), hb = (seat === 0 ? (GAUNTLET.handBuff || 0) : 0);
+      const board = boards[seat]; if (!board) continue;
+      const hasCharms = charmsOf(seat).length > 0;
+      const floor = charmValSeat('valueFloor', seat);
+      const hb = (seat === 0 ? (GAUNTLET.handBuff || 0) : foeBuff);
+      if (!hasCharms && !hb && !floor) continue; // nothing to apply for this seat
       for (let i = 0; i < board.length; i++) {
         const c = board[i]; if (!c) continue;
-        c.evalue += charmCardBonusSeat(c, i, board, seat) + hb;
+        c.evalue += (hasCharms ? charmCardBonusSeat(c, i, board, seat) : 0) + hb;
         if (floor) c.evalue = Math.max(c.evalue, floor);
         if (c.evalue < 0) c.evalue = 0;
       }
@@ -5558,12 +5568,24 @@ const CIRCUIT = {
   // Standing 24 (was 20) buffers the opening so a fresh build survives long enough
   // to stabilise — it broke a brutal early wall (median run died at node ~2). The
   // steeper foe ramp (foeStep 1.2, was 0.8; foeBase 6, was 7) is a gentler opener
-  // but a harder late game, moving deaths out of act 1 and into act 3. (Act 2 stays
-  // a relative breather — that's a foe-SCORING problem, not HP; see docs/AUDIT.md.)
+  // but a harder late game, moving deaths out of act 1 and into act 3. Act 2's old
+  // dead zone (0 deaths) is closed by Foe Menace (below) — a scoring buff, since
+  // HP scaling alone can't threaten a build that out-scores every hand.
   startStanding: 24, maxStanding: 24, dmgCap: 6, heal: 7, foeBase: 6, foeStep: 1.2, drawStones: 3,
   rewardCards: 3, rewardStones: 2, rewardCharms: 2, deckFloor: 6,
   // The run map: a few acts, each a short branching path of columns to a boss.
   acts: 3, actRows: 10, eliteHpMult: 1.25, bossHpMult: 1.5, placeStones: 2, coopFoeMult: 1.2,
+  // Foe Menace — a flat per-card board read the foe gains by act, indexed [act-1].
+  // Standing is HP, not scoring, so ramping foeHp alone never threatens a build
+  // that simply out-scores every hand: it grinds any HP down without ever losing
+  // Standing. Act 2 was the proof — 0 deaths in a 150-run battery, because the
+  // mid-run build reliably out-scored a middling foe. A flat +1 to the act-2 foe's
+  // every card lifts its SCORING enough to win hands and press your Standing back:
+  // it turned the dead zone into ~10 deaths/150 and pulled the win rate from 37%
+  // to a healthy ~30%. Act 1 stays clean (the opener is tuned by Standing already);
+  // act 3 stays 0 because its ×1.5 boss HP + up to 3 boss charms already threaten —
+  // stacking menace there crushed the win rate to ~15%. Tuned by the battery.
+  foeMenace: [0, 1, 0],
   coinDuel: 4, coinElite: 8, coinBoss: 12,
   shopCard: 6, shopStone: 5, shopCharm: 12, shopThin: 8, shopHeal: 5, shopHealAmt: 6, shopUpgrade: 9,
   // Recognizable venues first; the big rule-shifts (Court = stone-first,
