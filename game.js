@@ -8430,7 +8430,7 @@ if (typeof window !== 'undefined') {
     bestSelection, REGIONS, TYPES, STONES, CIRCUIT, CHARMS, STONE_VARIANTS, stoneBase, getStone, isVariant,
     circuitRecords, markCharmSeen, charmSeen, recordCircuitRun,
     newGame, nextHand,
-    humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin,
+    humanDeclare, humanToggleCard, humanConfirmDeploy, humanThin, humanConfirmHandEdit, humanConfirmDisrupt,
     humanChooseStone, humanTargetCard, humanDiscardStone, passConfirm, applyStone,
     humanTargetSlot, humanPickCommitCard,
     twoBestHands, undoableEventFor, isLocked, isOpponent, resolveArchivist,
