@@ -153,4 +153,59 @@ const card = name => ({ name, phantom: false, locked: false });
   assert(rev.slots[0].phantom === true && rev.log.filter(e => e.color === 'black').every(e => e.fizzled), 'reverse: Blacks resolve first, fizzle; the Red survives');
 }
 
-console.log('OK archivist engine: order-war forward/reverse, black-undoes-last-resolved, no Black-on-Black, fizzles, purity.');
+// --- Variant stones in the slot engine (Court of Precedence upgrades) ---
+// The four Circuit upgrades resolve in full through the same engine: Twin Red
+// fields two phantoms, Deadbolt locks an adjacent own slot, Riptide resists the
+// first Black (a plain swap survives) and unwinds only on a second, Onyx undoes
+// twice (its slot, then the latest elsewhere). Base rules still drive placement.
+{
+  // Twin Red — two phantoms on its slot (a base Red only one).
+  const twin = M.resolveArchivist([card('A')], [{ color: 'twinred', slot: 0 }], false);
+  assert(twin.slots[0].phantom && twin.slots[0].twin, 'Twin Red sets a phantom AND the twin flag (two phantoms)');
+  const one = M.resolveArchivist([card('A')], [{ color: 'red', slot: 0 }], false);
+  assert(one.slots[0].phantom && !one.slots[0].twin, 'a base Red sets one phantom, no twin');
+  // A Black undoes the whole Twin Red (both phantoms gone).
+  const twinUndo = M.resolveArchivist([card('A')], [{ color: 'twinred', slot: 0 }, { color: 'black', slot: 0 }], false);
+  assert(!twinUndo.slots[0].phantom && !twinUndo.slots[0].twin, 'a Black pulls the whole Twin Red — no phantom, no twin');
+}
+{
+  // Deadbolt — locks its slot AND an adjacent slot on the SAME side. owners: two
+  // seats of two slots each ([0,0,1,1]); a Deadbolt on slot 0 also locks slot 1,
+  // never crossing to seat 1's slot 2.
+  const owners = [0, 0, 1, 1];
+  const slots = [card('A'), card('B'), card('C'), card('D')];
+  const r = M.resolveArchivist(slots, [{ color: 'deadbolt', slot: 0 }], false, owners);
+  assert(r.slots[0].locked && r.slots[1].locked, 'Deadbolt locks its slot and the adjacent own slot');
+  assert(!r.slots[2].locked && !r.slots[3].locked, 'Deadbolt never reaches across to the other side');
+  // The adjacent lock shields a Red beneath it from a later Black on THAT slot.
+  const shield = M.resolveArchivist([card('A'), card('B')], [
+    { color: 'red', slot: 1 }, { color: 'deadbolt', slot: 0 }, { color: 'black', slot: 1 },
+  ], false, [0, 0]);
+  assert(shield.slots[1].phantom && shield.log[2].fizzled, 'the second Deadbolt lock shields slot 1’s Red from Black');
+}
+{
+  // Riptide — a Blue that resists the first Black. queue: Riptide swap 0<->1,
+  // then Black on slot 0. The first Black only breaks the undertow; the swap holds.
+  const slots = [card('A'), card('B')];
+  const oneBlack = M.resolveArchivist(slots, [{ color: 'riptide', slot: 0, swap: 1 }, { color: 'black', slot: 0 }], false);
+  assert(oneBlack.slots[0].name === 'B' && oneBlack.slots[1].name === 'A', 'one Black leaves the Riptide swap standing (undertow only broken)');
+  assert(!oneBlack.log[1].fizzled, 'the first Black does act (it downgrades the Riptide), so it is not a fizzle');
+  // A SECOND Black finally unwinds the (now plain) swap.
+  const twoBlack = M.resolveArchivist(slots, [{ color: 'riptide', slot: 0, swap: 1 }, { color: 'black', slot: 0 }, { color: 'black', slot: 0 }], false);
+  assert(twoBlack.slots[0].name === 'A' && twoBlack.slots[1].name === 'B', 'a second Black unwinds the Riptide trade');
+}
+{
+  // Onyx — Double Disruption: undoes the last on its slot, THEN the latest
+  // elsewhere. queue: Red@0, Red@1, Onyx@0 → both Reds gone.
+  const r = M.resolveArchivist([card('A'), card('B')], [
+    { color: 'red', slot: 0 }, { color: 'red', slot: 1 }, { color: 'onyx', slot: 0 },
+  ], false);
+  assert(!r.slots[0].phantom && !r.slots[1].phantom, 'Onyx undoes its own slot’s Red and the latest Red elsewhere');
+  // A plain Black would only clear its own slot, leaving slot 1’s Red.
+  const plain = M.resolveArchivist([card('A'), card('B')], [
+    { color: 'red', slot: 0 }, { color: 'red', slot: 1 }, { color: 'black', slot: 0 },
+  ], false);
+  assert(!plain.slots[0].phantom && plain.slots[1].phantom, 'a base Black clears only its own slot — slot 1’s Red stands');
+}
+
+console.log('OK archivist engine: order-war forward/reverse, black-undoes-last-resolved, no Black-on-Black, fizzles, variants (Twin/Deadbolt/Riptide/Onyx), purity.');

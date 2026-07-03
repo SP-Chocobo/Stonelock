@@ -416,52 +416,96 @@ function scoreOptsFor(seat) {
 // White locks the card in its slot; Red gives it a phantom; Blue swaps two slots
 // (locked slots block it); Black undoes the last resolved, not-yet-undone stone
 // on its slot. See docs/archivist-design.md.
-function resolveArchivist(slotsIn, queue, reverse) {
-  const slots = slotsIn.map(c => (c ? { ...c, phantom: !!c.phantom, locked: !!c.locked, poisoned: !!c.poisoned } : null));
+// `owners` (optional) maps a global slot index → its owner seat, so Deadbolt can
+// find an ADJACENT slot on the same side. Raids (no variants) call it 3-arg; the
+// Circuit's Court tables pass owners so Deadbolt/Twin Red/Riptide/Onyx resolve in
+// full. Base colours still drive the rules; the variant key rides in `color` and
+// only adds its extra (a second phantom, a second lock, sticky undo, a double).
+function resolveArchivist(slotsIn, queue, reverse, owners) {
+  const slots = slotsIn.map(c => (c ? { ...c, phantom: !!c.phantom, twin: !!c.twin, locked: !!c.locked, poisoned: !!c.poisoned } : null));
   const order = reverse ? [...queue].reverse() : queue.slice();
   const history = []; // applied effects in resolution order, for Black to undo
   const log = [];
+  const lockSlot = i => { if (slots[i] && !slots[i].locked) { slots[i].locked = true; return true; } return false; };
+  // Deadbolt's second lock: the next slot on the SAME side, else the previous.
+  // Without an owner map (raid tests) fall back to flat neighbours — never hit,
+  // since raids field no variants.
+  const adjacentSlot = i => {
+    const own = owners ? owners[i] : null;
+    const ok = j => j >= 0 && j < slots.length && (own == null || owners[j] === own);
+    return ok(i + 1) ? i + 1 : ok(i - 1) ? i - 1 : -1;
+  };
+  // Undo the last resolved, not-yet-undone Red/Blue on slot i. White/Green shield
+  // everything beneath them. Riptide is sticky: the first Black only breaks the
+  // undertow to a plain swap (the trade holds); a later Black finds it again and
+  // unwinds. Returns the event acted on, or null.
+  const undoOnSlot = i => {
+    for (let h = history.length - 1; h >= 0; h--) {
+      const e = history[h];
+      if (e.slot !== i || e.undone) continue;
+      const b = stoneBase(e.color);
+      if (b === 'white' || b === 'green') return null; // shield
+      if (b === 'red') { e.undone = true; if (slots[i]) { slots[i].phantom = false; slots[i].twin = false; } return e; }
+      if (b === 'blue') {
+        if (e.riptide) { e.riptide = false; return e; }  // downgrade only — trade holds
+        e.undone = true; const t = e.swap; const tmp = slots[i]; slots[i] = slots[t]; slots[t] = tmp; return e;
+      }
+    }
+    return null;
+  };
+  // Onyx's second disruption: the latest not-yet-undone Red/Blue ANYWHERE (skip
+  // the one it already handled on its own slot). Shields elsewhere are simply
+  // passed over — a Black can't reach across a White/Green either.
+  const undoLatestAnywhere = skip => {
+    for (let h = history.length - 1; h >= 0; h--) {
+      const e = history[h];
+      if (e.undone || e === skip) continue;
+      const b = stoneBase(e.color);
+      if (b === 'red') { e.undone = true; const q = slots[e.slot]; if (q) { q.phantom = false; q.twin = false; } return e; }
+      if (b === 'blue') {
+        if (e.riptide) { e.riptide = false; return e; }
+        e.undone = true; const s = e.slot, t = e.swap; const tmp = slots[s]; slots[s] = slots[t]; slots[t] = tmp; return e;
+      }
+    }
+    return null;
+  };
   for (const p of order) {
-    const s = p.slot;
+    const s = p.slot, base = stoneBase(p.color);
     const rec = { color: p.color, slot: s, swap: p.swap, by: p.by, fizzled: false };
-    if (p.color === 'white') {
-      if (slots[s] && !slots[s].locked) { slots[s].locked = true; history.push({ slot: s, color: 'white', undone: false }); }
+    if (base === 'white') {
+      const locked = [];
+      if (lockSlot(s)) locked.push(s);
+      if (p.color === 'deadbolt') { const j = adjacentSlot(s); if (j >= 0 && lockSlot(j)) locked.push(j); }
+      // File a shield entry for EACH slot locked, so Black is blocked on either.
+      if (locked.length) for (const q of locked) history.push({ slot: q, color: p.color, undone: false });
       else rec.fizzled = true;
-    } else if (p.color === 'red') {
-      if (slots[s] && !slots[s].locked && !slots[s].phantom) { slots[s].phantom = true; history.push({ slot: s, color: 'red', undone: false }); }
+    } else if (base === 'red') {
+      if (slots[s] && !slots[s].locked && !slots[s].phantom) {
+        slots[s].phantom = true; slots[s].twin = (p.color === 'twinred'); // Twin Red fields two phantoms
+        history.push({ slot: s, color: p.color, undone: false });
+      } else rec.fizzled = true;
+    } else if (base === 'green') {
+      // Poison: voids the card in the slot. A White lock shields it; like White it
+      // cannot be undone (Black can't pull a Green).
+      if (slots[s] && !slots[s].locked && !slots[s].poisoned) { slots[s].poisoned = true; history.push({ slot: s, color: p.color, undone: false }); }
       else rec.fizzled = true;
-    } else if (p.color === 'green') {
-      // The Crucible's poison: voids the card in the slot. A White lock shields
-      // it; like White it cannot be undone (Black can't pull a Green).
-      if (slots[s] && !slots[s].locked && !slots[s].poisoned) { slots[s].poisoned = true; history.push({ slot: s, color: 'green', undone: false }); }
-      else rec.fizzled = true;
-    } else if (p.color === 'blue') {
+    } else if (base === 'blue') {
       const t = p.swap;
       if (slots[s] && slots[t] && !slots[s].locked && !slots[t].locked) {
         const tmp = slots[s]; slots[s] = slots[t]; slots[t] = tmp;
-        history.push({ slot: s, color: 'blue', swap: t, undone: false });
+        history.push({ slot: s, color: p.color, swap: t, undone: false, riptide: (p.color === 'riptide') });
       } else rec.fizzled = true;
-    } else if (p.color === 'black') {
-      // White and Green are untouchable shields: a locked/poisoned-by-shield slot
-      // blocks Black, and Black never pulls a White or Green. It undoes the last
-      // resolved Red or Blue.
-      let h = null;
-      for (let i = history.length - 1; i >= 0; i--) {
-        const e = history[i];
-        if (e.slot !== s || e.undone) continue;
-        if (e.color === 'white' || e.color === 'green') break; // shields everything beneath
-        h = e; break;
-      }
-      if (h) {
-        h.undone = true;
-        if (h.color === 'red' && slots[s]) slots[s].phantom = false;
-        else if (h.color === 'blue') { const tmp = slots[s]; slots[s] = slots[h.swap]; slots[h.swap] = tmp; }
-      } else rec.fizzled = true;
+    } else if (base === 'black') {
+      const e1 = undoOnSlot(s);                                    // last on this slot
+      const e2 = (e1 && p.color === 'onyx') ? undoLatestAnywhere(e1) : null; // Onyx: a second, anywhere
+      if (!e1 && !e2) rec.fizzled = true;
     }
     log.push(rec);
   }
   return { slots, log };
 }
+// Global slot index → owner seat, for the Court/Archivist resolution engine.
+function archSlotOwners() { const out = []; for (let o = 0; o < G.nPlayers; o++) for (let pos = 0; pos < archFP(o); pos++) out.push(o); return out; }
 
 // ---- The Archivist live adapter (inverted loop) ----
 // Slots are fixed POSITIONS. Both sides queue stones onto empty slots first
@@ -494,9 +538,11 @@ function archPendingOn(gi) {
   const out = [];
   for (const p of G.archQueue) {
     if (p.resolved) continue; // already fired in the playout — its real effect now shows
-    // For a Blue (a swap), carry the partner slot so the UI can light up the pair.
-    if (p.slot === gi) out.push({ color: p.color, by: p.by, other: p.color === 'blue' ? p.swap : null });
-    else if (p.color === 'blue' && p.swap === gi) out.push({ color: 'blue', by: p.by, other: p.slot });
+    // `color` is the base colour (CSS class / blue-pair test); `key` keeps the
+    // variant for the tooltip name. For a Blue (a swap), carry the partner slot.
+    const base = stoneBase(p.color);
+    if (p.slot === gi) out.push({ color: base, key: p.color, by: p.by, other: base === 'blue' ? p.swap : null });
+    else if (base === 'blue' && p.swap === gi) out.push({ color: 'blue', key: p.color, by: p.by, other: p.slot });
   }
   return out;
 }
@@ -507,27 +553,29 @@ function archPendingOn(gi) {
 // catch — any slot is fair game, and it simply fizzles if nothing lands there.
 function archBlackableSlot(gi) {
   if (archReverse()) return true;
-  return G.archQueue.some(p => (p.color === 'red' || p.color === 'blue') && p.slot === gi);
+  return G.archQueue.some(p => { const b = stoneBase(p.color); return (b === 'red' || b === 'blue') && p.slot === gi; });
 }
 // Which slots a queued stone may legally target in the slot game — matched to
 // normal play so the rules don't change just because resolution inverts:
 // White/Red protect or buff YOUR OWN cards, Green poisons a RIVAL's, Blue swaps
 // any two slots, Black undoes a Red/Blue on a slot.
 function archStoneTargetable(color, gi) {
-  if (color === 'blue') return true;
-  if (color === 'black') return archBlackableSlot(gi);
+  const b = stoneBase(color); // variant keys (deadbolt/twinred/riptide/onyx) target by their base
+  if (b === 'blue') return true;
+  if (b === 'black') return archBlackableSlot(gi);
   const mine = teamOf(archOwnerOfSlot(gi)) === teamOf(G.viewer);
-  if (color === 'green') return !mine; // poison is offensive — a rival's slot only
-  return mine;                          // White / Red act on your own side
+  if (b === 'green') return !mine; // poison is offensive — a rival's slot only
+  return mine;                     // White / Red act on your own side
 }
 function archQueueStone(actor, color, slot, swap) {
-  const rec = { color, by: actor, slot };
-  if (color === 'blue') rec.swap = swap;
+  const rec = { color, by: actor, slot }; // color may be a variant key
+  if (stoneBase(color) === 'blue') rec.swap = swap;
   G.archQueue.push(rec);
   SFX.play('stone');
-  const lab = color === 'blue' ? `${archSlotLabel(slot)} ⇄ ${archSlotLabel(swap)}` : archSlotLabel(slot);
-  log(`${playerName(actor)} ${verb(actor, 'queue')} a ${STONES[color].name} on ${lab}. It waits in the ledger.`, logClass(actor));
-  announce(`${STONES[color].name} queued — ${lab}`, color, actor);
+  const st = getStone(color);
+  const lab = stoneBase(color) === 'blue' ? `${archSlotLabel(slot)} ⇄ ${archSlotLabel(swap)}` : archSlotLabel(slot);
+  log(`${playerName(actor)} ${verb(actor, 'queue')} a ${st.name} on ${lab}. It waits in the ledger.`, logClass(actor));
+  announce(`${st.name} queued — ${lab}`, stoneBase(color), actor);
   render();
 }
 // Per-seat scores from a resolved flat-slot array (by slot range, not by card —
@@ -535,7 +583,7 @@ function archQueueStone(actor, color, slot, swap) {
 // two best hands; everyone else their single best.
 function archSeatScores(resolvedSlots) {
   const opts = variantOpts();
-  const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, poisoned: !!c.poisoned }); } return cs; };
+  const cardsOf = o => { const off = archOffsets()[o]; const cs = []; for (let pos = 0; pos < archFP(o); pos++) { const c = resolvedSlots[off + pos]; if (c) cs.push({ type: c.type, hasRed: !!c.phantom, phantoms: c.phantom ? (c.twin ? 2 : 1) : 0, poisoned: !!c.poisoned }); } return cs; };
   return G.players.map(p => (isTwoHandFoe(p.idx) ? twoBestHands : bestSelection)(cardsOf(p.idx), G.region.values, opts).score);
 }
 // What `who` is playing to maximize: own side's total minus the best rival side's.
@@ -556,21 +604,21 @@ function archObjective(who, resolvedSlots) {
 function archAiPlaceSlots(who) {
   const p = G.players[who];
   if (!p.active.length) return;
-  const color = p.active[0];
+  const color = p.active[0], base = stoneBase(color); // color may be a variant key; place it by its base
   const ownSlots = []; for (let pos = 0; pos < archFP(who); pos++) ownSlots.push(archGlobal(who, pos));
   const oppSeats = opponentsOf(who);
   const oppSlots = oppSeats.flatMap(o => { const a = []; for (let pos = 0; pos < archFP(o); pos++) a.push(archGlobal(o, pos)); return a; });
-  const queuedAny = gi => G.archQueue.some(q => q.slot === gi || (q.color === 'blue' && q.swap === gi));
-  const hasColor = (gi, c) => G.archQueue.some(q => q.slot === gi && q.color === c);
+  const queuedAny = gi => G.archQueue.some(q => q.slot === gi || (stoneBase(q.color) === 'blue' && q.swap === gi));
+  const hasColor = (gi, c) => G.archQueue.some(q => q.slot === gi && stoneBase(q.color) === c);
   let slot = null, swap;
-  if (color === 'white' || color === 'red') {
-    slot = ownSlots.find(gi => !hasColor(gi, color)) ?? ownSlots[0];
-  } else if (color === 'green') {
+  if (base === 'white' || base === 'red') {
+    slot = ownSlots.find(gi => !hasColor(gi, base)) ?? ownSlots[0];
+  } else if (base === 'green') {
     // The Crucible's poison: drop it on an opponent slot not already poisoned/locked.
     slot = oppSlots.find(gi => !hasColor(gi, 'green') && !hasColor(gi, 'white')) ?? oppSlots[0];
-  } else if (color === 'blue') {
+  } else if (base === 'blue') {
     slot = ownSlots.find(gi => !queuedAny(gi)) ?? ownSlots[ownSlots.length - 1];
-    swap = oppSlots.find(gi => !G.archQueue.some(q => q.color === 'blue' && (q.slot === gi || q.swap === gi))) ?? oppSlots[0];
+    swap = oppSlots.find(gi => !G.archQueue.some(q => stoneBase(q.color) === 'blue' && (q.slot === gi || q.swap === gi))) ?? oppSlots[0];
   } else { // black
     slot = oppSlots.find(gi => archBlackableSlot(gi)) ?? ownSlots.find(gi => archBlackableSlot(gi));
     if (slot == null) { consumeActive(who, color); log(`${playerName(who)} sets a Black Stone down — nothing queued to undo. It passes.`, 'ai'); return; }
@@ -591,7 +639,7 @@ function archAiCommit(seat, count, faceUp) {
     for (const card of p.hand) {
       for (const pos of emptyPos) {
         p.board[pos] = card;
-        const v = archObjective(seat, resolveArchivist(archFlatSlots(), G.archQueue, reverse).slots);
+        const v = archObjective(seat, resolveArchivist(archFlatSlots(), G.archQueue, reverse, archSlotOwners()).slots);
         p.board[pos] = null;
         if (!best || v > best.v) { second = best; best = { v, card, pos }; }
         else if (!second || v > second.v) second = { v, card, pos };
@@ -619,7 +667,7 @@ function archWriteState(slots) {
     const { o, pos } = archLocal(gi);
     const c = realById[clone.id];
     c.stones = c.stones.filter(s => s.color !== 'white' && s.color !== 'red' && s.color !== 'green');
-    if (clone.phantom) c.stones.push({ color: 'red', by: o });
+    if (clone.phantom) c.stones.push({ color: 'red', by: o, twin: !!clone.twin }); // twin → two phantoms score
     if (clone.locked) c.stones.push({ color: 'white', by: o });
     if (clone.poisoned) c.stones.push({ color: 'green', by: 1 });
     c.owner = o;
@@ -645,21 +693,22 @@ function archResolveBegin() {
 // highlight the slot(s) that just changed, and narrate fire/fizzle.
 function archShowStep(k) {
   const rec = G.archResOrder[k - 1];
-  const r = resolveArchivist(G.archSnapshot, G.archResOrder.slice(0, k), false);
+  const r = resolveArchivist(G.archSnapshot, G.archResOrder.slice(0, k), false, archSlotOwners());
   archWriteState(r.slots);
   rec.resolved = true; // its pending marker clears; the real effect now shows
   const fizzled = r.log[k - 1] && r.log[k - 1].fizzled;
-  const lab = rec.color === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
-  log(`  ${STONES[rec.color].name} on ${lab} — ${fizzled ? 'fizzles, nothing to bind' : 'takes hold'}.`, fizzled ? 'sys' : logClass(rec.by));
-  announce(`${STONES[rec.color].name} ${fizzled ? 'fizzles' : 'fires'} — ${lab}`, rec.color, rec.by);
+  const base = stoneBase(rec.color), st = getStone(rec.color);
+  const lab = base === 'blue' ? `${archSlotLabel(rec.slot)} ⇄ ${archSlotLabel(rec.swap)}` : archSlotLabel(rec.slot);
+  log(`  ${st.name} on ${lab} — ${fizzled ? 'fizzles, nothing to bind' : 'takes hold'}.`, fizzled ? 'sys' : logClass(rec.by));
+  announce(`${st.name} ${fizzled ? 'fizzles' : 'fires'} — ${lab}`, base, rec.by);
   const ids = []; const a = archCardAt(rec.slot); if (a) ids.push(a.id);
-  if (rec.color === 'blue') { const b = archCardAt(rec.swap); if (b) ids.push(b.id); }
+  if (base === 'blue') { const b = archCardAt(rec.swap); if (b) ids.push(b.id); }
   UI.flashIds = ids;
-  SFX.play(rec.color === 'black' ? 'undo' : 'stone');
+  SFX.play(base === 'black' ? 'undo' : 'stone');
   render();
 }
 function archResolveFinal() {
-  archWriteState(resolveArchivist(G.archSnapshot, G.archResOrder, false).slots);
+  archWriteState(resolveArchivist(G.archSnapshot, G.archResOrder, false, archSlotOwners()).slots);
   for (let o = 0; o < G.nPlayers; o++) G.players[o].board = G.players[o].board.filter(Boolean);
   G.archivist = false; G.archSnapshot = null;
   UI.flashIds = G.players.flatMap(p => p.board).map(c => c.id);
@@ -1046,15 +1095,15 @@ function startHand() {
       pool,
       declared: [],
       removed: null,
-      // Pre-armed stones (no telegraph): the gauntlet variant & precedence use
-      // one-of-each colours; the Circuit arms the actual drawn pouch as a
-      // multiset (so a drawn pair of the same colour is both placeable). At Court
-      // (stone-first) Circuit tables the slot engine speaks only base colours, so
-      // the drawn pouch is armed as a multiset of BASE colours — variants revert
-      // to their base for the fight and duplicates/Green stay placeable, instead
-      // of silently vanishing from the set (and still being spent from the pouch).
-      active: (G.gauntlet && !isStoneFirst()) ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(c)) // base colours + variant keys
-        : (G.gauntlet && isStoneFirst()) ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(stoneBase(c)))
+      // Pre-armed stones (no telegraph): the Circuit arms the actual drawn pouch
+      // as a multiset of its exact KEYS — base colours, variant upgrades
+      // (Twin Red / Deadbolt / Riptide / Onyx), and Green all placeable, and a
+      // drawn pair of the same key both live. This holds at Court (stone-first)
+      // tables too: the slot engine now resolves every variant in full (see
+      // resolveArchivist), so upgrades keep their power in Act 3 instead of
+      // reverting to base. The gauntlet-variant venue & non-Circuit precedence
+      // raids field a one-of-each base set.
+      active: G.gauntlet ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(c))
         : (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
     });
@@ -1853,8 +1902,8 @@ function humanTargetSlot(gi) {
     render();
   } else if (UI.mode === 'arch-slot-blue-b') {
     if (gi === UI.blueSlot) return;
-    consumeActive(me, 'blue');
-    archQueueStone(me, 'blue', UI.blueSlot, gi);
+    consumeActive(me, color);                     // may be a Riptide — spend the exact key
+    archQueueStone(me, color, UI.blueSlot, gi);
     UI.pendingStone = null; UI.blueSlot = null;
     finishHumanStep();
   }
@@ -4275,8 +4324,8 @@ function renderBoard(who, container) {
         row.className = 'stonerow queuedrow slotqueue';
         for (const s of pend) {
           const d = document.createElement('span');
-          d.className = `stonedot pending ${s.color}`;
-          d.title = `Queued ${STONES[s.color].name} (${playerName(s.by)}) — waits in the ledger`;
+          d.className = `stonedot pending ${s.color}${isVariant(s.key) ? ' variant' : ''}`;
+          d.title = `Queued ${getStone(s.key).name} (${playerName(s.by)}) — waits in the ledger`;
           // Hover a queued Blue to highlight the two slots it swaps.
           if (s.color === 'blue' && s.other != null) {
             const pair = [gi, s.other];

@@ -206,6 +206,28 @@ function setupVariantCircuit(seed) {
   M.newGame({ mode: 'duel', humans: [0], companyNames: [foe], venue: g.venue || 'slums', deal: 'small', target: 999, gauntlet: true });
 }
 
+// Same seeded variant/Green pouch, but at the Court of Precedence (stone-first):
+// the slot engine now resolves every variant in full, so this drives a human
+// through arch-slot placement + arch-commit with Twin Red / Deadbolt / Riptide /
+// Onyx / Green in the ledger — the whole A4 "variants in the slot engine" path.
+function setupVariantCourt(seed) {
+  M.seedRng(5000 + seed);
+  M.startCircuit();
+  const g = M._gauntlet();
+  g.act = 3;
+  g.deck = M.TYPES.slice();
+  g.pouch = { twinred: 1, onyx: 1, riptide: 1, deadbolt: 1, green: 1, red: 1, white: 1, blue: 1, black: 1 };
+  g.charms = g.charms || [];
+  const foe = 'The Clerk';
+  const build = M.circuitBuildFor(foe);
+  g.opp = foe; g.oppDeck = build.deck; g.oppPouch = build.pouch;
+  g.foeMax = 8; g.foeHp = 8; g.foeCharms = [];
+  g.curNode = { type: 'fight', col: 1, idx: 0, foe };
+  g.standing = g.maxStanding;
+  M.circuitResetPiles();
+  M.newGame({ mode: 'duel', humans: [0], companyNames: [foe], venue: 'court', deal: 'small', target: 999, gauntlet: true });
+}
+
 const RAID_BOSSES = ['magistrate', 'warden', 'apothecary', 'archivist', 'quartermaster', 'crucible'];
 
 for (let s = 1; s <= N; s++) {
@@ -215,6 +237,7 @@ for (let s = 1; s <= N; s++) {
     ['ffa', () => M.newGame({ mode: 'ffa', humans: [0], deal: 'small', target: 10, region: 'bar' })],
     ['teams', () => M.newGame({ mode: 'teams', humans: [0], deal: 'small', target: 10, region: 'bar' })],
     ['circuit+variants', () => setupVariantCircuit(s)],
+    ['court+variants', () => setupVariantCourt(s)],
   ];
   for (const boss of RAID_BOSSES) {
     jobs.push([`raid:${boss}`, () => M.newGame({ mode: 'raid', raidBoss: boss, target: 15 })]);

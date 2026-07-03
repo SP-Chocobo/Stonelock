@@ -161,9 +161,9 @@ All findings addressed. `?v=280`. Full suite green throughout.
 - C3 `target-green` soft-lock — added decorateTarget + renderControls branches.
 - A3 trade-unwind teleport — record post-trade owners; a re-traded partner makes the unwind fizzle. Regression test.
 - A7 Green now un-undoable live — matches the printed rule + slot engine.
-- A4 (interim) Court Circuit tables arm the drawn pouch as base-colour multiset — variants revert to base, nothing dead. **Full slot-engine variant support remains scheduled work.**
+- A4 (FULL) Court Circuit tables now arm the drawn pouch as its exact-KEY multiset and the slot engine resolves every variant in full: Twin Red fields two phantoms (`twin` flag through resolve→writeback→`redPhantoms`), Deadbolt locks an adjacent own slot (owners map threaded into `resolveArchivist`), Riptide resists the first Black (plain swap survives) and unwinds only on a second, Onyx undoes twice (own slot + latest elsewhere). All slot-engine comparisons switched to `stoneBase()` so variant keys route by base; targeting/AI/labels/pending-dots handle the keys. Pure-engine unit tests for all four + the live Court fuzz path. The interim base-revert is removed.
 
 **Fixed (text/docs):**
 - A5 Warden Rules text now says party-only exhaustion. A8 Onyx desc matches code. A9 FFA header comment + Sudden-Death "marker doesn't move" log.
 
-**Deferred (design, not started):** none outstanding from the audit; the only remaining item is A4's full variant support in the slot engine (a scheduled feature, not a bug).
+**Deferred (design, not started):** none — A4's full slot-engine variant support is now shipped.
