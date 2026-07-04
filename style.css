@@ -1252,6 +1252,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .chitcoin-v { position: absolute; bottom: -3px; right: -4px; min-width: 14px; height: 14px; padding: 0 2px;
   border-radius: 999px; background: #241a0c; color: var(--gold-bright); border: 1px solid var(--gold-dim);
   font: 700 9px/13px 'Cinzel', Georgia, serif; text-align: center; }
+/* In a pile the value stamps overlap and clutter — hide them, and reveal a
+   coin's value only when it lifts on hover (the tooltip carries it regardless). */
+.chitpile .chitcoin-v { opacity: 0; transform: scale(0.6); transition: opacity 0.12s ease, transform 0.12s ease; }
+.chitpile .chitcoin:hover .chitcoin-v { opacity: 1; transform: none; }
 .chitcoin.prestige { background: radial-gradient(circle at 38% 30%, #dcb98f, #a8763e 56%, #5e3f1c 100%); border-color: #472e12; }
 .chitcoin.prestige .chitcoin-g { color: #38230a; }
 .chud-chits { margin-top: 5px; }
