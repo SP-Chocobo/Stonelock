@@ -5847,9 +5847,9 @@ function startCircuit(seed) {
   seedRng(circuitSeed);
   // You compose your own opening: build a pouch (four stones, max two of a colour)
   // and draft two effect cards from five. Only the CARD offer is seeded/random —
-  // the pouch is yours to lay out. Default to a balanced one-of-each.
-  circuitLoad = { pouch: { red: 1, white: 1, blue: 1, black: 1 }, offer: circuitOfferCards(5, false), picks: [], chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) };
-  if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
+  // the pouch is yours to lay out, from EMPTY.
+  circuitLoad = { pouch: { red: 0, white: 0, blue: 0, black: 0 }, offer: circuitOfferCards(5, false), picks: [], chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) };
+  if (typeof document === 'undefined') { circuitLoad.pouch = { red: 1, white: 1, blue: 1, black: 1 }; circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit (balanced pouch)
   circuitIntro();
 }
 
@@ -5963,7 +5963,8 @@ function circuitLoadoutScreen() {
   const ps = document.createElement('div'); ps.className = 'ldsection';
   ps.innerHTML = `<div class="ldhead">Your pouch — <b>${pTotal}/${POUCH_SIZE}</b> stones · draw ${CIRCUIT.drawStones} a hand, max two of a colour</div>`;
   const pbuild = document.createElement('div'); pbuild.className = 'pouchbuild';
-  // The pouch itself — filled dots (click to remove) then empty slots.
+  // The pouch itself — a centered row of four slots. Filled slots (click to remove)
+  // then dashed empties, so the shape of what you still owe is always visible.
   const slots = document.createElement('div'); slots.className = 'pouchslots';
   for (const color of STONE_KEYS) for (let i = 0; i < (pouch[color] || 0); i++) {
     const d = document.createElement('button'); d.className = `stonedot big ${color} pouchpick`;
@@ -5973,12 +5974,14 @@ function circuitLoadoutScreen() {
   }
   for (let i = pTotal; i < POUCH_SIZE; i++) { const e = document.createElement('span'); e.className = 'stonedot big empty'; slots.appendChild(e); }
   pbuild.appendChild(slots);
-  // Palette — one of each colour; dims a colour at two, and all when the pouch is full.
+  pbuild.appendChild(document.createElement('div')).className = 'pouchcap'; pbuild.lastChild.textContent = 'Add stones — max two of a colour';
+  // Palette — centered below, one of each colour with a live count. Dims a colour
+  // at two, and all when the pouch is full.
   const pal = document.createElement('div'); pal.className = 'pouchpalette';
   for (const color of STONE_KEYS) {
-    const cnt = pouch[color] || 0, full = cnt >= 2 || pTotal >= POUCH_SIZE;
-    const b = document.createElement('button'); b.className = 'palstone' + (full ? ' full' : '');
-    b.innerHTML = `<span class="stonedot big ${color}"></span>`;
+    const cnt = pouch[color] || 0, atMax = cnt >= 2, full = atMax || pTotal >= POUCH_SIZE;
+    const b = document.createElement('button'); b.className = 'palstone' + (full ? ' full' : '') + (atMax ? ' maxed' : '');
+    b.innerHTML = `<span class="stonedot big ${color}"></span><span class="palcount">${STONES[color].name.replace(' Stone', '')} · ${cnt}/2</span>`;
     b.setAttribute('data-tip-head', `${STONES[color].name} — ${STONES[color].power}`); b.setAttribute('data-tip', STONES[color].desc); b.setAttribute('data-tip-cls', 'tip-' + color);
     if (!full) b.onclick = () => { pouch[color] = cnt + 1; circuitLoadoutScreen(); };
     else b.disabled = true;
