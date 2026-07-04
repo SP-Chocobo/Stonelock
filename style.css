@@ -1274,6 +1274,44 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .lddebt.locked { opacity: 0.62; cursor: default; border-style: dashed; background: linear-gradient(170deg, #201a13, #17130d); }
 .lddebt.locked .lddebt-n, .lddebt.locked .lddebt-c { color: var(--parchment-dim); border-color: var(--edge); }
 .lddebt-lock { grid-column: 1 / -1; margin-top: 5px; font-size: 10px; color: #c79a44; letter-spacing: 0.02em; }
+/* The Debtor's Ledger — the Debts picker. A coffer of coins over a ruled book. */
+.ledgerpick { display: grid; gap: 16px; }
+.coffer-lab, .ledger-head { font-family: 'Cinzel', Georgia, serif; text-transform: uppercase; letter-spacing: 0.11em;
+  font-size: 11px; color: var(--gold-bright); opacity: 0.85; margin-bottom: 9px; }
+.coffer-coins { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 12px 4px; }
+.coffercoin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 6px 2px 4px; border-radius: 9px; cursor: pointer; transition: background 0.12s ease, transform 0.1s ease; }
+.coffercoin:hover { background: rgba(201,160,80,0.09); transform: translateY(-1px); }
+.coffercoin .chitcoin { margin-left: 0; }
+.coffercoin-n { font-family: 'Cinzel', Georgia, serif; font-size: 9.5px; letter-spacing: 0.01em; color: var(--gold); text-align: center; line-height: 1.15; }
+.coffercoin.taken { background: rgba(232,196,119,0.13); }
+.coffercoin.taken .chitcoin { box-shadow: inset 0 1px 2px rgba(255,242,205,0.55), inset 0 -2px 3px rgba(60,40,10,0.6), 0 0 0 2px var(--gold-bright), 0 2px 6px rgba(0,0,0,0.5); }
+.coffercoin.taken .coffercoin-n { color: var(--gold-bright); }
+.coffercoin.locked { cursor: default; opacity: 0.5; }
+.coffercoin.locked .chitcoin { filter: grayscale(0.7) brightness(0.68); }
+.coffercoin.locked .coffercoin-n { color: var(--parchment-dim); }
+.coffercoin-lk { position: absolute; top: 1px; right: 8px; font-size: 10px; }
+.coffercoin.full { opacity: 0.4; cursor: default; }
+.ledgerbook { border: 1px solid var(--edge); border-radius: 10px; padding: 12px 15px;
+  background: linear-gradient(180deg, #241c12, #1a140c); box-shadow: inset 0 1px 0 rgba(232,196,119,0.08); }
+.ledger-lines { min-height: 56px; }
+.ledger-empty { color: var(--parchment-dim); font-style: italic; text-align: center; padding: 16px 0; }
+.ledger-line { display: flex; align-items: center; gap: 9px; padding: 6px 2px; cursor: pointer;
+  border-bottom: 1px solid rgba(201,160,80,0.12); }
+.ledger-line:hover { background: rgba(168,55,46,0.13); }
+.ledger-line:hover .ll-name { text-decoration: line-through; text-decoration-color: rgba(210,90,70,0.85); }
+.ll-coin .chitcoin { width: 24px; height: 24px; margin-left: 0; }
+.ll-coin .chitcoin-g { font-size: 12px; }
+.ll-coin .chitcoin-v { display: none; }
+.ll-name { font-family: 'Cinzel', Georgia, serif; font-size: 12.5px; color: var(--gold); white-space: nowrap; }
+.ll-name i { color: #b8863b; font-size: 10.5px; font-style: italic; }
+.ll-lead { flex: 1; border-bottom: 1px dotted var(--gold-dim); height: 0.7em; min-width: 16px; }
+.ll-val { font-weight: 700; color: var(--gold-bright); font-family: 'Cinzel', Georgia, serif; font-size: 12px; }
+.ll-strike { width: 18px; text-align: center; color: var(--parchment-dim); font-size: 12px; }
+.ledger-line:hover .ll-strike { color: #d8604a; }
+.ledger-total { margin-top: 11px; text-align: right; font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.04em; color: var(--gold); }
+.lt-val { color: var(--gold-bright); font-size: 18px; font-weight: 700; }
+.lt-slots { color: var(--parchment-dim); font-size: 11px; }
 .lddebt-n { font-family: 'Cinzel', Georgia, serif; font-size: 12.5px; letter-spacing: 0.03em; color: var(--gold); }
 .lddebt.on .lddebt-n { color: var(--gold-bright); }
 .lddebt-c { justify-self: end; align-self: start; font-weight: 700; font-size: 12px; color: var(--gold-bright);
