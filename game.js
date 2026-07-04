@@ -6053,62 +6053,108 @@ function openChitMenu() {
   if (ab) ab.onclick = () => { setAlphaUnlock(!alphaUnlock()); renderChitMenu(); }; // testing: open/close every debt live
   $('chitModal').classList.add('open');
 }
-// The Debtor's Ledger: a coffer of debt COINS you press to sign each debt into a
-// ruled ledger below (dotted leaders, a strike-mark to cross one off, a running
-// "Total owed"). Coin-forward and on-theme — the coins are the language, the
-// ledger the record. Locked coins sit tarnished in the coffer with their terms.
+// The Debtor's Ledger — two focused views behind a tab, with a soft transition:
+//   · Sign Debts — a coffer of ONLY your unlocked coins over the ledger you build.
+//   · The Reckoning — the progression rail: what you've earned, what's next, slots.
+// Keeping the roadmap out of the selection screen is what keeps it uncluttered.
+let chitView = 'select';
+const chitMk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 function renderChitMenu() {
   const cap = activeChitCap();
   const sel = (circuitLoad.chits || []).filter(chitIsUnlockedKey).slice(0, cap);
   circuitLoad.chits = sel;
-  const val = chitValue(sel), atCap = sel.length >= cap, gate = chitsNextGate(), slotAt = nextSlotAt();
-  const toggle = key => { const i = circuitLoad.chits.indexOf(key); if (i >= 0) circuitLoad.chits.splice(i, 1); else if (circuitLoad.chits.length < cap) circuitLoad.chits.push(key); renderChitMenu(); };
-  const best = chitsBestCleared();
   $('chitTitle').textContent = "The Debtor's Ledger";
-  // Explain the loop plainly: you WIN a full run carrying debts, and a heavier win
-  // opens the next pair. Show the benchmark (best cleared) so the gates read.
-  $('chitSub').innerHTML = `Sign debts, then <b>win the whole Circuit</b> carrying them — each heavier win opens the next Debts (2 at a time). ` +
-    `Best win <b>${best < 0 ? 'none yet' : best + ' chit' + (best === 1 ? '' : 's')}</b> · carry <b>${cap}</b> at once` +
-    (slotAt != null ? ` (a <b>${slotAt}-chit</b> win earns a slot)` : '') + `.`;
+  $('chitSub').innerHTML = 'Sign debts you’ve earned, then <b>win the whole Circuit</b> carrying them — each heavier win opens more.';
   const ab = $('chitAlpha');
   if (ab) { const on = chitAlpha(); ab.textContent = (on ? '✓ Alpha — all unlocked' : 'Alpha — unlock all'); ab.classList.toggle('selected', on); }
-  const mk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const body = $('chitBody'); body.innerHTML = '';
-  const wrap = mk('div', 'ledgerpick');
-
-  // The Coffer — every debt as a coin. Unlocked coins are bright and pressable;
-  // taken ones carry a signed ring; locked ones tarnish with their terms.
-  const coffer = mk('div', 'coffer');
-  coffer.appendChild(mk('div', 'coffer-lab', 'The Coffer'));
-  const coins = mk('div', 'coffer-coins');
-  for (const c of CIRCUIT_CHITS) {
-    const unlocked = chitIsUnlocked(c), on = sel.includes(c.key), full = !on && atCap && unlocked;
-    const slot = mk('div', 'coffercoin' + (on ? ' taken' : '') + (unlocked ? '' : ' locked') + (full ? ' full' : ''),
-      chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span>` + (unlocked ? '' : '<span class="coffercoin-lk">🔒</span>'));
-    slot.title = unlocked ? `${c.name} (${c.chits}) — ${c.blurb}${c.boss ? ' — ' + c.boss : ''}` : `Locked — ${chitUnlockHint(c)}`;
-    if (unlocked && !full) slot.onclick = () => toggle(c.key);
-    else if (unlocked && on) slot.onclick = () => toggle(c.key); // taken → strike it
-    coins.appendChild(slot);
+  // Tab bar — switching re-renders the view with an enter animation.
+  const tabs = chitMk('div', 'chittabs');
+  const tab = (id, label) => { const t = chitMk('button', 'chittab' + (chitView === id ? ' on' : ''), label); t.onclick = () => { if (chitView !== id) { chitView = id; renderChitMenu(); } }; return t; };
+  tabs.appendChild(tab('select', 'Sign Debts'));
+  tabs.appendChild(tab('rail', 'The Reckoning'));
+  body.appendChild(tabs);
+  const view = chitMk('div', 'chitview enter');
+  if (chitView === 'rail') renderRailView(view);
+  else renderSelectView(view, sel, cap);
+  body.appendChild(view);
+}
+// SIGN DEBTS — the coffer of unlocked coins over the ledger being signed.
+function renderSelectView(view, sel, cap) {
+  const val = chitValue(sel), atCap = sel.length >= cap;
+  const toggle = key => { const i = circuitLoad.chits.indexOf(key); if (i >= 0) circuitLoad.chits.splice(i, 1); else if (circuitLoad.chits.length < cap) circuitLoad.chits.push(key); renderChitMenu(); };
+  const unlocked = chitsUnlocked();
+  const coffer = chitMk('div', 'coffer');
+  coffer.appendChild(chitMk('div', 'coffer-lab', `The Coffer — ${unlocked.length} Debt${unlocked.length === 1 ? '' : 's'} earned`));
+  if (!unlocked.length) coffer.appendChild(chitMk('div', 'ledger-empty', 'No Debts yet — win the Circuit once to earn your first, or peek at The Reckoning.'));
+  else {
+    const coins = chitMk('div', 'coffer-coins');
+    for (const c of unlocked) {
+      const on = sel.includes(c.key), full = !on && atCap;
+      const slot = chitMk('div', 'coffercoin' + (on ? ' taken' : '') + (full ? ' full' : ''),
+        chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span>`);
+      slot.title = `${c.name} (${c.chits}) — ${c.blurb}${c.boss ? ' — ' + c.boss : ''}`;
+      if (!full || on) slot.onclick = () => toggle(c.key);
+      coins.appendChild(slot);
+    }
+    coffer.appendChild(coins);
   }
-  coffer.appendChild(coins);
-  wrap.appendChild(coffer);
-
-  // The Ledger — the debts you've signed, inscribed line by line.
-  const book = mk('div', 'ledgerbook');
-  book.appendChild(mk('div', 'ledger-head', 'Debts owed — this run'));
-  const lines = mk('div', 'ledger-lines');
-  if (!sel.length) lines.appendChild(mk('div', 'ledger-empty', 'The ledger is clean — an honest run.'));
+  view.appendChild(coffer);
+  const book = chitMk('div', 'ledgerbook');
+  book.appendChild(chitMk('div', 'ledger-head', 'Debts owed — this run'));
+  const lines = chitMk('div', 'ledger-lines');
+  if (!sel.length) lines.appendChild(chitMk('div', 'ledger-empty', 'The ledger is clean — an honest run.'));
   else for (const k of sel) {
     const c = chitByKey(k); if (!c) continue;
-    const line = mk('div', 'ledger-line' + (c.req ? ' prestige' : ''),
+    const line = chitMk('div', 'ledger-line' + (c.req ? ' prestige' : ''),
       `<span class="ll-coin">${chitCoinHtml(c)}</span><span class="ll-name">${c.name}${c.boss ? ` <i>· ${c.boss}</i>` : ''}</span><span class="ll-lead"></span><span class="ll-val">${c.chits}</span><span class="ll-strike" title="Strike this debt">✕</span>`);
     line.onclick = () => toggle(k);
     lines.appendChild(line);
   }
   book.appendChild(lines);
-  book.appendChild(mk('div', 'ledger-total', `Total owed <span class="lt-val">${val}</span> chit${val === 1 ? '' : 's'} <span class="lt-slots">· ${sel.length} of ${cap} slots</span>`));
-  wrap.appendChild(book);
-  body.appendChild(wrap);
+  book.appendChild(chitMk('div', 'ledger-total', `Total owed <span class="lt-val">${val}</span> chit${val === 1 ? '' : 's'} <span class="lt-slots">· ${sel.length} of ${cap} slots</span>`));
+  view.appendChild(book);
+}
+// THE RECKONING — the progression rail. Rungs at each gate carry the pair of
+// Debts that open there (earned / next / to-come), slot milestones ride the 3 and
+// 5 rungs, and prestige Debts hang below as their own boss-won row.
+function renderRailView(view) {
+  const best = chitsBestCleared(), cap = activeChitCap(), gated = gatedChits();
+  view.appendChild(chitMk('div', 'rail-head',
+    `Best win <b>${best < 0 ? 'none yet' : best + ' chit' + (best === 1 ? '' : 's')}</b>` +
+    `<span class="rail-slots">${cap} of ${MAX_CHIT_SLOTS} Debt slots</span>`));
+  const rail = chitMk('div', 'rail');
+  CHIT_GATES.forEach((g, gi) => {
+    const pair = gated.slice(gi * 2, gi * 2 + 2);
+    const earned = best >= g;
+    const isNext = !earned && (gi === 0 || best >= CHIT_GATES[gi - 1]);
+    const slotHere = (g === 3 || g === 5);
+    const rung = chitMk('div', 'rung' + (earned ? ' earned' : '') + (isNext ? ' next' : ''));
+    rung.innerHTML =
+      `<div class="rung-coins">${pair.map(c => `<span class="rungcoin${earned ? '' : ' dim'}">${chitCoinHtml(c)}</span>`).join('')}</div>` +
+      `<div class="rung-track"><span class="rung-dot">${earned ? '✓' : ''}</span></div>` +
+      `<div class="rung-lab">${g === 0 ? 'the start' : 'win ' + g + ' chits'}${slotHere ? '<span class="rung-slot">+ slot</span>' : ''}</div>`;
+    rail.appendChild(rung);
+  });
+  view.appendChild(rail);
+  const ng = chitsNextGate();
+  if (ng != null) {
+    const gi = CHIT_GATES.indexOf(ng), names = gated.slice(gi * 2, gi * 2 + 2).map(c => c.name).join(' + ');
+    view.appendChild(chitMk('div', 'rail-next', `Next — <b>win a ${ng}-chit run</b> to open <b>${names}</b>.`));
+  } else view.appendChild(chitMk('div', 'rail-next', 'Every ladder Debt is earned. Only the prestige Debts remain.'));
+  // Prestige row — the six boss-won Debts.
+  const pr = chitMk('div', 'railprestige');
+  pr.appendChild(chitMk('div', 'coffer-lab', 'Prestige Debts — won on Hardcore'));
+  const prow = chitMk('div', 'coffer-coins');
+  for (const c of CIRCUIT_CHITS.filter(x => x.req)) {
+    const got = chitIsUnlocked(c);
+    const slot = chitMk('div', 'coffercoin' + (got ? '' : ' locked'),
+      chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span><span class="coffercoin-boss">${got ? '✓ ' + c.boss : c.boss}</span>` + (got ? '' : '<span class="coffercoin-lk">🔒</span>'));
+    slot.title = `${c.name} — ${c.blurb} · ${got ? 'earned' : chitUnlockHint(c)}`;
+    prow.appendChild(slot);
+  }
+  pr.appendChild(prow);
+  view.appendChild(pr);
 }
 function chitIsUnlockedKey(k) { const c = chitByKey(k); return !!c && chitIsUnlocked(c); }
 

@@ -1314,6 +1314,43 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ledger-total { margin-top: 11px; text-align: right; font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.04em; color: var(--gold); }
 .lt-val { color: var(--gold-bright); font-size: 18px; font-weight: 700; }
 .lt-slots { color: var(--parchment-dim); font-size: 11px; }
+/* Two focused views (Sign Debts / The Reckoning) behind a tab, with a soft enter. */
+.chittabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--edge); }
+.chittab { padding: 7px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--parchment-dim);
+  font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.07em; text-transform: uppercase; cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease; }
+.chittab:hover { color: var(--gold); }
+.chittab.on { color: var(--gold-bright); border-bottom-color: var(--gold-bright); }
+.chitview.enter { animation: chitViewIn 0.26s ease both; }
+@keyframes chitViewIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+/* The Reckoning rail — a debt-ladder of gate rungs. */
+.rail-head { display: flex; align-items: baseline; gap: 12px; font-family: 'Cinzel', Georgia, serif; color: var(--gold); font-size: 14px; margin-bottom: 20px; }
+.rail-head b { color: var(--gold-bright); font-size: 18px; }
+.rail-slots { margin-left: auto; color: var(--parchment-dim); font-size: 11px; }
+.rail { display: flex; align-items: stretch; margin: 2px 0 14px; }
+.rung { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; opacity: 0.42; transition: opacity 0.2s ease; }
+.rung.earned, .rung.next { opacity: 1; }
+.rung-coins { display: flex; gap: 3px; height: 32px; align-items: center; }
+.rung-coins .chitcoin { width: 26px; height: 26px; margin: 0; }
+.rung-coins .chitcoin-v { display: none; }
+.rungcoin.dim .chitcoin { filter: grayscale(0.6) brightness(0.72); }
+.rung-track { position: relative; width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; }
+.rung-track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--edge); }
+.rung.earned .rung-track::before { background: var(--gold); }
+.rung:first-child .rung-track::before { left: 50%; }
+.rung:last-child .rung-track::before { right: 50%; }
+.rung-dot { position: relative; z-index: 1; width: 16px; height: 16px; border-radius: 50%; background: #241a0c;
+  border: 2px solid var(--edge); color: var(--gold-bright); font-size: 9px; line-height: 13px; }
+.rung.earned .rung-dot { border-color: var(--gold-bright); background: radial-gradient(circle at 40% 35%, #f2d78c, #c99c44); color: #3a2408; }
+.rung.next .rung-dot { border-color: var(--gold-bright); animation: rungPulse 1.5s ease-in-out infinite; }
+@keyframes rungPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(232,196,119,0.55); } 50% { box-shadow: 0 0 0 6px rgba(232,196,119,0); } }
+.rung-lab { margin-top: 7px; font-size: 10px; color: var(--parchment-dim); font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.02em; }
+.rung.earned .rung-lab, .rung.next .rung-lab { color: var(--gold); }
+.rung-slot { display: block; margin-top: 2px; font-size: 9px; color: #c79a44; }
+.rail-next { text-align: center; color: var(--parchment); font-size: 12.5px; margin: 4px 0 16px; }
+.rail-next b { color: var(--gold-bright); }
+.railprestige { border-top: 1px solid var(--edge); padding-top: 12px; }
+.coffercoin-boss { font-size: 8.5px; color: #b8863b; margin-top: 1px; text-align: center; line-height: 1.1; }
 .lddebt-n { font-family: 'Cinzel', Georgia, serif; font-size: 12.5px; letter-spacing: 0.03em; color: var(--gold); }
 .lddebt.on .lddebt-n { color: var(--gold-bright); }
 .lddebt-c { justify-self: end; align-self: start; font-weight: 700; font-size: 12px; color: var(--gold-bright);
