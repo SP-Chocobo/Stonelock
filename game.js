@@ -6012,35 +6012,28 @@ function circuitLoadoutScreen() {
   cs.appendChild(note);
   body.appendChild(cs);
 
-  // Debts — the difficulty modifiers you've earned. Toggle up to MAX_ACTIVE_CHITS;
-  // a run's total chit value is shown, with the next unlock gate. Hidden entirely
-  // until the first is earned (a clean run clears the base game first).
+  // Debts — a compact summary on the build; the picker lives behind a button so
+  // the loadout stays clean. Hidden until the first is earned.
   const unlocked = chitsUnlocked();
-  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k));
+  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
   circuitLoad.chits = sel;
+  const val = chitValue(sel);
   const ds = document.createElement('div'); ds.className = 'ldsection lddebts';
-  const val = chitValue(sel), atCap = sel.length >= MAX_ACTIVE_CHITS;
-  const gate = chitsNextGate();
   if (!unlocked.length) {
-    ds.innerHTML = `<div class="ldhead">Debts — difficulty modifiers</div><div class="ldnote">Clear a run to earn your first Debts. Each one you carry raises the stakes; clear harder runs to earn more.</div>`;
+    ds.innerHTML = `<div class="ldhead">Debts — difficulty modifiers</div><div class="ldnote">Clear a run to earn your first Debt. Each one you carry raises the stakes; clear harder runs to earn more.</div>`;
   } else {
-    ds.innerHTML = `<div class="ldhead">Debts — carry up to ${MAX_ACTIVE_CHITS} · this run: <b>${val} chit${val === 1 ? '' : 's'}</b>${gate != null ? ` · clear at ${gate}+ to earn more` : ' · all earned'}</div>`;
-    const row = document.createElement('div'); row.className = 'lddebtrow';
-    for (const c of unlocked) {
-      const on = sel.includes(c.key);
-      const b = document.createElement('button');
-      b.className = 'lddebt' + (on ? ' on' : '') + (c.req ? ' prestige' : '') + (!on && atCap ? ' capped' : '');
-      b.innerHTML = `<span class="lddebt-n">${c.name}</span><span class="lddebt-c">${c.chits}</span><span class="lddebt-b">${c.blurb}${c.boss ? ` <i>— ${c.boss}</i>` : ''}</span>`;
-      b.disabled = !on && atCap;
-      b.onclick = () => {
-        const i = circuitLoad.chits.indexOf(c.key);
-        if (i >= 0) circuitLoad.chits.splice(i, 1);
-        else if (circuitLoad.chits.length < MAX_ACTIVE_CHITS) circuitLoad.chits.push(c.key);
-        circuitLoadoutScreen();
-      };
-      row.appendChild(b);
-    }
-    ds.appendChild(row);
+    ds.innerHTML = `<div class="ldhead">Debts — this run: <b>${val} chit${val === 1 ? '' : 's'}</b></div>`;
+    const bar = document.createElement('div'); bar.className = 'ldchitbar';
+    const btn = document.createElement('button'); btn.className = 'btn ldchitbtn';
+    btn.textContent = sel.length ? 'Change Debts ›' : 'Raise the stakes ›';
+    btn.onclick = openChitMenu;
+    bar.appendChild(btn);
+    const sum = document.createElement('div'); sum.className = 'ldchitsummary';
+    sum.innerHTML = sel.length
+      ? sel.map(k => { const c = chitByKey(k); return `<span class="ldchip${c && c.req ? ' prestige' : ''}">${c ? c.name : k}<b>${c ? c.chits : ''}</b></span>`; }).join('')
+      : `<span class="ldchip empty">No Debts — an honest run</span>`;
+    bar.appendChild(sum);
+    ds.appendChild(bar);
   }
   body.appendChild(ds);
 
@@ -6049,6 +6042,43 @@ function circuitLoadoutScreen() {
   next.disabled = circuitLoad.picks.length !== 2;
   next.onclick = () => { if (circuitLoad.picks.length === 2) circuitBegin(); };
   $('circuitModal').classList.add('open');
+}
+
+// The Debts picker (opened from the loadout): the full toggle grid, the running
+// chit total, the active cap, and the next unlock gate. Selecting returns to the
+// loadout, which repaints its compact summary.
+function openChitMenu() {
+  if (typeof document === 'undefined') return;
+  renderChitMenu();
+  $('chitDone').onclick = () => { closeModal('chitModal'); circuitLoadoutScreen(); };
+  $('chitModal').classList.add('open');
+}
+function renderChitMenu() {
+  const unlocked = chitsUnlocked();
+  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
+  circuitLoad.chits = sel;
+  const val = chitValue(sel), atCap = sel.length >= MAX_ACTIVE_CHITS, gate = chitsNextGate();
+  $('chitTitle').textContent = 'Debts — Raise the Stakes';
+  $('chitSub').innerHTML = `Carry up to <b>${MAX_ACTIVE_CHITS}</b> · this run <b>${val} chit${val === 1 ? '' : 's'}</b>` +
+    (gate != null ? ` · clear a run at <b>${gate}+</b> to earn more` : ' · every ladder Debt earned') +
+    `. Prestige Debts are won by breaking a boss on Hardcore.`;
+  const body = $('chitBody'); body.innerHTML = '';
+  const row = document.createElement('div'); row.className = 'lddebtrow';
+  for (const c of unlocked) {
+    const on = sel.includes(c.key);
+    const b = document.createElement('button');
+    b.className = 'lddebt' + (on ? ' on' : '') + (c.req ? ' prestige' : '') + (!on && atCap ? ' capped' : '');
+    b.innerHTML = `<span class="lddebt-n">${c.name}</span><span class="lddebt-c">${c.chits}</span><span class="lddebt-b">${c.blurb}${c.boss ? ` <i>— ${c.boss}</i>` : ''}</span>`;
+    b.disabled = !on && atCap;
+    b.onclick = () => {
+      const i = circuitLoad.chits.indexOf(c.key);
+      if (i >= 0) circuitLoad.chits.splice(i, 1);
+      else if (circuitLoad.chits.length < MAX_ACTIVE_CHITS) circuitLoad.chits.push(c.key);
+      renderChitMenu();
+    };
+    row.appendChild(b);
+  }
+  body.appendChild(row);
 }
 
 function circuitBegin() {

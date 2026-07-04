@@ -6,7 +6,7 @@
 <title>Stonelock — A Game of Regional Leverage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=283">
+<link rel="stylesheet" href="style.css?v=284">
 </head>
 <body>
 
@@ -326,6 +326,16 @@
   </div>
 </div>
 
+<!-- Debts picker (the Circuit) — choose difficulty modifiers before a run. -->
+<div id="chitModal" class="modal">
+  <div class="modalcard wide">
+    <h2 id="chitTitle">Debts</h2>
+    <p id="chitSub" class="mappeek-sub"></p>
+    <div id="chitBody" class="circuitload"></div>
+    <div class="modalbtns"><button id="chitDone" class="btn primary">Done</button></div>
+  </div>
+</div>
+
 <!-- Map peek (the Circuit) — a read-only look at the run map mid-fight, for
      planning how hard to push. Navigation still happens on the between-fights map. -->
 <div id="mapPeekModal" class="modal">
@@ -546,6 +556,6 @@
   </div>
 </div>
 
-<script src="game.js?v=287"></script>
+<script src="game.js?v=288"></script>
 </body>
 </html>

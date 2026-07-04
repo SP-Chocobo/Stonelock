@@ -228,6 +228,33 @@ function setupVariantCourt(seed) {
   M.newGame({ mode: 'duel', humans: [0], companyNames: [foe], venue: 'court', deal: 'small', target: 999, gauntlet: true });
 }
 
+// A Circuit fight loaded with a stack of the human-facing Chits — the fixed-order
+// tray lock (By the Ledger), the colour ration, the Foundation scalpel, a wider
+// foe board, the Reckoning's foe Green, and the Long Night bleed — all at once, to
+// stress the human input flow where those levers layer (soft-locks / throws).
+function setupChitCircuit(seed) {
+  M.seedRng(6000 + seed);
+  M.startCircuit();
+  const g = M._gauntlet();
+  g.act = 2;
+  g.deck = M.TYPES.slice();
+  g.pouch = { red: 2, white: 1, blue: 1, black: 1, green: 1 };
+  g.charms = g.charms || [];
+  const keys = ['fixedorder', 'ration', 'scalpel', 'wideboard', 'reckoning', 'longnight'];
+  g.chits = keys; g.chitValue = M.chitValue(keys); g.tune = M.computeChitTune(keys);
+  const foe = 'The Miner';
+  const build = M.circuitBuildFor(foe);
+  g.opp = foe; g.oppDeck = build.deck;
+  const pouch = Object.assign({}, build.pouch);
+  for (const c of ['red', 'white', 'blue', 'black', 'green']) pouch[c] = (pouch[c] || 0) + 1; // Reckoning
+  g.oppPouch = pouch;
+  g.foeMax = 8; g.foeHp = 8; g.foeCharms = [];
+  g.curNode = { type: 'fight', col: 2, idx: 0, foe };
+  g.standing = g.maxStanding;
+  M.circuitResetPiles();
+  M.newGame({ mode: 'duel', humans: [0], companyNames: [foe], venue: 'slums', deal: 'small', target: 999, gauntlet: true });
+}
+
 const RAID_BOSSES = ['magistrate', 'warden', 'apothecary', 'archivist', 'quartermaster', 'crucible'];
 
 for (let s = 1; s <= N; s++) {
@@ -238,6 +265,7 @@ for (let s = 1; s <= N; s++) {
     ['teams', () => M.newGame({ mode: 'teams', humans: [0], deal: 'small', target: 10, region: 'bar' })],
     ['circuit+variants', () => setupVariantCircuit(s)],
     ['court+variants', () => setupVariantCourt(s)],
+    ['circuit+chits', () => setupChitCircuit(s)],
   ];
   for (const boss of RAID_BOSSES) {
     jobs.push([`raid:${boss}`, () => M.newGame({ mode: 'raid', raidBoss: boss, target: 15 })]);

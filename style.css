@@ -1226,7 +1226,16 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ldpouch .stonedot { width: 28px; height: 28px; }
 .ldcards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .ldnote { font-size: 11px; font-style: italic; color: var(--parchment-dim); margin-top: 9px; text-align: center; }
-/* Debts (Chits) — the difficulty-modifier toggles on the loadout screen. */
+/* Debts (Chits) — compact summary on the loadout; full toggles in the picker. */
+.ldchitbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ldchitbtn { flex: 0 0 auto; }
+.ldchitsummary { display: flex; gap: 6px; flex-wrap: wrap; }
+.ldchip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--gold-dim); background: rgba(50,39,21,0.5); color: var(--gold);
+  font-family: 'Cinzel', Georgia, serif; font-size: 11px; letter-spacing: 0.02em; }
+.ldchip b { color: var(--gold-bright); font-size: 10px; }
+.ldchip.prestige { border-left: 3px solid #b8863b; }
+.ldchip.empty { border-style: dashed; color: var(--parchment-dim); font-style: italic; }
 .lddebtrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .lddebt { text-align: left; padding: 9px 11px; border: 1px solid var(--edge); border-radius: 9px;
   background: linear-gradient(170deg, #241d15, #1b160f); cursor: pointer; color: var(--parchment);
