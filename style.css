@@ -1224,6 +1224,22 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ldpouch.selected { border-color: var(--gold-bright); box-shadow: 0 0 16px rgba(232,196,119,0.28); }
 .ldstones { display: flex; gap: 9px; }
 .ldpouch .stonedot { width: 28px; height: 28px; }
+/* Pouch builder — a row of slots you fill from a colour palette (max 2 each). */
+.pouchbuild { display: flex; align-items: center; justify-content: center; gap: 28px; flex-wrap: wrap; }
+.pouchslots { display: flex; gap: 10px; padding: 12px 18px; border: 1px solid var(--gold-dim); border-radius: 14px;
+  background: linear-gradient(170deg, rgba(46,38,27,0.7), rgba(26,20,13,0.8)); min-height: 60px; align-items: center; }
+.stonedot.big { width: 34px; height: 34px; }
+.stonedot.big.empty { background: none; border: 2px dashed var(--edge); box-shadow: none; }
+.stonedot.big.pouchpick { position: relative; cursor: pointer; border: none; transition: transform 0.1s ease, box-shadow 0.12s ease; }
+.stonedot.big.pouchpick:hover { transform: translateY(-2px); box-shadow: 0 0 12px rgba(0,0,0,0.5); }
+.stonedot.big.pouchpick::after { content: '−'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: rgba(20,14,8,0.85); font-size: 20px; font-weight: 700; opacity: 0; transition: opacity 0.12s ease; }
+.stonedot.big.pouchpick:hover::after { opacity: 1; }
+.pouchpalette { display: flex; gap: 8px; }
+.palstone { padding: 6px; border-radius: 12px; border: 1px solid var(--edge); background: rgba(28,21,13,0.6);
+  cursor: pointer; transition: border-color 0.12s ease, transform 0.1s ease; line-height: 0; }
+.palstone:hover:not(.full) { border-color: var(--gold-bright); transform: translateY(-2px); }
+.palstone.full { opacity: 0.32; cursor: default; }
 .ldcards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .ldnote { font-size: 11px; font-style: italic; color: var(--parchment-dim); margin-top: 9px; text-align: center; }
 /* Debts (Chits) — compact summary on the loadout; full toggles in the picker. */

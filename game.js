@@ -5808,6 +5808,7 @@ let GAUNTLET = { active: false, rung: 1, cleared: 0, standing: 14, maxStanding: 
 
 // Starter pouches (4 stones each) — leans, not extremes. A run offers 3 at
 // random (shown as their composition, not named).
+const POUCH_SIZE = 4; // stones in your opening pouch — you build it, max 2 of a colour
 const CIRCUIT_POUCHES = [
   { key: 'locksmith', pouch: { white: 2, black: 1, red: 1 } },
   { key: 'ferryman', pouch: { blue: 2, black: 1, white: 1 } },
@@ -5844,9 +5845,10 @@ function startCircuit(seed) {
   // run; anything else (incl. a stray MouseEvent from a bare onclick) is fresh.
   circuitSeed = (typeof seed === 'number' && isFinite(seed)) ? (seed >>> 0) : freshSeed();
   seedRng(circuitSeed);
-  // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
-  const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
-  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5, false), picks: [], chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) }; // keep the chit selection across re-rolls; starter offer is re-rollable
+  // You compose your own opening: build a pouch (four stones, max two of a colour)
+  // and draft two effect cards from five. Only the CARD offer is seeded/random —
+  // the pouch is yours to lay out. Default to a balanced one-of-each.
+  circuitLoad = { pouch: { red: 1, white: 1, blue: 1, black: 1 }, offer: circuitOfferCards(5, false), picks: [], chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) };
   if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
   circuitIntro();
 }
@@ -5950,30 +5952,40 @@ function circuitLoadoutScreen() {
   const mc = $('circuitModal').querySelector('.modalcard');
   if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'Outfit for the Circuit';
-  $('circuitText').textContent = 'Pick a stone pouch, then add two effect cards to round out your deck — you start with one of each plain card.';
+  $('circuitText').textContent = 'Lay out your stone pouch, then draft two effect cards — you start with one of each plain card.';
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
 
-  // Pouch — shown as its four stones, no name.
+  // Pouch — YOU lay it out: four stones, at most two of a colour. Click a palette
+  // stone to add it, click a stone in the pouch to remove it. No random offers.
+  const pouch = circuitLoad.pouch, pTotal = STONE_KEYS.reduce((s, c) => s + (pouch[c] || 0), 0);
   const ps = document.createElement('div'); ps.className = 'ldsection';
-  ps.innerHTML = `<div class="ldhead">Your pouch — four stones, draw ${CIRCUIT.drawStones} a hand</div>`;
-  const prow = document.createElement('div'); prow.className = 'ldpouches';
-  for (const a of circuitLoad.pouchOffer) {
-    const b = document.createElement('button');
-    b.className = 'ldpouch' + (circuitLoad.pouch === a.key ? ' selected' : '');
-    b.title = stoneSummary(a.pouch);
-    const cluster = document.createElement('div'); cluster.className = 'ldstones';
-    for (const color of STONE_KEYS) for (let i = 0; i < (a.pouch[color] || 0); i++) {
-      const d = document.createElement('span'); d.className = `stonedot ${color}`;
-      d.title = `${STONES[color].name} — ${STONES[color].power}`;
-      cluster.appendChild(d);
-    }
-    b.appendChild(cluster);
-    b.onclick = () => { circuitLoad.pouch = a.key; circuitLoadoutScreen(); };
-    prow.appendChild(b);
+  ps.innerHTML = `<div class="ldhead">Your pouch — <b>${pTotal}/${POUCH_SIZE}</b> stones · draw ${CIRCUIT.drawStones} a hand, max two of a colour</div>`;
+  const pbuild = document.createElement('div'); pbuild.className = 'pouchbuild';
+  // The pouch itself — filled dots (click to remove) then empty slots.
+  const slots = document.createElement('div'); slots.className = 'pouchslots';
+  for (const color of STONE_KEYS) for (let i = 0; i < (pouch[color] || 0); i++) {
+    const d = document.createElement('button'); d.className = `stonedot big ${color} pouchpick`;
+    d.setAttribute('data-tip-head', STONES[color].name); d.setAttribute('data-tip', 'Click to return it to the palette'); d.setAttribute('data-tip-cls', 'tip-' + color);
+    d.onclick = () => { pouch[color]--; circuitLoadoutScreen(); };
+    slots.appendChild(d);
   }
-  ps.appendChild(prow);
+  for (let i = pTotal; i < POUCH_SIZE; i++) { const e = document.createElement('span'); e.className = 'stonedot big empty'; slots.appendChild(e); }
+  pbuild.appendChild(slots);
+  // Palette — one of each colour; dims a colour at two, and all when the pouch is full.
+  const pal = document.createElement('div'); pal.className = 'pouchpalette';
+  for (const color of STONE_KEYS) {
+    const cnt = pouch[color] || 0, full = cnt >= 2 || pTotal >= POUCH_SIZE;
+    const b = document.createElement('button'); b.className = 'palstone' + (full ? ' full' : '');
+    b.innerHTML = `<span class="stonedot big ${color}"></span>`;
+    b.setAttribute('data-tip-head', `${STONES[color].name} — ${STONES[color].power}`); b.setAttribute('data-tip', STONES[color].desc); b.setAttribute('data-tip-cls', 'tip-' + color);
+    if (!full) b.onclick = () => { pouch[color] = cnt + 1; circuitLoadoutScreen(); };
+    else b.disabled = true;
+    pal.appendChild(b);
+  }
+  pbuild.appendChild(pal);
+  ps.appendChild(pbuild);
   body.appendChild(ps);
 
   // Cards — real card visuals with their effect; click two to add (highlight).
@@ -6036,10 +6048,12 @@ function circuitLoadoutScreen() {
   }
   body.appendChild(ds);
 
+  const pouchFull = STONE_KEYS.reduce((s, c) => s + (circuitLoad.pouch[c] || 0), 0) === POUCH_SIZE;
+  const ready = pouchFull && circuitLoad.picks.length === 2;
   const next = $('circuitNext'); next.style.display = '';
-  next.textContent = val > 0 ? `Begin — ${val} chit${val === 1 ? '' : 's'} ›` : 'Begin the Circuit ›';
-  next.disabled = circuitLoad.picks.length !== 2;
-  next.onclick = () => { if (circuitLoad.picks.length === 2) circuitBegin(); };
+  next.textContent = !ready ? (!pouchFull ? 'Fill your pouch…' : 'Pick two cards…') : (val > 0 ? `Begin — ${val} chit${val === 1 ? '' : 's'} ›` : 'Begin the Circuit ›');
+  next.disabled = !ready;
+  next.onclick = () => { if (ready) circuitBegin(); };
   $('circuitModal').classList.add('open');
 }
 
@@ -6158,7 +6172,7 @@ function renderRailView(view) {
 function chitIsUnlockedKey(k) { const c = chitByKey(k); return !!c && chitIsUnlocked(c); }
 
 function circuitBegin() {
-  const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
+  const pouch = Object.assign({}, circuitLoad.pouch); // the pouch you built (four stones)
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
   circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
   // Chits: the difficulty debts carried into this run. Only ones still unlocked
@@ -6167,7 +6181,7 @@ function circuitBegin() {
   const tune = computeChitTune(chitKeys);
   const start = tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding;
   const startMax = tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding;
-  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: start, maxStanding: startMax, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false, chits: chitKeys, chitValue: chitValue(chitKeys), tune };
+  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: start, maxStanding: startMax, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch, pouchName: stoneSummary(pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false, chits: chitKeys, chitValue: chitValue(chitKeys), tune };
   GAUNTLET.map = buildAct(1);
   circuitActIntro(1, circuitToMap); // open the run on the Act I cinematic
 }
