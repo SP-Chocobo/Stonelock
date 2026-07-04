@@ -3395,17 +3395,41 @@ const KB = {
   enabled() { return typeof document !== 'undefined' && inputMode() === 'keyboard'; },
   // A live match board is showing and no blocking modal sits over it.
   liveBoard() { return typeof document !== 'undefined' && INGAME && G && !G.over && !document.querySelector('.modal.open'); },
+  // The surface the cursor drives right now: the topmost open modal, else the
+  // in-match Menu popup, else the title screen, else the live match board. The
+  // ring + Enter/Space layer works identically on all of them — it only calls the
+  // focused element's own .click(), so no screen duplicates any game logic. This
+  // is what carries keyboard play THROUGH a run: setup, the map, showdowns,
+  // rewards, shops, events, and the pause menu, not just the board.
+  surface() {
+    if (typeof document === 'undefined') return null;
+    const modals = Array.from(document.querySelectorAll('.modal.open'));
+    if (modals.length) return { kind: 'modal', root: modals[modals.length - 1] };
+    const menu = document.getElementById('menuPop');
+    if (menu && menu.offsetParent !== null) return { kind: 'menu', root: menu };
+    const title = document.getElementById('titleScreen');
+    if (title && !title.classList.contains('hidden')) return { kind: 'title', root: title };
+    if (INGAME && G && !G.over) return { kind: 'board', root: document };
+    return null;
+  },
   gather() {
-    if (!this.liveBoard()) return [];
-    const sel = '#hand .targetable, #trayStones .targetable, [id^="board-"] .targetable, #actionBar button:not([disabled])';
-    return Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
+    const s = this.surface();
+    if (!s) return [];
+    if (s.kind === 'board') {
+      const sel = '#hand .targetable, #trayStones .targetable, [id^="board-"] .targetable, #actionBar button:not([disabled])';
+      return Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
+    }
+    // Modal / menu / title: every visible, enabled control on that surface.
+    return Array.from(s.root.querySelectorAll('button:not([disabled]), .targetable'))
+      .filter(el => el.offsetParent !== null && !el.disabled);
   },
   picks() {
     return Array.from(document.querySelectorAll('#hand .targetable, #trayStones .targetable')).filter(el => el.offsetParent !== null);
   },
   badge() {
     document.querySelectorAll('.kbkey').forEach(b => b.remove());
-    if (!this.enabled()) return;
+    const s = this.surface();
+    if (!this.enabled() || !s || s.kind !== 'board') return; // 1-9 badges label the hand/tray only
     this.picks().slice(0, 9).forEach((el, i) => {
       const b = document.createElement('span'); b.className = 'kbkey'; b.textContent = i + 1;
       el.appendChild(b);
@@ -3424,12 +3448,17 @@ const KB = {
   refresh() {
     if (!this.enabled()) { this.clear(); return; }
     this.clearRing();
+    const s = this.surface();
     this.els = this.gather();
     this.badge();
     // Keep the ring on the same element across a re-render if it survives; else
-    // seat it on the first pick (hand/tray), falling back to the first focusable.
+    // seat it sensibly for the surface: the hand/tray on the board; a reachable
+    // map node or the primary/default control on a modal, menu, or the title.
     let i = this.key ? this.els.indexOf(this.key) : -1;
-    if (i < 0) { const fp = this.els.find(el => el.closest('#hand, #trayStones')); i = fp ? this.els.indexOf(fp) : (this.els.length ? 0 : -1); }
+    if (i < 0) {
+      if (s && s.kind === 'board') { const fp = this.els.find(el => el.closest('#hand, #trayStones')); i = fp ? this.els.indexOf(fp) : (this.els.length ? 0 : -1); }
+      else { const seat = this.els.find(el => el.classList.contains('primary') || el.classList.contains('reach') || el.classList.contains('here')); i = seat ? this.els.indexOf(seat) : (this.els.length ? 0 : -1); }
+    }
     this.idx = i; this.applyRing();
   },
   move(dx, dy) {
@@ -3441,9 +3470,15 @@ const KB = {
     if (n >= 0) { this.idx = n; this.applyRing(); this.els[this.idx].scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
   },
   activate() { if (this.idx >= 0 && this.idx < this.els.length) this.els[this.idx].click(); },
-  // Enter prefers confirming — the primary action button if one is live, else it
-  // activates the focused element (so Enter on a target still applies the stone).
-  confirm() { const prim = document.querySelector('#actionBar button.primary:not([disabled])'); if (prim) prim.click(); else this.activate(); },
+  // On the board, Enter prefers confirming the primary action (Deploy/Place),
+  // falling back to activating the focused target. On menus/modals it activates
+  // whatever is ringed, so arrow-then-Enter picks any option.
+  confirm() {
+    const s = this.surface();
+    if (s && s.kind !== 'board') { this.activate(); return; }
+    const prim = document.querySelector('#actionBar button.primary:not([disabled])');
+    if (prim) prim.click(); else this.activate();
+  },
   cancel() {
     const back = Array.from(document.querySelectorAll('#actionBar button:not([disabled])')).find(b => /‹|back|cancel/i.test(b.textContent));
     if (back) { back.click(); return true; } return false;
@@ -3454,9 +3489,12 @@ const KB = {
     el.click();
   },
   onKey(e) {
-    if (!this.enabled() || !this.liveBoard()) return;
+    if (!this.enabled()) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const s = this.surface();
+    if (!s) return;
+    if (!this.els.length) this.refresh();
     switch (e.key) {
       case 'ArrowLeft':  e.preventDefault(); this.move(-1, 0); break;
       case 'ArrowRight': e.preventDefault(); this.move(1, 0); break;
@@ -3464,11 +3502,35 @@ const KB = {
       case 'ArrowDown':  e.preventDefault(); this.move(0, 1); break;
       case ' ': case 'Spacebar': e.preventDefault(); this.activate(); break;
       case 'Enter': e.preventDefault(); this.confirm(); break;
-      case 'Escape': if (this.cancel()) e.preventDefault(); break;
-      default: if (/^[1-9]$/.test(e.key)) { e.preventDefault(); this.hotkey(+e.key); }
+      // Escape is handled globally (onEscapeKey) so it works in mouse mode too.
+      default: if (s.kind === 'board' && /^[1-9]$/.test(e.key)) { e.preventDefault(); this.hotkey(+e.key); }
     }
   },
 };
+
+// Escape, for EVERY input mode (it's the universal "dismiss"): close the topmost
+// modal that offers a Close/Back, then the Menu popup; on a live board, first
+// back out of a pending stone/target, and — in keyboard play — open the Menu as
+// a pause. A modal with no Close/Back affordance (a forced reward/loadout choice)
+// is deliberately left alone.
+function dismissButton(root) {
+  const btns = Array.from(root.querySelectorAll('button:not([disabled])')).filter(b => b.offsetParent !== null);
+  // Only benign dismissals — never a destructive "To title" / "Quit" that would
+  // abandon a run, and never a forced choice (those carry no Close/Back).
+  return btns.find(b => /^(×|✕|‹|close\b|back\b|resume\b|dismiss\b|keep my hand)/i.test((b.textContent || '').trim())) || null;
+}
+function menuPopOpen() { const p = (typeof document !== 'undefined') && document.getElementById('menuPop'); return !!(p && p.style.display !== 'none' && p.offsetParent !== null); }
+function toggleMenuPop(open) { const b = document.getElementById('menuBtn'); if (!b) return; if (open === menuPopOpen()) return; b.click(); }
+function onEscapeKey(e) {
+  if (e.key !== 'Escape' || typeof document === 'undefined') return;
+  const modals = Array.from(document.querySelectorAll('.modal.open'));
+  if (modals.length) { const btn = dismissButton(modals[modals.length - 1]); if (btn) { e.preventDefault(); btn.click(); } return; }
+  if (menuPopOpen()) { e.preventDefault(); toggleMenuPop(false); return; }
+  if (INGAME && G && !G.over) {
+    if (KB.cancel()) { e.preventDefault(); return; }
+    if (inputMode() === 'keyboard') { e.preventDefault(); toggleMenuPop(true); }
+  }
+}
 
 /* ============================================================
    TITLE SCREEN, QUIT, TUTORIAL
@@ -6552,15 +6614,10 @@ function showMapPeek() {
   const track = buildMapTrack(m, g.act, false, hereKey);
   grid.appendChild(track);
   body.appendChild(grid);
-  $('mapPeekClose').onclick = () => closeMapPeek();
+  $('mapPeekClose').onclick = () => closeModal('mapPeekModal');
   $('mapPeekModal').classList.add('open');
-  // Esc closes the peek — a light, self-removing listener so it never fights the
-  // rest of the app once the overlay is gone.
-  document.addEventListener('keydown', mapPeekEsc);
   requestAnimationFrame(() => { drawMapEdges(track, m); fitMapToWidth(grid, track); ensureCurrentNodeVisible(grid, track); });
 }
-function mapPeekEsc(e) { if (e.key === 'Escape') closeMapPeek(); }
-function closeMapPeek() { document.removeEventListener('keydown', mapPeekEsc); closeModal('mapPeekModal'); }
 
 function circuitMapScreen() {
   if (typeof document === 'undefined') return;
@@ -8452,6 +8509,29 @@ function boot() {
     b.onclick = () => { setInputMode(b.dataset.v); syncInput(); };
   });
   window.addEventListener('keydown', e => KB.onKey(e));
+  window.addEventListener('keydown', onEscapeKey); // universal dismiss (all input modes)
+  // Keyboard play covers whatever surface is up (modal / menu / title / board),
+  // but only render() re-seats the ring — and screens swap in without a render
+  // (title submenus, the map, loadout/shop/reward views, modal tabs) by toggling
+  // child display, not any one attribute. So watch the whole tree and re-seat the
+  // cursor a frame after anything changes. The observer disconnects around KB's
+  // own ring/badge writes so those can't re-trigger it (no feedback loop).
+  if (window.MutationObserver) {
+    const KBOBS = { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'disabled'] };
+    let queued = false;
+    const kbObserver = new MutationObserver(() => {
+      if (queued || !KB.enabled()) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        if (!KB.enabled()) return;
+        kbObserver.disconnect();
+        KB.refresh();
+        kbObserver.observe(document.body, KBOBS);
+      });
+    });
+    kbObserver.observe(document.body, KBOBS);
+  }
   applyInputMode();
   const openAudio = () => { syncAudio(); syncDialogue(); syncInput(); $('audioModal').classList.add('open'); };
   $('audioBtn').onclick = () => { menuPopSet(false); openAudio(); };
