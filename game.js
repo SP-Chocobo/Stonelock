@@ -5859,7 +5859,6 @@ function circuitIntro() {
   // empty <p> collapses via CSS) so the banner reads as the front of the card.
   $('circuitTitle').textContent = '';
   $('circuitText').textContent = '';
-  const rec = circuitRecords(), nCharms = Object.keys(CHARMS).length, seen = Object.keys(rec.seen).length;
   const isDaily = (circuitSeed >>> 0) === dailySeed();
   const stats = $('circuitStats'); stats.className = 'circuitintro'; stats.innerHTML = '';
 
@@ -5875,15 +5874,8 @@ function circuitIntro() {
   lede.textContent = 'Outfit a stone pouch and a deck, then pick your path through each act. Win fights for coin and spoils, draft charms, upgrade stones, and spend at The Fence as you climb.';
   stats.appendChild(lede);
 
-  // Best-results strip.
-  const led = document.createElement('div'); led.className = 'circuitledger';
-  led.innerHTML =
-    `<div class="cl-stat"><span class="cl-big">${rec.best.tables}</span><span class="cl-lab">best nodes</span></div>` +
-    `<div class="cl-stat"><span class="cl-big">${rec.best.score}</span><span class="cl-lab">best score</span></div>` +
-    `<div class="cl-stat"><span class="cl-big">${seen}/${nCharms}</span><span class="cl-lab">charms found</span></div>`;
-  // Records is its own thing — a viewer, not a seed control — so it rides with the
-  // best-results strip it summarizes, not the seed bar.
-  stats.appendChild(led);
+  // Records & Compendium holds the best-results stats (nodes / score / charms) and
+  // the archives — so the intro shows one button, not a duplicate stats box.
   const recRow = document.createElement('div'); recRow.className = 'introrecrow';
   const recordsBtn = document.createElement('button'); recordsBtn.className = 'btn introrecbtn'; recordsBtn.textContent = '📖 Records & Compendium'; recordsBtn.onclick = showCircuitRecords;
   recRow.appendChild(recordsBtn);
