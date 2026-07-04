@@ -6049,6 +6049,8 @@ function openChitMenu() {
   if (typeof document === 'undefined') return;
   renderChitMenu();
   $('chitDone').onclick = () => { closeModal('chitModal'); circuitLoadoutScreen(); };
+  const ab = $('chitAlpha');
+  if (ab) ab.onclick = () => { setAlphaUnlock(!alphaUnlock()); renderChitMenu(); }; // testing: open/close every debt live
   $('chitModal').classList.add('open');
 }
 function renderChitMenu() {
@@ -6061,6 +6063,8 @@ function renderChitMenu() {
     (slotAt != null ? ` · clear a <b>${slotAt}-chit</b> run to earn a slot` : '') +
     (gate != null ? ` · a <b>${gate}+</b> run unlocks more Debts` : '') +
     `.`;
+  const ab = $('chitAlpha');
+  if (ab) { const on = chitAlpha(); ab.textContent = (on ? '✓ Alpha — all unlocked' : 'Alpha — unlock all'); ab.classList.toggle('selected', on); }
   const body = $('chitBody'); body.innerHTML = '';
   const row = document.createElement('div'); row.className = 'lddebtrow';
   // Show EVERY debt — locked ones greyed with how to earn them, so the road ahead
