@@ -1031,6 +1031,8 @@ function isTwoHandFoe(seat) { return isMagistrate(seat) || isCoopFoe(seat); }
 // you can't lean on a favourite. Also folded into the Crucible.
 function isQuartermaster() { return G.mode === 'raid' && G.raidBoss === 'quartermaster'; }
 function deniedColor() { return (isQuartermaster() || isCrucible()) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
+// Crucible's Mark chit: the colour rationed from the player this hand (cycling).
+function circuitRationColor() { return (G && G.gauntlet && ccfg('ration')) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
 // The Crucible keeps the deep DRAW (9 in hand) but fields a LEAN footprint — you
 // see lots, commit few — so the party can't out-score the boss on raw selection.
 function footprintOf(seat) { return isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint); }
@@ -1076,7 +1078,7 @@ function startHand() {
     // The Circuit: each seat with a build (you AND the foe) draws a working set
     // of stones from its own Pouch each hand — a depleting stone deck (draw →
     // discard → reshuffle when dry), so thinning and added stones shift the draw.
-    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], CIRCUIT.drawStones + (p === 0 ? charmVal('drawStones') : 0) + (isCoopFoe(p) ? 2 : 0));
+    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], ccfg('drawStones') + (p === 0 ? charmVal('drawStones') : 0) + (isCoopFoe(p) ? 2 : 0));
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands && !(p === 0 && G.gauntlet && charmVal('noExhaust'))) {
@@ -1088,6 +1090,9 @@ function startHand() {
     // The Quartermaster (and the super boss) lock away one colour from all this hand.
     const denied = deniedColor();
     if (denied) pool[denied] = 0;
+    // Crucible's Mark (prestige chit): rations away one of YOUR colours each hand.
+    const chitDenied = (p === 0) ? circuitRationColor() : null;
+    if (chitDenied) for (const key of Object.keys(pool)) if (stoneBase(key) === chitDenied) pool[key] = 0;
     G.players.push({
       idx: p,
       hand: [],
@@ -1314,7 +1319,7 @@ function startHand() {
     // telegraphing it face-up, no separate thinning. Commit cards, then place
     // your stones directly (best CIRCUIT.placeStones of what you drew).
     G.armed = true;
-    const rounds = Math.min(CIRCUIT.placeStones, CIRCUIT.drawStones);
+    const rounds = Math.min(CIRCUIT.placeStones, ccfg('drawStones'));
     G.queue = [
       dealNote,
       { t: 'phase', label: 'The Foundation', note: 'Commit two cards face-up.' },
@@ -2359,7 +2364,7 @@ const CHARMS = {
 // board/score levers only; the economy/event levers are the player's alone.
 function charmsOf(seat) { const g = (typeof GAUNTLET !== 'undefined') && GAUNTLET; if (!g) return []; return (seat === 0 ? g.charms : seat === 1 ? g.foeCharms : null) || []; }
 // The foe's per-card board read for the current act (Foe Menace — see CIRCUIT).
-function foeActBuff() { if (!G || !G.gauntlet || typeof GAUNTLET === 'undefined') return 0; return (CIRCUIT.foeMenace || [])[(GAUNTLET.act || 1) - 1] || 0; }
+function foeActBuff() { if (!G || !G.gauntlet || typeof GAUNTLET === 'undefined') return 0; return (ccfg('foeMenace') || [])[(GAUNTLET.act || 1) - 1] || 0; }
 function playerCharms() { return charmsOf(0); }
 function charmHas(key) { return playerCharms().indexOf(key) >= 0; }
 function charmValSeat(field, seat) { return charmsOf(seat).reduce((s, k) => { const v = CHARMS[k] && CHARMS[k][field]; return s + (typeof v === 'number' ? v : 0); }, 0); }
@@ -3115,9 +3120,24 @@ function coopShowdown(sel) {
 
 function nextHand() {
   closeModal('showdownModal');
+  circuitLongNightBleed(); // The Long Night (chit): a dragged-out table costs Standing
   if (G.over) { if (G.gauntlet) { circuitEnd(); return; } showVictory(); return; }
   G.dealer = (G.dealer + 1) % G.nPlayers; // the Rule of Rotation
   startHand();
+}
+// The Long Night chit: once a table runs past hand 8, each further hand costs 1
+// Standing before it's dealt — you cannot grind a hard table forever. Uses the
+// same ground-out path as a lost hand, so it ends the run cleanly if it bites.
+function circuitLongNightBleed() {
+  if (!G || !G.gauntlet || G.over || !ccfg('longNight')) return;
+  const g = GAUNTLET;
+  if (G.handNum < 8) return; // about to deal hand 9+ (handNum is the hand just played)
+  g.standing = Math.max(0, g.standing - 1);
+  log(`The Long Night — the table has dragged on; your Standing slips to ${g.standing}/${g.maxStanding}.`, 'ai');
+  if (typeof announce === 'function') announce('The Long Night bleeds 1 Standing', 'black', 0);
+  if (g.standing <= 0 && charmHas('secondwind') && !g.secondWindUsed) { g.secondWindUsed = true; g.standing = 1; }
+  if (g.standing <= 0) { g.groundOut = true; G.over = true; }
+  if (typeof updateCircuitHud === 'function') updateCircuitHud();
 }
 
 /* ============================================================
@@ -4776,9 +4796,9 @@ function showCoopShowdown(d, review) {
     </div>`;
   const g = GAUNTLET;
   const verdict = diff > 0
-    ? `Your side fields <b>${teamScore}</b> to ${fn}'s <b>${foe.score}</b> — you press their Standing by <b>${Math.min(diff, CIRCUIT.dmgCap)}</b>${g.foeHp != null ? ` (to ${g.foeHp}/${g.foeMax})` : ''}.`
+    ? `Your side fields <b>${teamScore}</b> to ${fn}'s <b>${foe.score}</b> — you press their Standing by <b>${Math.min(diff, ccfg('dmgCap'))}</b>${g.foeHp != null ? ` (to ${g.foeHp}/${g.foeMax})` : ''}.`
     : diff < 0
-      ? `${fn} fields <b>${foe.score}</b> across two hands to your side's <b>${teamScore}</b>, and presses you <b>${Math.min(-diff, CIRCUIT.dmgCap)}</b>${g.standing != null ? ` (Standing ${g.standing}/${g.maxStanding})` : ''}.`
+      ? `${fn} fields <b>${foe.score}</b> across two hands to your side's <b>${teamScore}</b>, and presses you <b>${Math.min(-diff, ccfg('dmgCap'))}</b>${g.standing != null ? ` (Standing ${g.standing}/${g.maxStanding})` : ''}.`
       : `Dead level at <b>${teamScore}</b> — ${fn} holds. Nothing moves.`;
   $('showdownBody').innerHTML =
     `<div class="raidteam"><div class="raidlabel">Your side — ${teamScore} combined</div><div class="showgrid">${partyHtml}</div></div>${foeHtml}<div class="verdict">${verdict}</div>`;
@@ -5746,7 +5766,7 @@ function circuitOfferCards(n, reveal = true) {
   if (reveal) out.forEach(c => { if (c.fx) markCharmSeen('fx:' + c.fx); });
   return out;
 }
-let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [] };
+let circuitLoad = { pouch: null, offer: [], pouchOffer: [], picks: [], chits: [] };
 function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
 let circuitSeed = 0;
@@ -5761,7 +5781,7 @@ function startCircuit(seed) {
   seedRng(circuitSeed);
   // Each run deals a fresh hand of options: 3 random pouches + 5 random card types.
   const pouchOffer = shuffle(CIRCUIT_POUCHES.slice()).slice(0, 3);
-  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5, false), picks: [] }; // starter offer is re-rollable — don't credit discovery here
+  circuitLoad = { pouch: pouchOffer[0].key, pouchOffer, offer: circuitOfferCards(5, false), picks: [], chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) }; // keep the chit selection across re-rolls; starter offer is re-rollable
   if (typeof document === 'undefined') { circuitLoad.picks = circuitLoad.offer.slice(0, 2); circuitBegin(); return; } // headless: auto-outfit
   circuitIntro();
 }
@@ -5938,7 +5958,13 @@ function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
   circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
-  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: CIRCUIT.startStanding, maxStanding: CIRCUIT.maxStanding, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false };
+  // Chits: the difficulty debts carried into this run. Only ones still unlocked
+  // count. The tune overlays CIRCUIT via ccfg(); start Standing reads it up front.
+  const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k));
+  const tune = computeChitTune(chitKeys);
+  const start = tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding;
+  const startMax = tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding;
+  GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: start, maxStanding: startMax, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch: arch.pouch, pouchName: stoneSummary(arch.pouch), charms: [], foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false, chits: chitKeys, chitValue: chitValue(chitKeys), tune };
   GAUNTLET.map = buildAct(1);
   circuitActIntro(1, circuitToMap); // open the run on the Act I cinematic
 }
@@ -6013,6 +6039,79 @@ const CIRCUIT_MIN_FIGHTS = 4;
 // (a 6-cap is infeasible on rare dense graphs); it also widens the spread so a
 // map offers a chill 4-fight line and a greedy 7-fight line side by side.
 const CIRCUIT_MAX_FIGHTS = 7;
+
+/* ============================================================
+   CHITS — hybrid difficulty modifiers (the end-game ladder).
+   Each Chit is a named DEBT you take into a run, worth some chits (its weight).
+   A run's difficulty = the sum of its active chits. Clearing a full run at a
+   given chit value UNLOCKS more debts (gates below) — a Halo-skulls / Wildfrost-
+   bells hybrid: you earn the pool in order, then play any subset you've earned.
+   Each modifier tweaks exactly ONE lever, applied through the ccfg() layer so the
+   base game is untouched when no chits are active. Weights/gates tune freely.
+   ============================================================ */
+const CHIT_KEY = 'stonelock-chits-best'; // highest chit value of a completed run (-1 = never)
+// Passing gate g (bestClearedChits >= g) unlocks another PAIR of debts, in list
+// order. gates[0]=0 → clearing the base Circuit once opens the first two.
+const CHIT_GATES = [0, 2, 4, 7, 10];
+// Each: tune(t) mutates an effective-config object (t) layered over CIRCUIT.
+const CIRCUIT_CHITS = [
+  { key: 'loaded',  name: 'Loaded Table',    chits: 1, blurb: 'Every foe reads its board +1 in each act — they win more hands.', tune: t => { t.foeMenace = (t.foeMenace || CIRCUIT.foeMenace).map(v => v + 1); } },
+  { key: 'thin',    name: 'Thin Footing',    chits: 1, blurb: 'Start the run with less Standing (20, not 24).', tune: t => { t.startStanding = 20; t.maxStanding = 20; } },
+  { key: 'steep',   name: 'Steep Grade',     chits: 1, blurb: 'Foe Standing climbs faster the deeper you go.', tune: t => { t.foeStep = 1.7; } },
+  { key: 'costly',  name: 'Costly Road',     chits: 1, blurb: 'Coin comes slower — every purse is lighter.', tune: t => { t.coinMult = 0.6; } },
+  { key: 'purse',   name: 'Short Purse',     chits: 2, blurb: 'Draw one fewer stone each hand (2, not 3).', tune: t => { t.drawStones = 2; } },
+  { key: 'lean',    name: 'Lean Season',     chits: 2, blurb: 'Respite between tables heals far less (4, not 7).', tune: t => { t.heal = 4; } },
+  { key: 'masters', name: 'Grimmer Masters', chits: 2, blurb: 'Act bosses stand far tougher (Standing ×1.85).', tune: t => { t.bossHpMult = 1.85; } },
+  { key: 'noquarter', name: 'No Quarter',    chits: 2, blurb: 'A lost hand presses harder — the damage cap rises to 8.', tune: t => { t.dmgCap = 8; } },
+  { key: 'marked',  name: 'Marked Cards',    chits: 2, blurb: 'The road turns mean — more Elites, fewer Reposes.', tune: t => { t.eliteBias = true; } },
+  { key: 'longnight', name: 'The Long Night', chits: 3, blurb: 'Drag a table past hand 8 and your Standing bleeds 1 each hand.', tune: t => { t.longNight = true; } },
+  // Prestige debt — NOT on the value ladder. Earned by breaking the campaign
+  // Crucible (the hardest boss), it brings that boss's own cruelty to the Circuit:
+  // one of YOUR stone colours locked away every hand. Brutal, and worth a lot.
+  { key: 'ration', name: "Crucible's Mark", chits: 3, req: () => crucibleBeaten(), blurb: 'Each hand one of YOUR stone colours is locked away — cycling red → white → blue → black. Never lean on a favourite. (Earned by breaking the campaign Crucible.)', tune: t => { t.ration = true; } },
+];
+function crucibleBeaten() { try { return [...campaignBeaten()].some(k => k.indexOf('crucible-') === 0); } catch (e) { return false; } }
+function chitByKey(k) { return CIRCUIT_CHITS.find(c => c.key === k) || null; }
+// The value ladder covers the plain debts; prestige debts (req) unlock on their
+// own condition and never affect the gate count.
+function gatedChits() { return CIRCUIT_CHITS.filter(c => !c.req); }
+function bonusChits() { return CIRCUIT_CHITS.filter(c => c.req && (() => { try { return c.req(); } catch (e) { return false; } })()); }
+function chitsBestCleared() { const v = parseInt(ls.get(CHIT_KEY), 10); return isNaN(v) ? -1 : v; }
+// How many ladder debts are unlocked: two per gate passed by the best cleared value.
+function chitsUnlockedCount() {
+  const best = chitsBestCleared();
+  let passed = 0; for (const g of CHIT_GATES) if (best >= g) passed++;
+  return Math.min(gatedChits().length, passed * 2);
+}
+function chitsUnlocked() { return gatedChits().slice(0, chitsUnlockedCount()).concat(bonusChits()); }
+// The next value you must CLEAR a run at to unlock more ladder debts (null when
+// the whole ladder is out; a prestige debt has no gate).
+function chitsNextGate() {
+  const best = chitsBestCleared();
+  if (chitsUnlockedCount() >= gatedChits().length) return null;
+  for (const g of CHIT_GATES) if (best < g) return g;
+  return null;
+}
+// Record a cleared run's chit value; raises the unlock ceiling. Returns how many
+// NEW debts it opened (for a spoils callout).
+function recordChitClear(value) {
+  const before = chitsUnlockedCount();
+  if (value > chitsBestCleared()) ls.set(CHIT_KEY, String(value));
+  return Math.max(0, chitsUnlockedCount() - before);
+}
+function chitValue(keys) { return (keys || []).reduce((s, k) => { const c = chitByKey(k); return s + (c ? c.chits : 0); }, 0); }
+// Build the effective-config overlay from a set of active chit keys.
+function computeChitTune(keys) {
+  const t = {};
+  for (const k of (keys || [])) { const c = chitByKey(k); if (c && c.tune) c.tune(t); }
+  return t;
+}
+// The one read layer: a tuned value if this run has one, else the base constant.
+function ccfg(key) {
+  const t = (typeof GAUNTLET !== 'undefined' && GAUNTLET && GAUNTLET.tune) ? GAUNTLET.tune : null;
+  return (t && key in t) ? t[key] : CIRCUIT[key];
+}
+
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
 function laneFor(count, i) {
   if (count <= 1) return Math.floor(MAP_LANES / 2);
@@ -6318,9 +6417,13 @@ function actVenues(act) { return CIRCUIT_ACT_VENUES[act] || CIRCUIT_ACT_VENUES[3
 // Elites), Act II squeezes (more Elites, fewer Reposes), Act III leans on
 // strange Encounters. (Foe Standing already ramps across acts via the tier.)
 function actTuning(act) {
-  if (act === 1) return { elite: 0.12, event: 0.28, repose: 0.10, reposes: 2 };
-  if (act === 2) return { elite: 0.28, event: 0.24, repose: 0.06, reposes: 1 };
-  return { elite: 0.24, event: 0.34, repose: 0.06, reposes: 1 }; // act 3+
+  let t;
+  if (act === 1) t = { elite: 0.12, event: 0.28, repose: 0.10, reposes: 2 };
+  else if (act === 2) t = { elite: 0.28, event: 0.24, repose: 0.06, reposes: 1 };
+  else t = { elite: 0.24, event: 0.34, repose: 0.06, reposes: 1 }; // act 3+
+  // Marked Cards (chit): meaner maps — more Elites, one fewer guaranteed Repose.
+  if (ccfg('eliteBias')) { t = Object.assign({}, t, { elite: Math.min(0.5, t.elite + 0.15), repose: Math.max(0, t.repose - 0.03), reposes: Math.max(0, t.reposes - 1) }); }
+  return t;
 }
 
 /* ---- Depleting decks: both the card deck and the stone pouch are draw piles
@@ -6453,9 +6556,9 @@ function circuitSetupFight(node) {
   g.opp = node.foe;
   const tier = nodeTier(g.act, node.col);
   const vp = actVenues(g.act); g.venue = vp[node.col % vp.length]; // venues are scoped to the act's region
-  let max = Math.round(CIRCUIT.foeBase + tier * CIRCUIT.foeStep); // whole-number Standing — the step is fractional
-  if (node.type === 'elite') max = Math.round(max * CIRCUIT.eliteHpMult);
-  if (node.type === 'boss') max = Math.round(max * CIRCUIT.bossHpMult);
+  let max = Math.round(ccfg('foeBase') + tier * ccfg('foeStep')); // whole-number Standing — the step is fractional
+  if (node.type === 'elite') max = Math.round(max * ccfg('eliteHpMult'));
+  if (node.type === 'boss') max = Math.round(max * ccfg('bossHpMult'));
   g.foeMax = max; g.foeHp = max;
   g.foeCharms = node.foeCharms || [];
   const build = circuitBuildFor(node.foe);
@@ -6481,7 +6584,7 @@ function circuitAfterNode() {
   if (wasBoss) {
     if (g.act >= CIRCUIT.acts) { circuitVictory(); return; }
     g.act++; g.map = buildAct(g.act);
-    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal); // a breather between acts
+    g.standing = Math.min(g.maxStanding, g.standing + ccfg('heal')); // a breather between acts
     g.secondWindUsed = false; // Second Wind recharges each act
     circuitActIntro(g.act, circuitToMap); return; // cinematic open on the new act
   }
@@ -6544,9 +6647,9 @@ function circuitWildImbueScreen() {
 
 // A node's foe Standing (for the map preview).
 function nodeFoeMax(node) {
-  let m = Math.round(CIRCUIT.foeBase + nodeTier(GAUNTLET.act, node.col) * CIRCUIT.foeStep);
-  if (node.type === 'elite') m = Math.round(m * CIRCUIT.eliteHpMult);
-  if (node.type === 'boss') m = Math.round(m * CIRCUIT.bossHpMult);
+  let m = Math.round(ccfg('foeBase') + nodeTier(GAUNTLET.act, node.col) * ccfg('foeStep'));
+  if (node.type === 'elite') m = Math.round(m * ccfg('eliteHpMult'));
+  if (node.type === 'boss') m = Math.round(m * ccfg('bossHpMult'));
   return m;
 }
 // The road ahead reads only by KIND (icon), with a legend + hover tip naming it —
@@ -6752,13 +6855,13 @@ function circuitHandResult(winner, diff) {
   if (!g.active || !winner || diff <= 0) return;
   if (winner.members.includes(0)) {
     const press = diff + ((charmHas('tithe') && diff >= 4) ? 1 : 0); // Tithe presses a big win harder
-    const dmg = Math.min(press, CIRCUIT.dmgCap); // shaped: one hand can't decide a table outright
+    const dmg = Math.min(press, ccfg('dmgCap')); // shaped: one hand can't decide a table outright
     g.foeHp = Math.max(0, g.foeHp - dmg);
     log(`The Circuit — you press ${g.opp} for ${dmg} (Standing ${g.foeHp}/${g.foeMax} left).`, 'you');
     charmFire('handWon');
     if (g.foeHp <= 0) { g.tableCleared = true; G.over = true; }
   } else {
-    const dmg = Math.max(1, Math.min(diff, CIRCUIT.dmgCap) - charmVal('dmgReduce')); // Bulwark softens a lost hand (min 1)
+    const dmg = Math.max(1, Math.min(diff, ccfg('dmgCap')) - charmVal('dmgReduce')); // Bulwark softens a lost hand (min 1)
     g.standing = Math.max(0, g.standing - dmg);
     log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
     charmFire('handLost');
@@ -6781,8 +6884,9 @@ function circuitEnd() {
     g.cleared++;
     const tier = nodeTier(g.act, node.col || 0);
     g.score += 10 + tier + charmVal('scoreBonus');
-    g.standing = Math.min(g.maxStanding, g.standing + CIRCUIT.heal + charmVal('healBonus'));
-    let coinWon = node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel);
+    g.standing = Math.min(g.maxStanding, g.standing + ccfg('heal') + charmVal('healBonus'));
+    const coinMult = ccfg('coinMult') || 1; // Costly Road (chit) lightens every purse
+    let coinWon = Math.round((node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel)) * coinMult);
     g.coin += coinWon;
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances.
@@ -7629,7 +7733,7 @@ function circuitSetupCoopFight(node, ally, foe) {
   g.opp = foe; g.ally = ally; if (node) { node.ally = ally; node.coop = true; }
   const tier = nodeTier(g.act, node.col);
   const vp = actVenues(g.act); g.venue = vp[node.col % vp.length];
-  let max = CIRCUIT.foeBase + tier * CIRCUIT.foeStep;
+  let max = ccfg('foeBase') + tier * ccfg('foeStep');
   max = Math.round(max * CIRCUIT.coopFoeMult);   // a lone foe braced against two of you
   g.foeMax = max; g.foeHp = max;
   g.foeCharms = COOP_FOE_CHARMS.slice();          // scoring leverage (Triads/Pairs), not theft
@@ -8339,7 +8443,7 @@ function circuitScreen(over) {
     SFX.play('win');
     const nv = CIRCUIT.venues[(g.rung - 1) % CIRCUIT.venues.length];
     title.textContent = `Table ${g.cleared} cleared`;
-    text.textContent = `Standing restored (+${CIRCUIT.heal}). Look ahead — the next table is set.`;
+    text.textContent = `Standing restored (+${ccfg('heal')}). Look ahead — the next table is set.`;
     stats.innerHTML = `<div class="unlockhead">The Circuit — up next</div>` +
       `<div class="unlockitem">Your Standing: <b>${g.standing}/${g.maxStanding}</b></div>` +
       `<div class="unlockitem">Score: <b>${g.score}</b></div>` +
