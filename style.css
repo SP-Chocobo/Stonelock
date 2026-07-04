@@ -1421,6 +1421,16 @@ body[data-compact="1"] .board .cfx { display: none; }
 .ldfxkey { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center;
   margin-top: 10px; font-size: 11px; color: var(--parchment-dim); }
 .ldfxkey b { color: var(--gold); font-family: 'Cinzel', Georgia, serif; font-weight: 600; }
+/* Loadout: Records button (own row) + a collapsed Effect-key legend. */
+.introrecrow { display: flex; justify-content: center; margin: 10px 0 0; }
+.introrecbtn { font-size: 12px; padding: 6px 15px; }
+.ldfxwrap { text-align: center; margin: 8px 0 2px; }
+.ldfxtoggle { font-size: 11px; padding: 5px 13px; letter-spacing: 0.04em; }
+.ldfxtoggle.on { border-color: var(--gold-bright); color: var(--gold-bright); }
+.ldfxpop { display: flex; flex-direction: column; gap: 5px; max-width: 620px; margin: 9px auto 0; text-align: left;
+  font-size: 11.5px; color: var(--parchment-dim); background: rgba(20,14,8,0.5); border: 1px solid var(--edge);
+  border-radius: 8px; padding: 11px 15px; }
+.ldfxpop b { color: var(--gold); font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-style: normal; }
 /* Between-table spoils: stone choices show a name under the dot; review centered. */
 .rewardstone { flex-direction: column; gap: 5px; min-width: 84px; }
 .rewardlab { font-family: 'Cinzel', Georgia, serif; font-size: 11px; color: var(--parchment); }

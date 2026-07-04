@@ -5881,11 +5881,16 @@ function circuitIntro() {
     `<div class="cl-stat"><span class="cl-big">${rec.best.tables}</span><span class="cl-lab">best nodes</span></div>` +
     `<div class="cl-stat"><span class="cl-big">${rec.best.score}</span><span class="cl-lab">best score</span></div>` +
     `<div class="cl-stat"><span class="cl-big">${seen}/${nCharms}</span><span class="cl-lab">charms found</span></div>`;
+  // Records is its own thing — a viewer, not a seed control — so it rides with the
+  // best-results strip it summarizes, not the seed bar.
   stats.appendChild(led);
+  const recRow = document.createElement('div'); recRow.className = 'introrecrow';
+  const recordsBtn = document.createElement('button'); recordsBtn.className = 'btn introrecbtn'; recordsBtn.textContent = '📖 Records & Compendium'; recordsBtn.onclick = showCircuitRecords;
+  recRow.appendChild(recordsBtn);
+  stats.appendChild(recRow);
 
   // One compact seed bar: the seed is shown ONCE, inline-editable (type + ↵ to
-  // play it), with reroll / daily beside it and Records tucked to the right. No
-  // duplicated seed text, no stacked control rows.
+  // play it), with reroll / daily beside it. Records is not here — it's its own thing.
   const seedbar = document.createElement('div'); seedbar.className = 'seedbar';
   const token = document.createElement('div'); token.className = 'seedtoken' + (isDaily ? ' daily' : '');
   token.innerHTML = '<span class="st-lab">Seed</span>';
@@ -5901,8 +5906,6 @@ function circuitIntro() {
   const sBtn = (label, title, fn, on) => { const b = document.createElement('button'); b.className = 'seedbtn' + (on ? ' on' : ''); b.textContent = label; b.title = title; b.onclick = fn; return b; };
   seedbar.appendChild(sBtn('↻', 'New random seed', () => startCircuit()));
   seedbar.appendChild(sBtn('☀', 'Today’s daily run', () => startCircuit(dailySeed()), isDaily));
-  const recBtn = sBtn('📖', 'Circuit records & compendium', showCircuitRecords); recBtn.classList.add('seedbtn-rec');
-  seedbar.appendChild(recBtn);
   stats.appendChild(seedbar);
 
   const next = $('circuitNext'); next.style.display = '';
@@ -6002,13 +6005,19 @@ function circuitLoadoutScreen() {
     crow.appendChild(c);
   }
   cs.appendChild(crow);
-  const blurbs = document.createElement('div'); blurbs.className = 'ldfxkey';
-  blurbs.innerHTML = circuitLoad.offer
-    .filter((c, i, a) => a.findIndex(o => o.fx === c.fx) === i)
-    .map(c => `<span><b>${FX_INFO[c.fx].label}</b> — ${FX_INFO[c.fx].blurb}</span>`).join('');
-  cs.appendChild(blurbs);
+  // Effect definitions: on a mouse, hovering a card already shows the styled tip
+  // (#fxtip reads the card's fx). So the always-on wall of text is gone — a
+  // collapsed "Effect key" holds the full list for touch and for reference.
+  const distinct = circuitLoad.offer.filter((c, i, a) => a.findIndex(o => o.fx === c.fx) === i);
+  const fxwrap = document.createElement('div'); fxwrap.className = 'ldfxwrap';
+  const fxbtn = document.createElement('button'); fxbtn.className = 'btn ldfxtoggle'; fxbtn.textContent = '◇ Effect key';
+  const fxpop = document.createElement('div'); fxpop.className = 'ldfxpop'; fxpop.style.display = 'none';
+  fxpop.innerHTML = distinct.map(c => `<span><b>${FX_INFO[c.fx].label}</b> — ${FX_INFO[c.fx].blurb}</span>`).join('');
+  fxbtn.onclick = () => { const open = fxpop.style.display === 'none'; fxpop.style.display = open ? '' : 'none'; fxbtn.classList.toggle('on', open); };
+  fxwrap.appendChild(fxbtn); fxwrap.appendChild(fxpop);
+  cs.appendChild(fxwrap);
   const note = document.createElement('div'); note.className = 'ldnote';
-  note.textContent = 'Values shown are the common table — every venue reshapes them.';
+  note.textContent = 'Hover a card for its effect · values shown are the common table — every venue reshapes them.';
   cs.appendChild(note);
   body.appendChild(cs);
 
@@ -6092,8 +6101,7 @@ function renderSelectView(view, sel, cap) {
     for (const c of unlocked) {
       const on = sel.includes(c.key), full = !on && atCap;
       const slot = chitMk('div', 'coffercoin' + (on ? ' taken' : '') + (full ? ' full' : ''),
-        chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span>`);
-      slot.title = `${c.name} (${c.chits}) — ${c.blurb}${c.boss ? ' — ' + c.boss : ''}`;
+        chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span>`); // coin carries the styled tooltip
       if (!full || on) slot.onclick = () => toggle(c.key);
       coins.appendChild(slot);
     }
@@ -6149,8 +6157,7 @@ function renderRailView(view) {
   for (const c of CIRCUIT_CHITS.filter(x => x.req)) {
     const got = chitIsUnlocked(c);
     const slot = chitMk('div', 'coffercoin' + (got ? '' : ' locked'),
-      chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span><span class="coffercoin-boss">${got ? '✓ ' + c.boss : c.boss}</span>` + (got ? '' : '<span class="coffercoin-lk">🔒</span>'));
-    slot.title = `${c.name} — ${c.blurb} · ${got ? 'earned' : chitUnlockHint(c)}`;
+      chitCoinHtml(c) + `<span class="coffercoin-n">${c.name}</span><span class="coffercoin-boss">${got ? '✓ ' + c.boss : c.boss}</span>` + (got ? '' : `<span class="coffercoin-lk" data-tip-head="Locked" data-tip="${chitUnlockHint(c).replace(/"/g, '&quot;')}">🔒</span>`));
     prow.appendChild(slot);
   }
   pr.appendChild(prow);
@@ -6369,8 +6376,10 @@ const CHIT_GLYPH = {
 function chitGlyph(key) { return CHIT_GLYPH[key] || '◈'; }
 function chitCoinHtml(c) {
   if (!c) return '';
-  const tip = `${c.name} (${c.chits} chit${c.chits === 1 ? '' : 's'}) — ${c.blurb}${c.boss ? ' — ' + c.boss : ''}`;
-  return `<span class="chitcoin${c.req ? ' prestige' : ''}" title="${tip.replace(/"/g, '&quot;')}"><span class="chitcoin-g">${chitGlyph(c.key)}</span><span class="chitcoin-v">${c.chits}</span></span>`;
+  // data-tip → the shared styled tooltip (#fxtip), not the basic native `title`.
+  const esc = s => String(s).replace(/"/g, '&quot;');
+  const head = `${c.name} · ${c.chits} chit${c.chits === 1 ? '' : 's'}${c.boss ? ' · ' + c.boss : ''}`;
+  return `<span class="chitcoin${c.req ? ' prestige' : ''}" data-tip-head="${esc(head)}" data-tip="${esc(c.blurb)}" data-tip-cls="tip-gold"><span class="chitcoin-g">${chitGlyph(c.key)}</span><span class="chitcoin-v">${c.chits}</span></span>`;
 }
 // A small scattered pile of the given chit keys (CSS jitters each coin).
 function chitPileHtml(keys) {
