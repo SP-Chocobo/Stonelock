@@ -3447,24 +3447,32 @@ function render() {
    Live only when Input = Keyboard (body.kbmode). Controller-ready by design:
    arrows ⇒ d-pad, Enter/Space ⇒ A, Esc ⇒ B.
    ============================================================ */
-// Nearest focusable in the pressed direction (dx,dy ∈ {-1,0,1}). Projects each
-// candidate onto the travel axis (must be ahead) and penalises lateral offset,
-// so the ring jumps to the most in-line neighbour. Returns -1 if none ahead.
+// Nearest focusable in the pressed direction (dx,dy ∈ {-1,0,1}). First restricts
+// to candidates genuinely in that direction — inside a ~45° cone (lateral offset
+// no bigger than forward distance) — and takes the nearest, so pressing Down goes
+// to what's below, not something mostly sideways. If the cone is empty, it widens
+// to any element ahead (heavily penalising lateral offset). Returns -1 if nothing
+// lies ahead at all.
 function kbPickInDirection(rects, cur, dx, dy) {
   if (!rects.length) return -1;
   if (cur < 0 || cur >= rects.length) return 0;
   const c = rects[cur];
-  let best = -1, bestScore = Infinity;
-  for (let i = 0; i < rects.length; i++) {
-    if (i === cur) continue;
-    const ex = rects[i].x - c.x, ey = rects[i].y - c.y;
-    const along = ex * dx + ey * dy;          // distance in the travel direction
-    if (along <= 1) continue;                 // must be ahead of the cursor
-    const perp = Math.abs(ex * dy - ey * dx); // lateral offset off the axis
-    const score = along + perp * 2;           // in-line + closest wins
-    if (score < bestScore) { bestScore = score; best = i; }
-  }
-  return best;
+  const pick = cone => {
+    let best = -1, bestScore = Infinity;
+    for (let i = 0; i < rects.length; i++) {
+      if (i === cur) continue;
+      const ex = rects[i].x - c.x, ey = rects[i].y - c.y;
+      const along = ex * dx + ey * dy;          // toward the pressed direction
+      if (along <= 1) continue;                 // must be ahead of the cursor
+      const perp = Math.abs(ex * dy - ey * dx); // lateral offset off the axis
+      if (cone && perp > along) continue;       // in the cone: mostly in-direction
+      const score = along + perp * (cone ? 0.5 : 2); // nearest in-line wins
+      if (score < bestScore) { bestScore = score; best = i; }
+    }
+    return best;
+  };
+  const inCone = pick(true);
+  return inCone >= 0 ? inCone : pick(false);
 }
 const KB = {
   els: [], idx: -1, key: null,
@@ -3495,9 +3503,18 @@ const KB = {
       const sel = '#hand .targetable, #trayStones .targetable, [id^="board-"] .targetable, #actionBar button:not([disabled])';
       return Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
     }
-    // Modal / menu / title: every visible, enabled control on that surface.
-    return Array.from(s.root.querySelectorAll('button:not([disabled]), .targetable'))
-      .filter(el => el.offsetParent !== null && !el.disabled);
+    // Modal / menu / title: buttons, .targetable, native toggles/links — AND any
+    // element wired with an onclick. Lots of menus (the Academy, the Regulars, the
+    // Campaign bosses) are clickable <div>s, whose handler is an onclick PROPERTY
+    // (not an attribute), so no selector finds them — we scan for el.onclick.
+    const cand = new Set(s.root.querySelectorAll('button, .targetable, [role="button"], summary, a[href]'));
+    s.root.querySelectorAll('*').forEach(el => { if (el.onclick) cand.add(el); });
+    let list = [...cand].filter(el => el.offsetParent !== null && !el.disabled && el.getClientRects().length);
+    // When clickables nest (a card holding a button), keep the innermost only.
+    list = list.filter(el => !list.some(o => o !== el && el.contains(o)));
+    // Document order, so hotkeys and the initial seat read top-to-bottom.
+    list.sort((a, b) => (a.compareDocumentPosition(b) & 4 /* FOLLOWING */) ? -1 : 1);
+    return list;
   },
   picks() {
     return Array.from(document.querySelectorAll('#hand .targetable, #trayStones .targetable')).filter(el => el.offsetParent !== null);
@@ -3533,7 +3550,14 @@ const KB = {
     let i = this.key ? this.els.indexOf(this.key) : -1;
     if (i < 0) {
       if (s && s.kind === 'board') { const fp = this.els.find(el => el.closest('#hand, #trayStones')); i = fp ? this.els.indexOf(fp) : (this.els.length ? 0 : -1); }
-      else { const seat = this.els.find(el => el.classList.contains('primary') || el.classList.contains('reach') || el.classList.contains('here')); i = seat ? this.els.indexOf(seat) : (this.els.length ? 0 : -1); }
+      else {
+        // Prefer the main action: a primary button, a reachable map node / current
+        // node, or a big menu option (the boss portrait, a lesson/cast card) — not
+        // a nav arrow or a Close. Fall back to the first focusable.
+        const prefer = el => el.classList.contains('primary') || el.classList.contains('reach') || el.classList.contains('here') || el.classList.contains('campfocus') || el.classList.contains('bigopt') || el.classList.contains('castcard');
+        const seat = this.els.find(prefer);
+        i = seat ? this.els.indexOf(seat) : (this.els.length ? 0 : -1);
+      }
     }
     this.idx = i; this.applyRing();
   },
