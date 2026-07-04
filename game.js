@@ -3457,7 +3457,10 @@ function kbPickInDirection(rects, cur, dx, dy) {
   if (!rects.length) return -1;
   if (cur < 0 || cur >= rects.length) return 0;
   const c = rects[cur];
-  const pick = cone => {
+  // `ratio` bounds the lateral offset as a fraction of forward distance, so a
+  // small ratio is a tight "same row / same column" cone. We try tightest first —
+  // pressing Right takes the neighbour ACROSS from you, not one that's mostly up.
+  const pick = ratio => {
     let best = -1, bestScore = Infinity;
     for (let i = 0; i < rects.length; i++) {
       if (i === cur) continue;
@@ -3465,14 +3468,14 @@ function kbPickInDirection(rects, cur, dx, dy) {
       const along = ex * dx + ey * dy;          // toward the pressed direction
       if (along <= 1) continue;                 // must be ahead of the cursor
       const perp = Math.abs(ex * dy - ey * dx); // lateral offset off the axis
-      if (cone && perp > along) continue;       // in the cone: mostly in-direction
-      const score = along + perp * (cone ? 0.5 : 2); // nearest in-line wins
+      if (perp > along * ratio) continue;       // stay within the cone
+      const score = along + perp;               // nearest, mild lateral penalty
       if (score < bestScore) { bestScore = score; best = i; }
     }
     return best;
   };
-  const inCone = pick(true);
-  return inCone >= 0 ? inCone : pick(false);
+  let r = pick(0.4); if (r < 0) r = pick(1.2); if (r < 0) r = pick(1e6);
+  return r;
 }
 const KB = {
   els: [], idx: -1, key: null,
@@ -6114,17 +6117,20 @@ function renderChitMenu() {
   const cap = activeChitCap();
   const sel = (circuitLoad.chits || []).filter(chitIsUnlockedKey).slice(0, cap);
   circuitLoad.chits = sel;
-  $('chitTitle').textContent = "The Debtor's Ledger";
-  $('chitSub').innerHTML = 'Sign debts you’ve earned, then <b>win the whole Circuit</b> carrying them — each heavier win opens more.';
+  const onRail = chitView === 'rail';
+  $('chitTitle').textContent = onRail ? 'The Reckoning' : "The Debtor's Ledger";
+  $('chitSub').innerHTML = onRail
+    ? 'Your progression — the Debts you’ve earned and the runs that earn the rest.'
+    : 'Sign debts you’ve earned, then <b>win the whole Circuit</b> carrying them — each heavier win opens more.';
   const ab = $('chitAlpha');
   if (ab) { const on = chitAlpha(); ab.textContent = (on ? '✓ Alpha — all unlocked' : 'Alpha — unlock all'); ab.classList.toggle('selected', on); }
   const body = $('chitBody'); body.innerHTML = '';
-  // Tab bar — switching re-renders the view with an enter animation.
-  const tabs = chitMk('div', 'chittabs');
-  const tab = (id, label) => { const t = chitMk('button', 'chittab' + (chitView === id ? ' on' : ''), label); t.onclick = () => { if (chitView !== id) { chitView = id; renderChitMenu(); } }; return t; };
-  tabs.appendChild(tab('select', 'Sign Debts'));
-  tabs.appendChild(tab('rail', 'The Reckoning'));
-  body.appendChild(tabs);
+  // Only two views, so a single toggle reads cleaner than a tab strip.
+  const nav = chitMk('div', 'chitnav');
+  const navBtn = chitMk('button', 'btn chitnavbtn', onRail ? '‹ Sign Debts' : 'Your progression ›');
+  navBtn.onclick = () => { chitView = onRail ? 'select' : 'rail'; renderChitMenu(); };
+  nav.appendChild(navBtn);
+  body.appendChild(nav);
   const view = chitMk('div', 'chitview enter');
   if (chitView === 'rail') renderRailView(view);
   else renderSelectView(view, sel, cap);
@@ -6162,7 +6168,14 @@ function renderSelectView(view, sel, cap) {
     lines.appendChild(line);
   }
   book.appendChild(lines);
-  book.appendChild(chitMk('div', 'ledger-total', `Total owed <span class="lt-val">${val}</span> chit${val === 1 ? '' : 's'} <span class="lt-slots">· ${sel.length} of ${cap} slots</span>`));
+  const totalRow = chitMk('div', 'ledger-total',
+    `Total owed <span class="lt-val">${val}</span> chit${val === 1 ? '' : 's'} <span class="lt-slots">· ${sel.length} of ${cap} slots</span>`);
+  if (sel.length) {
+    const clr = chitMk('button', 'ledger-clear', 'Clear all');
+    clr.onclick = () => { circuitLoad.chits = []; renderChitMenu(); };
+    totalRow.insertBefore(clr, totalRow.firstChild);
+  }
+  book.appendChild(totalRow);
   view.appendChild(book);
 }
 // THE RECKONING — the progression rail. Rungs at each gate carry the pair of
@@ -6173,6 +6186,9 @@ function renderRailView(view) {
   view.appendChild(chitMk('div', 'rail-head',
     `Best win <b>${best < 0 ? 'none yet' : best + ' chit' + (best === 1 ? '' : 's')}</b>` +
     `<span class="rail-slots">${cap} of ${MAX_CHIT_SLOTS} Debt slots</span>`));
+  // The reading is the confusing part, so state it plainly: the coins on a rung are
+  // the REWARD, and the label below is the RUN you must win to earn them.
+  view.appendChild(chitMk('div', 'rail-legend', 'The coins on each rung are the <b>reward</b> — win a run carrying that rung’s chits to earn them.'));
   const rail = chitMk('div', 'rail');
   CHIT_GATES.forEach((g, gi) => {
     const pair = gated.slice(gi * 2, gi * 2 + 2);
@@ -6180,10 +6196,12 @@ function renderRailView(view) {
     const isNext = !earned && (gi === 0 || best >= CHIT_GATES[gi - 1]);
     const slotHere = (g === 3 || g === 5);
     const rung = chitMk('div', 'rung' + (earned ? ' earned' : '') + (isNext ? ' next' : ''));
+    const reqLab = g === 0 ? 'win any run' : `win ${g === 8 || g === 11 ? 'an' : 'a'} ${g}-chit run`;
     rung.innerHTML =
+      `<div class="rung-earn">${earned ? '✓ earned' : (isNext ? 'earn next ↓' : 'reward ↓')}</div>` +
       `<div class="rung-coins">${pair.map(c => `<span class="rungcoin${earned ? '' : ' dim'}">${chitCoinHtml(c)}</span>`).join('')}</div>` +
       `<div class="rung-track"><span class="rung-dot">${earned ? '✓' : ''}</span></div>` +
-      `<div class="rung-lab">${g === 0 ? 'the start' : 'win ' + g + ' chits'}${slotHere ? '<span class="rung-slot">+ slot</span>' : ''}</div>`;
+      `<div class="rung-lab">${reqLab}${slotHere ? '<span class="rung-slot">+ a slot</span>' : ''}</div>`;
     rail.appendChild(rung);
   });
   view.appendChild(rail);
