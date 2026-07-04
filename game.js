@@ -6063,10 +6063,13 @@ function renderChitMenu() {
   circuitLoad.chits = sel;
   const val = chitValue(sel), atCap = sel.length >= cap, gate = chitsNextGate(), slotAt = nextSlotAt();
   const toggle = key => { const i = circuitLoad.chits.indexOf(key); if (i >= 0) circuitLoad.chits.splice(i, 1); else if (circuitLoad.chits.length < cap) circuitLoad.chits.push(key); renderChitMenu(); };
+  const best = chitsBestCleared();
   $('chitTitle').textContent = "The Debtor's Ledger";
-  $('chitSub').innerHTML = `Press a coin to sign the debt. Carry <b>${cap}</b> at once` +
-    (slotAt != null ? ` · clear a <b>${slotAt}-chit</b> run to earn a slot` : '') +
-    (gate != null ? ` · a <b>${gate}+</b> run calls in more Debts` : '') + `.`;
+  // Explain the loop plainly: you WIN a full run carrying debts, and a heavier win
+  // opens the next pair. Show the benchmark (best cleared) so the gates read.
+  $('chitSub').innerHTML = `Sign debts, then <b>win the whole Circuit</b> carrying them — each heavier win opens the next Debts (2 at a time). ` +
+    `Best win <b>${best < 0 ? 'none yet' : best + ' chit' + (best === 1 ? '' : 's')}</b> · carry <b>${cap}</b> at once` +
+    (slotAt != null ? ` (a <b>${slotAt}-chit</b> win earns a slot)` : '') + `.`;
   const ab = $('chitAlpha');
   if (ab) { const on = chitAlpha(); ab.textContent = (on ? '✓ Alpha — all unlocked' : 'Alpha — unlock all'); ab.classList.toggle('selected', on); }
   const mk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -6270,9 +6273,11 @@ function activeChitCap() {
 function nextSlotAt() { if (chitAlpha()) return null; const best = chitsBestCleared(); if (best < 3) return 3; if (best < 5) return 5; return null; }
 // Why a still-locked debt is locked, and how to earn it — shown greyed in the picker.
 function chitUnlockHint(c) {
-  if (c.req) return `Break ${c.boss} on Hardcore`;
+  if (c.req) return `Win a run after breaking ${c.boss} on Hardcore`;
   const i = gatedChits().indexOf(c), g = CHIT_GATES[Math.floor(i / 2)] || 0;
-  return g > 0 ? `Clear a run worth ${g}+ chits` : 'Clear the Circuit once';
+  // Ladder debts open a PAIR at a time, gated by the heaviest run you've WON —
+  // so a debt opens once you win a full Circuit run carrying at least g chits.
+  return g > 0 ? `Win a run carrying ${g}+ chits` : 'Win the Circuit once';
 }
 // The next value you must CLEAR a run at to unlock more ladder debts (null when
 // the whole ladder is out; a prestige debt has no gate).
