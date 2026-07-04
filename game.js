@@ -5883,27 +5883,27 @@ function circuitIntro() {
     `<div class="cl-stat"><span class="cl-big">${seen}/${nCharms}</span><span class="cl-lab">charms found</span></div>`;
   stats.appendChild(led);
 
-  // Seed line + controls.
-  const seedline = document.createElement('div'); seedline.className = 'circuitseedline';
-  seedline.innerHTML = `Seed <b>${circuitSeed >>> 0}</b>${isDaily ? ' <span class="seedtag">today’s daily</span>' : ''} <span class="seedhint">— same seed, same run; share it to race a friend</span>`;
-  stats.appendChild(seedline);
-
-  const btns = document.createElement('div'); btns.className = 'introbtns';
-  const rand = document.createElement('button'); rand.className = 'btn recordsbtn'; rand.textContent = '↻ New random seed'; rand.onclick = () => startCircuit();
-  const daily = document.createElement('button'); daily.className = 'btn recordsbtn' + (isDaily ? ' on' : ''); daily.textContent = '☀ Today’s daily'; daily.onclick = () => startCircuit(dailySeed());
-  const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = '📖 Records'; rb.onclick = showCircuitRecords;
-  btns.appendChild(rand); btns.appendChild(daily); btns.appendChild(rb);
-  stats.appendChild(btns);
-
-  // Custom / shared seed entry — play a specific run without leaving the screen.
-  const seedRow = document.createElement('div'); seedRow.className = 'introseed';
-  const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'numeric'; inp.className = 'seedinput'; inp.placeholder = 'enter a seed…'; inp.value = String(circuitSeed >>> 0);
-  const go = document.createElement('button'); go.className = 'btn recordsbtn'; go.textContent = 'Play this seed';
-  const playTyped = () => { const v = parseInt(inp.value, 10); if (!isNaN(v)) startCircuit(v >>> 0); };
-  go.onclick = playTyped;
+  // One compact seed bar: the seed is shown ONCE, inline-editable (type + ↵ to
+  // play it), with reroll / daily beside it and Records tucked to the right. No
+  // duplicated seed text, no stacked control rows.
+  const seedbar = document.createElement('div'); seedbar.className = 'seedbar';
+  const token = document.createElement('div'); token.className = 'seedtoken' + (isDaily ? ' daily' : '');
+  token.innerHTML = '<span class="st-lab">Seed</span>';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'numeric'; inp.className = 'st-num'; inp.value = String(circuitSeed >>> 0);
+  inp.title = 'Same seed, same run — type one and press Enter to share a race';
+  const playTyped = () => { const v = parseInt(inp.value, 10); if (!isNaN(v) && (v >>> 0) !== (circuitSeed >>> 0)) startCircuit(v >>> 0); };
   inp.onkeydown = e => { if (e.key === 'Enter') playTyped(); };
-  seedRow.appendChild(inp); seedRow.appendChild(go);
-  stats.appendChild(seedRow);
+  inp.onfocus = () => inp.select();
+  token.appendChild(inp);
+  if (isDaily) token.insertAdjacentHTML('beforeend', '<span class="st-daily">☀ today’s daily</span>');
+  seedbar.appendChild(token);
+  const sBtn = (label, title, fn, on) => { const b = document.createElement('button'); b.className = 'seedbtn' + (on ? ' on' : ''); b.textContent = label; b.title = title; b.onclick = fn; return b; };
+  seedbar.appendChild(sBtn('↻', 'New random seed', () => startCircuit()));
+  seedbar.appendChild(sBtn('☀', 'Today’s daily run', () => startCircuit(dailySeed()), isDaily));
+  const recBtn = sBtn('📖', 'Circuit records & compendium', showCircuitRecords); recBtn.classList.add('seedbtn-rec');
+  seedbar.appendChild(recBtn);
+  stats.appendChild(seedbar);
 
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;

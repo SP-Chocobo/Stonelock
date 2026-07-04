@@ -1486,6 +1486,22 @@ body[data-compact="1"] .board .cfx { display: none; }
   background: rgba(20,14,8,0.7); border: 1px solid var(--gold-dim); border-radius: 8px; text-align: center; }
 .seedinput:focus { outline: none; border-color: var(--gold-bright); }
 .seedhint { font-size: 11px; color: var(--parchment-dim); font-style: italic; }
+/* Compact seed bar — the seed shown once (inline-editable) + reroll/daily/records. */
+.seedbar { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px auto 4px; flex-wrap: wrap; }
+.seedtoken { display: flex; align-items: center; gap: 8px; padding: 5px 8px 5px 13px; border: 1px solid var(--gold-dim);
+  border-radius: 999px; background: rgba(40,30,17,0.5); }
+.seedtoken.daily { border-color: var(--gold-bright); box-shadow: 0 0 12px rgba(232,196,119,0.2); }
+.st-lab { font-family: 'Cinzel', Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; color: var(--parchment-dim); }
+.st-num { background: none; border: none; color: var(--gold-bright); font-family: 'Cinzel', Georgia, serif; font-size: 14px;
+  letter-spacing: 0.02em; width: 10ch; text-align: center; padding: 2px 2px; border-bottom: 1px dashed transparent; }
+.st-num:focus { outline: none; border-bottom-color: var(--gold-dim); }
+.st-num:hover { border-bottom-color: rgba(201,160,80,0.4); }
+.st-daily { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: #1d160f; background: var(--gold); border-radius: 999px; padding: 2px 7px; font-weight: 700; }
+.seedbtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold-dim); background: rgba(28,21,13,0.7);
+  color: var(--gold); font-size: 15px; cursor: pointer; transition: border-color 0.12s ease, color 0.12s ease, transform 0.1s ease; }
+.seedbtn:hover { border-color: var(--gold-bright); color: var(--gold-bright); transform: translateY(-1px); }
+.seedbtn.on { border-color: var(--gold-bright); color: var(--gold-bright); box-shadow: 0 0 10px rgba(232,196,119,0.25); }
+.seedbtn-rec { margin-left: 6px; opacity: 0.8; }
 .recbest { display: flex; gap: 22px; justify-content: center; margin-top: 4px; }
 .recbest > div { display: flex; flex-direction: column; align-items: center; }
 .recbig { font-family: 'Cinzel', Georgia, serif; font-size: 26px; font-weight: 700; color: var(--gold-bright); }
