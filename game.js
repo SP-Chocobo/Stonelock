@@ -5904,7 +5904,15 @@ function circuitIntro() {
 
   const next = $('circuitNext'); next.style.display = '';
   next.disabled = false; next.textContent = 'Outfit & set out ›'; next.onclick = circuitLoadoutScreen;
+  circuitQuitToTitle(); // the briefing screen's secondary is "To title"
   $('circuitModal').classList.add('open');
+}
+// The shared circuitModal quit button: default "To title". The loadout re-points
+// it at the briefing screen (see circuitLoadoutScreen) so Back doesn't punt you
+// all the way out; every other screen restores this default.
+function circuitQuitToTitle() {
+  const q = $('circuitQuit'); if (!q) return;
+  q.textContent = 'To title'; q.onclick = () => { closeModal('circuitModal'); showTitle(); };
 }
 
 // The records & charm compendium — past runs, best results, and the charms
@@ -6057,6 +6065,7 @@ function circuitLoadoutScreen() {
   next.textContent = !ready ? (!pouchFull ? 'Fill your pouch…' : 'Pick two cards…') : (val > 0 ? `Begin — ${val} chit${val === 1 ? '' : 's'} ›` : 'Begin the Circuit ›');
   next.disabled = !ready;
   next.onclick = () => { if (ready) circuitBegin(); };
+  const back = $('circuitQuit'); if (back) { back.textContent = '‹ Back'; back.onclick = () => circuitIntro(); } // back to the briefing, not the title
   $('circuitModal').classList.add('open');
 }
 
@@ -6175,6 +6184,7 @@ function renderRailView(view) {
 function chitIsUnlockedKey(k) { const c = chitByKey(k); return !!c && chitIsUnlocked(c); }
 
 function circuitBegin() {
+  if (typeof document !== 'undefined') circuitQuitToTitle(); // restore the shared quit button for the map/rewards ahead
   const pouch = Object.assign({}, circuitLoad.pouch); // the pouch you built (four stones)
   const deck = TYPES.slice().concat(circuitLoad.picks); // one of each (8) + 2 chosen = 10
   circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
