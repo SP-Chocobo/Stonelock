@@ -1236,6 +1236,28 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ldchip b { color: var(--gold-bright); font-size: 10px; }
 .ldchip.prestige { border-left: 3px solid #b8863b; }
 .ldchip.empty { border-style: dashed; color: var(--parchment-dim); font-style: italic; }
+/* Chit coins — each Debt minted as a token, scattered in a small overlapping pile. */
+.chitpile { display: inline-flex; align-items: center; padding: 4px 0 4px 8px; }
+.chitcoin { position: relative; width: 30px; height: 30px; margin-left: -8px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #f2d78c, #c99c44 56%, #8a6a2a 100%);
+  border: 1px solid #6e5220; cursor: help; display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 1px 2px rgba(255,242,205,0.55), inset 0 -2px 3px rgba(60,40,10,0.6), 0 2px 4px rgba(0,0,0,0.5);
+  transition: transform 0.12s ease; }
+.chitcoin:first-child { margin-left: 0; }
+.chitcoin:nth-child(3n+1) { transform: rotate(-8deg); }
+.chitcoin:nth-child(3n+2) { transform: rotate(6deg); }
+.chitcoin:nth-child(3n+3) { transform: rotate(-3deg); }
+.chitcoin:hover { transform: translateY(-5px) scale(1.14) rotate(0deg) !important; z-index: 5; }
+.chitcoin-g { font-size: 15px; line-height: 1; color: #4a3410; text-shadow: 0 1px 0 rgba(255,242,205,0.45); }
+.chitcoin-v { position: absolute; bottom: -3px; right: -4px; min-width: 14px; height: 14px; padding: 0 2px;
+  border-radius: 999px; background: #241a0c; color: var(--gold-bright); border: 1px solid var(--gold-dim);
+  font: 700 9px/13px 'Cinzel', Georgia, serif; text-align: center; }
+.chitcoin.prestige { background: radial-gradient(circle at 38% 30%, #dcb98f, #a8763e 56%, #5e3f1c 100%); border-color: #472e12; }
+.chitcoin.prestige .chitcoin-g { color: #38230a; }
+.chud-chits { margin-top: 5px; }
+.chud-chits .chitcoin { width: 24px; height: 24px; }
+.chud-chits .chitcoin-g { font-size: 12px; }
+.chud-chits .chitcoin-v { min-width: 12px; height: 12px; font-size: 8px; line-height: 11px; }
 .lddebtrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .lddebt { text-align: left; padding: 9px 11px; border: 1px solid var(--edge); border-radius: 9px;
   background: linear-gradient(170deg, #241d15, #1b160f); cursor: pointer; color: var(--parchment);

@@ -6029,9 +6029,7 @@ function circuitLoadoutScreen() {
     btn.onclick = openChitMenu;
     bar.appendChild(btn);
     const sum = document.createElement('div'); sum.className = 'ldchitsummary';
-    sum.innerHTML = sel.length
-      ? sel.map(k => { const c = chitByKey(k); return `<span class="ldchip${c && c.req ? ' prestige' : ''}">${c ? c.name : k}<b>${c ? c.chits : ''}</b></span>`; }).join('')
-      : `<span class="ldchip empty">No Debts — an honest run</span>`;
+    sum.innerHTML = sel.length ? chitPileHtml(sel) : `<span class="ldchip empty">No Debts — an honest run</span>`;
     bar.appendChild(sum);
     ds.appendChild(bar);
   }
@@ -6260,6 +6258,23 @@ function foePouchWithChits(pouch) {
   const p = Object.assign({}, pouch);
   for (const c of ['red', 'white', 'blue', 'black', 'green']) p[c] = (p[c] || 0) + 1;
   return p;
+}
+// Each Debt is minted as a coin: a mark stamped on it and its chit-value below.
+// Monochrome symbols (not emoji) so they take the coin's gilt; hover names it.
+const CHIT_GLYPH = {
+  marked: '✖', purse: '◒', masters: '♛', noquarter: '⚔', lean: '☾', steep: '▲', costly: '⊘', thin: '◇', loaded: '⚅', longnight: '✦',
+  ration: '⊟', wideboard: '▦', deeppouch: '❖', scalpel: '✚', fixedorder: '≡', reckoning: '☠',
+};
+function chitGlyph(key) { return CHIT_GLYPH[key] || '◈'; }
+function chitCoinHtml(c) {
+  if (!c) return '';
+  const tip = `${c.name} (${c.chits} chit${c.chits === 1 ? '' : 's'}) — ${c.blurb}${c.boss ? ' — ' + c.boss : ''}`;
+  return `<span class="chitcoin${c.req ? ' prestige' : ''}" title="${tip.replace(/"/g, '&quot;')}"><span class="chitcoin-g">${chitGlyph(c.key)}</span><span class="chitcoin-v">${c.chits}</span></span>`;
+}
+// A small scattered pile of the given chit keys (CSS jitters each coin).
+function chitPileHtml(keys) {
+  const cs = (keys || []).map(chitByKey).filter(Boolean);
+  return cs.length ? `<span class="chitpile">${cs.map(chitCoinHtml).join('')}</span>` : '';
 }
 
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
@@ -8483,7 +8498,8 @@ function updateCircuitHud() {
       `<div class="chud-bar you" data-tip-head="Your Standing" data-tip="Your footing at the table — ${g.standing}/${g.maxStanding}. Lose a showdown and it drops by the margin; if it hits zero, the run ends. Clearing a node restores some."><span class="chud-lab">${g.ally ? 'You &amp; ' + g.ally : 'You'}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.standing / g.maxStanding)}%"></span></span><span class="chud-num">${g.standing}</span></div>` +
       `<div class="chud-bar foe" data-tip-head="Their Standing" data-tip="The foe's footing — ${g.foeHp}/${g.foeMax}. Win showdowns to press it down; break it to zero to clear this node."><span class="chud-lab">${(g.opp || '') + tag}</span><span class="chud-track"><span class="chud-fill" style="width:${Math.round(100 * g.foeHp / g.foeMax)}%"></span></span><span class="chud-num">${g.foeHp}</span></div>` +
     `</div>` +
-    ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '');
+    ((g.charms && g.charms.length) ? `<div class="chud-charms">${g.charms.map(k => `<span class="chud-charm" title="${CHARMS[k].label} — ${CHARMS[k].blurb}">${CHARMS[k].label}</span>`).join('')}</div>` : '') +
+    ((g.chits && g.chits.length) ? `<div class="chud-chits" title="Debts carried this run — ${chitValue(g.chits)} chits">${chitPileHtml(g.chits)}</div>` : '');
   const db = $('circuitDeck'); if (db) db.onclick = () => showDeckView('remaining');
   const mb = $('circuitMapPeek'); if (mb) mb.onclick = () => showMapPeek();
 }
@@ -8547,6 +8563,10 @@ function showDeckView(mode) {
         charms.map(k => `<div class="charmrow"><span class="charmrow-h">${CHARMS[k].label}</span><span class="charmrow-b">${CHARMS[k].blurb}</span></div>`).join('') +
       `</div></div>`
     : '';
+  const debts = (g.chits || []);
+  const debtHtml = debts.length
+    ? `<div class="ldsection"><div class="ldhead">Debts — ${chitValue(debts)} chit${chitValue(debts) === 1 ? '' : 's'}</div>${chitPileHtml(debts)}</div>`
+    : '';
   const status = `<div class="deckstatus">Standing <b>${g.standing}/${g.maxStanding}</b>` +
     (g.foeMax && g.curNode ? ` · ${g.opp || 'foe'} <b>${g.foeHp}/${g.foeMax}</b>` : '') +
     ` · Act <b>${g.act}</b> · <b>${g.coin || 0}</b> coin</div>`;
@@ -8568,6 +8588,7 @@ function showDeckView(mode) {
     `<div class="ldsection"><div class="ldhead">Cards — ${cMeta}</div><div class="ldcards deckcards">${cardHtml}</div></div>` +
     `<div class="ldsection"><div class="ldhead">Pouch — ${pMeta}</div><div class="deckstones">${stoneHtml}</div></div>` +
     charmHtml +
+    debtHtml +
     (remaining ? `<div class="ldnote">What's left to draw — the order is shuffled, so this is the pool, not the sequence.</div>` : '');
   $('deckModal').classList.add('open');
 }
