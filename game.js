@@ -3590,6 +3590,9 @@ function refreshTitleButtons() {
   if (typeof document === 'undefined') return;
   const btn = $('titleContinue');
   if (btn) btn.style.display = (G && !G.over && !G.tutorial && !G.gauntlet) ? '' : 'none';
+  // Point a first-time player at the Academy with a quiet "Start here" tag.
+  const tut = $('titleTutorial');
+  if (tut) tut.classList.toggle('firstrun', !onboarded());
 }
 // Swap the title between its main face and the Play submenu (Continue / Campaign
 // / The Circuit / Custom Matches). The leaving set fades out, the arriving set
@@ -3811,6 +3814,7 @@ function lessonById(id) {
 }
 
 function openAcademy() {
+  markOnboarded(); // they found the tutorial — drop the first-run tag
   academyMenu('The Academy', CATEGORIES, { label: '‹ Title', fn: () => { closeModal('academyModal'); showTitle(); } });
 }
 
@@ -5247,6 +5251,18 @@ function campaignBeaten() { try { return new Set(JSON.parse(ls.get('stonelock-ca
 function markCampaignWin(boss, diff) { const s = campaignBeaten(); s.add(`${boss}-${diff}`); ls.set('stonelock-campaign', JSON.stringify([...s])); }
 function alphaUnlock() { const v = ls.get('stonelock-alpha'); return v === null ? true : v === '1'; } // default ON in alpha
 function setAlphaUnlock(on) { ls.set('stonelock-alpha', on ? '1' : '0'); }
+// First-run onboarding: has this player engaged yet? Used only to point a brand
+// new player at the Academy (a "Start here" tag on the title). A returning player
+// — any past Circuit run, campaign win, or seen charm — is already onboarded, so
+// veterans are never nagged. The nudge also clears the moment they open the
+// Academy or start any match (markOnboarded).
+function onboarded() {
+  if (ls.get('stonelock-onboard') === '1') return true;
+  try { const r = circuitRecords(); if (r.runs.length || r.best.tables || Object.keys(r.seen).length) return true; } catch (e) {}
+  try { if (campaignBeaten().size) return true; } catch (e) {}
+  return false;
+}
+function markOnboarded() { ls.set('stonelock-onboard', '1'); }
 
 /* ---- Dialogue preferences: which portrait scenes play. One settings home
    (see the Settings panel); the encounter screens read these gates. Campaign
@@ -8577,6 +8593,7 @@ function boot() {
   // quitModal is now the "start a new match — discard the paused one?" confirm.
   let pendingNewMatch = null;
   const startNewFromTitle = fn => {
+    markOnboarded(); // starting any match clears the first-run Academy tag
     if (G && !G.over) {
       pendingNewMatch = fn;
       const m = $('quitModal');

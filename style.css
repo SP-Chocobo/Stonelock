@@ -1918,6 +1918,25 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
 }
 .titlebtns .btn:active { transform: translateY(0) scale(0.985); }
 .titlebtns .btn.primary { border-color: var(--gold); }
+/* First-run cue: a quiet "Start here" pill on the Academy button, shown only for
+   a brand-new player (JS toggles .firstrun) and gone the moment they engage. */
+.titletag { display: none; }
+.titlebtns .btn.firstrun {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(232,196,119,0.18), 0 2px 10px rgba(0,0,0,0.5);
+}
+.titlebtns .btn.firstrun .titletag {
+  display: inline-block;
+  margin-left: 0.6em;
+  padding: 0.12em 0.62em;
+  font-size: 0.6em;
+  letter-spacing: 0.12em;
+  border-radius: 999px;
+  background: rgba(201,160,80,0.16);
+  border: 1px solid rgba(201,160,80,0.5);
+  color: var(--gold-bright);
+  vertical-align: middle;
+}
 /* Staggered fade/slide-in — only while .intro is set, with a slightly later
    first arrival so the scene reads before the menu lands. */
 @keyframes titleItemIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
