@@ -6012,8 +6012,40 @@ function circuitLoadoutScreen() {
   cs.appendChild(note);
   body.appendChild(cs);
 
+  // Debts — the difficulty modifiers you've earned. Toggle up to MAX_ACTIVE_CHITS;
+  // a run's total chit value is shown, with the next unlock gate. Hidden entirely
+  // until the first is earned (a clean run clears the base game first).
+  const unlocked = chitsUnlocked();
+  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k));
+  circuitLoad.chits = sel;
+  const ds = document.createElement('div'); ds.className = 'ldsection lddebts';
+  const val = chitValue(sel), atCap = sel.length >= MAX_ACTIVE_CHITS;
+  const gate = chitsNextGate();
+  if (!unlocked.length) {
+    ds.innerHTML = `<div class="ldhead">Debts — difficulty modifiers</div><div class="ldnote">Clear a run to earn your first Debts. Each one you carry raises the stakes; clear harder runs to earn more.</div>`;
+  } else {
+    ds.innerHTML = `<div class="ldhead">Debts — carry up to ${MAX_ACTIVE_CHITS} · this run: <b>${val} chit${val === 1 ? '' : 's'}</b>${gate != null ? ` · clear at ${gate}+ to earn more` : ' · all earned'}</div>`;
+    const row = document.createElement('div'); row.className = 'lddebtrow';
+    for (const c of unlocked) {
+      const on = sel.includes(c.key);
+      const b = document.createElement('button');
+      b.className = 'lddebt' + (on ? ' on' : '') + (c.req ? ' prestige' : '') + (!on && atCap ? ' capped' : '');
+      b.innerHTML = `<span class="lddebt-n">${c.name}</span><span class="lddebt-c">${c.chits}</span><span class="lddebt-b">${c.blurb}${c.boss ? ` <i>— ${c.boss}</i>` : ''}</span>`;
+      b.disabled = !on && atCap;
+      b.onclick = () => {
+        const i = circuitLoad.chits.indexOf(c.key);
+        if (i >= 0) circuitLoad.chits.splice(i, 1);
+        else if (circuitLoad.chits.length < MAX_ACTIVE_CHITS) circuitLoad.chits.push(c.key);
+        circuitLoadoutScreen();
+      };
+      row.appendChild(b);
+    }
+    ds.appendChild(row);
+  }
+  body.appendChild(ds);
+
   const next = $('circuitNext'); next.style.display = '';
-  next.textContent = 'Begin the Circuit ›';
+  next.textContent = val > 0 ? `Begin — ${val} chit${val === 1 ? '' : 's'} ›` : 'Begin the Circuit ›';
   next.disabled = circuitLoad.picks.length !== 2;
   next.onclick = () => { if (circuitLoad.picks.length === 2) circuitBegin(); };
   $('circuitModal').classList.add('open');
@@ -6025,7 +6057,7 @@ function circuitBegin() {
   circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
   // Chits: the difficulty debts carried into this run. Only ones still unlocked
   // count. The tune overlays CIRCUIT via ccfg(); start Standing reads it up front.
-  const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k));
+  const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
   const tune = computeChitTune(chitKeys);
   const start = tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding;
   const startMax = tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding;
@@ -6115,6 +6147,8 @@ const CIRCUIT_MAX_FIGHTS = 7;
    base game is untouched when no chits are active. Weights/gates tune freely.
    ============================================================ */
 const CHIT_KEY = 'stonelock-chits-best'; // highest chit value of a completed run (-1 = never)
+const MAX_ACTIVE_CHITS = 5; // how many debts you may carry at once (a curated peak; the
+// five heaviest ladder debts sum to 12 ≥ the top gate, so the ladder stays unlockable)
 // Passing gate g (bestClearedChits >= g) unlocks another PAIR of debts, in list
 // order. gates[0]=0 → clearing the base Circuit once opens the first two.
 // Gates unlock the ladder two at a time (best-cleared value ≥ gate). Reachable at
@@ -6920,6 +6954,7 @@ function drawMapEdges(grid, m) {
 function circuitVictory() {
   const g = GAUNTLET; g.active = false; g.won = true;
   recordCircuitRun(g);
+  const newDebts = recordChitClear(g.chitValue || 0); // clearing at this chit value can open more debts
   if (typeof document === 'undefined') return;
   SFX.play('win');
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
@@ -6928,7 +6963,9 @@ function circuitVictory() {
   $('circuitText').textContent = `You ran all ${CIRCUIT.acts} acts and broke the final boss. Masterful.`;
   $('circuitStats').innerHTML = `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b></div>` +
     `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
-    `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>`;
+    `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>` +
+    (g.chitValue ? `<div class="unlockitem">Debts carried: <b>${g.chitValue} chit${g.chitValue === 1 ? '' : 's'}</b></div>` : '') +
+    (newDebts ? `<div class="unlockitem gold">⛓ ${newDebts} new Debt${newDebts === 1 ? '' : 's'} earned — raise the stakes next run.</div>` : '');
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
   $('circuitStats').appendChild(rb);
   const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = () => startCircuit();
