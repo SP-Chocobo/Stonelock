@@ -1035,8 +1035,10 @@ function deniedColor() { return (isQuartermaster() || isCrucible()) ? STONE_KEYS
 function circuitRationColor() { return (G && G.gauntlet && ccfg('ration')) ? STONE_KEYS[(G.handNum - 1) % STONE_KEYS.length] : null; }
 // The Crucible keeps the deep DRAW (9 in hand) but fields a LEAN footprint — you
 // see lots, commit few — so the party can't out-score the boss on raw selection.
-function footprintOf(seat) { return isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint); }
-function handSizeFor(seat) { return isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().hand || dealSpec().handSize) : dealSpec().handSize); }
+// Wide Board (chit): a Circuit foe fields one more card than you.
+function foeWideBonus(seat) { return (G && G.gauntlet && seat !== 0 && !isCoopFoe(seat) && ccfg('foeWide')) ? 1 : 0; }
+function footprintOf(seat) { return (isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().foot || 4) : dealSpec().footprint)) + foeWideBonus(seat); }
+function handSizeFor(seat) { return (isCoopFoe(seat) ? COOP_FOE_CARDS : isMagistrate(seat) ? bossCardCount() : (isCrucible() ? (archCfg().hand || dealSpec().handSize) : dealSpec().handSize)) + foeWideBonus(seat); }
 
 
 function orderFrom(start) {
@@ -1078,7 +1080,7 @@ function startHand() {
     // The Circuit: each seat with a build (you AND the foe) draws a working set
     // of stones from its own Pouch each hand — a depleting stone deck (draw →
     // discard → reshuffle when dry), so thinning and added stones shift the draw.
-    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], ccfg('drawStones') + (p === 0 ? charmVal('drawStones') : 0) + (isCoopFoe(p) ? 2 : 0));
+    else if (G.gauntlet && GAUNTLET.piles && GAUNTLET.piles[p]) pool = pileDrawStones(GAUNTLET.piles[p], ccfg('drawStones') + (p === 0 ? charmVal('drawStones') : 0) + (isCoopFoe(p) ? 2 : 0) + (p !== 0 && ccfg('foeDeepPouch') ? 1 : 0));
     if (G.fixedPool && G.fixedPool[p]) pool = Object.assign({ red: 0, white: 0, blue: 0, black: 0 }, G.fixedPool[p]);
     // Exhaustion (Slumlock / Warden): recently-placed stones are still out.
     if (G.exhaustHands && !(p === 0 && G.gauntlet && charmVal('noExhaust'))) {
@@ -1090,7 +1092,9 @@ function startHand() {
     // The Quartermaster (and the super boss) lock away one colour from all this hand.
     const denied = deniedColor();
     if (denied) pool[denied] = 0;
-    // Crucible's Mark (prestige chit): rations away one of YOUR colours each hand.
+    // The Ration (prestige chit): locks one of YOUR colours from this hand's DRAW.
+    // It acts on the drawn pool, so if you didn't draw the locked colour there is
+    // simply nothing to remove — no penalty that hand (only variance bites).
     const chitDenied = (p === 0) ? circuitRationColor() : null;
     if (chitDenied) for (const key of Object.keys(pool)) if (stoneBase(key) === chitDenied) pool[key] = 0;
     G.players.push({
@@ -1111,7 +1115,16 @@ function startHand() {
       active: G.gauntlet ? Object.keys(pool).flatMap(c => Array(pool[c] || 0).fill(c))
         : (gauntlet || isStoneFirst()) ? STONE_KEYS.filter(c => pool[c] > 0) : [],
       aiPlan: null,
+      forcedFirst: null,   // By the Ledger (chit): the stone locked to place first
+      stonePlaced: false,  // …lifts once any stone is placed this hand
     });
+    // By the Ledger: your first-DRAWN stone (that survived into the active set)
+    // must be your first placement. Seat 0 only; the drawn order lives on the pile.
+    if (p === 0 && G.gauntlet && ccfg('fixedOrder')) {
+      const pl = G.players[p];
+      const order = (GAUNTLET.piles && GAUNTLET.piles[0] && GAUNTLET.piles[0].stoneHand) || [];
+      pl.forcedFirst = order.find(k => pl.active.includes(k)) || null;
+    }
   }
 
   // The Cursed Register: one card type is drawn and voided this hand.
@@ -1778,6 +1791,12 @@ function humanThin(index) {
 
 function humanChooseStone(color) {
   if (UI.mode !== 'placeChoose' || !G.players[G.viewer].active.includes(color)) return;
+  const pl = G.players[G.viewer];
+  // By the Ledger (chit): the first-drawn stone is locked to go first.
+  if (pl.forcedFirst && !pl.stonePlaced && color !== pl.forcedFirst) {
+    setPrompt(`By the Ledger — you must place your ${getStone(pl.forcedFirst).name} first (the stone you drew first).`);
+    return;
+  }
   UI.pendingStone = color;             // may be a variant key; applyStone resolves it
   UI.blueOwn = null;
   UI.blueSlot = null;
@@ -1954,6 +1973,7 @@ function consumeActive(who, color) {
   const a = G.players[who].active;
   const i = a.indexOf(color);
   if (i >= 0) a.splice(i, 1);
+  if (G.players[who]) G.players[who].stonePlaced = true; // By the Ledger: the opening lock lifts after the first placement
   // Exhaustion (Slumlock / the Warden): a placed stone is unavailable for the next
   // G.exhaustHands hands. The Crucible exhausts the PARTY only — the boss keeps its
   // pouch full (otherwise it disarms itself spending 7 stones + a Green each hand).
@@ -2903,6 +2923,8 @@ function aiPlace(who) {
   }
   for (const o of options) o.value *= (personaOf(who)[o.color] || 1); // habits color the choice (by base; green has no persona weight)
   options.sort((a, b) => b.value - a.value);
+  // By the Ledger (chit): the first-drawn stone must be placed first.
+  if (p.forcedFirst && !p.stonePlaced) { const f = options.filter(o => o.key === p.forcedFirst); if (f.length) { options.length = 0; options.push(...f); } }
   const chosen = fumbles(who) ? options[Math.floor(rnd() * options.length)] : options[0];
   consumeActive(who, chosen.key);
   if (chosen.fizzle) {
@@ -2952,6 +2974,39 @@ function apothecaryCut() {
   applyStone(1, 'green', { card: best.card });
 }
 
+// The Scalpel (prestige chit): each hand the foe cuts your best FOUNDATION card —
+// the two you committed face-up (slots 0-1) — poisoning it to nothing. Fires
+// before the veil lifts and only reaches the open Foundation, so a prize you
+// veiled or White-locked is safe (that's the counterplay), and a card merely
+// revealed or moved by a Blue can never become an unintended target. Your side
+// only (seat 0 and any co-op ally), never the foe.
+const SCALPEL_FOUNDATION = 2; // the face-up Foundation is the first two slots
+function circuitScalpelCut() {
+  if (!G || !G.gauntlet || !ccfg('scalpel') || G.over) return;
+  if ((GAUNTLET.act || 1) < 2) return; // spares Act 1 — you get to establish a board before the cuts begin
+  const opts = variantOpts();
+  const scoreOf = (board, poisonIdx) => bestSelection(
+    board.map((c, i) => ({ type: c.type, hasRed: hasRed(c), phantoms: redPhantoms(c), poisoned: isPoisoned(c) || i === poisonIdx })),
+    G.region.values, opts).score;
+  let best = null;
+  for (let seat = 0; seat < G.nPlayers; seat++) {
+    if (teamOf(seat) !== teamOf(0)) continue; // your side only
+    const board = G.players[seat].board;
+    const base = scoreOf(board, -1);
+    board.forEach((card, idx) => {
+      if (!card || idx >= SCALPEL_FOUNDATION || !card.faceUp || isLocked(card) || isPoisoned(card)) return; // Foundation, exposed, unlocked, un-cut
+      const drop = base - scoreOf(board, idx);
+      const key = drop * 100 + regionVal(card.type); // biggest cut first, then the richest
+      if (!best || key > best.key) best = { card, key };
+    });
+  }
+  if (!best) return; // nothing in the open Foundation to cut — your prizes are veiled or locked
+  log(`The Scalpel — ${g_opp()} cuts your ${best.card.type} to nothing.`, 'ai');
+  announce('The Scalpel cuts your Foundation', 'green', 1);
+  applyStone(1, 'green', { card: best.card });
+}
+function g_opp() { return (typeof GAUNTLET !== 'undefined' && GAUNTLET && GAUNTLET.opp) || playerName(1); }
+
 /* ---------------- Showdown ---------------- */
 
 function entities() {
@@ -2977,6 +3032,7 @@ function entities() {
 }
 
 function showdown() {
+  circuitScalpelCut(); // The Scalpel (chit): the foe's last cut, BEFORE the veil lifts
   for (const p of G.players) {
     for (const c of p.board) {
       c.faceUp = true;
@@ -4521,7 +4577,7 @@ function renderTray() {
     label.textContent = 'The Thinning — abandon one stone';
     items = p.declared.map((color, i) => ({ color, onClick: () => humanThin(i) }));
   } else if (UI.mode === 'placeChoose') {
-    label.textContent = 'Place a stone';
+    label.textContent = (p.forcedFirst && !p.stonePlaced) ? 'By the Ledger — place your first-drawn stone' : 'Place a stone';
     items = p.active.map(color => ({ color, onClick: () => humanChooseStone(color) }));
   }
   const visible = !!items;
@@ -4550,7 +4606,16 @@ function renderTray() {
       stonesEl.appendChild(col);
     }
   } else {
-    for (const it of items) stonesEl.appendChild(trayStone(it.color, it.onClick));
+    // By the Ledger: while the opening lock holds, only the first-drawn stone is
+    // live — it's ringed, the rest are dimmed until it's placed.
+    const forced = (UI.mode === 'placeChoose' && p.forcedFirst && !p.stonePlaced) ? p.forcedFirst : null;
+    for (const it of items) {
+      const locked = forced && it.color !== forced;
+      const el = trayStone(it.color, locked ? null : it.onClick);
+      if (forced && it.color === forced) el.classList.add('forcedfirst');
+      if (locked) { el.classList.remove('targetable'); el.classList.add('locked'); el.onclick = null; }
+      stonesEl.appendChild(el);
+    }
   }
 }
 
@@ -6052,25 +6117,38 @@ const CIRCUIT_MAX_FIGHTS = 7;
 const CHIT_KEY = 'stonelock-chits-best'; // highest chit value of a completed run (-1 = never)
 // Passing gate g (bestClearedChits >= g) unlocks another PAIR of debts, in list
 // order. gates[0]=0 → clearing the base Circuit once opens the first two.
-const CHIT_GATES = [0, 2, 4, 7, 10];
-// Each: tune(t) mutates an effective-config object (t) layered over CIRCUIT.
+// Gates unlock the ladder two at a time (best-cleared value ≥ gate). Reachable at
+// every step with the pool earned so far. Derived from the tuned weights below.
+const CHIT_GATES = [0, 2, 4, 7, 11];
+// Ladder debts, ORDERED gentle → brutal (so early unlocks are mild and the two
+// worst arrive last). Weights are battery-graded (~1 chit per ~10pt win-rate
+// drop for the neutral pilot; the AI-blind ones judged by human impact). Each
+// tune(t) mutates an effective-config object (t) layered over CIRCUIT via ccfg.
 const CIRCUIT_CHITS = [
-  { key: 'loaded',  name: 'Loaded Table',    chits: 1, blurb: 'Every foe reads its board +1 in each act — they win more hands.', tune: t => { t.foeMenace = (t.foeMenace || CIRCUIT.foeMenace).map(v => v + 1); } },
-  { key: 'thin',    name: 'Thin Footing',    chits: 1, blurb: 'Start the run with less Standing (20, not 24).', tune: t => { t.startStanding = 20; t.maxStanding = 20; } },
-  { key: 'steep',   name: 'Steep Grade',     chits: 1, blurb: 'Foe Standing climbs faster the deeper you go.', tune: t => { t.foeStep = 1.7; } },
-  { key: 'costly',  name: 'Costly Road',     chits: 1, blurb: 'Coin comes slower — every purse is lighter.', tune: t => { t.coinMult = 0.6; } },
-  { key: 'purse',   name: 'Short Purse',     chits: 2, blurb: 'Draw one fewer stone each hand (2, not 3).', tune: t => { t.drawStones = 2; } },
-  { key: 'lean',    name: 'Lean Season',     chits: 2, blurb: 'Respite between tables heals far less (4, not 7).', tune: t => { t.heal = 4; } },
-  { key: 'masters', name: 'Grimmer Masters', chits: 2, blurb: 'Act bosses stand far tougher (Standing ×1.85).', tune: t => { t.bossHpMult = 1.85; } },
-  { key: 'noquarter', name: 'No Quarter',    chits: 2, blurb: 'A lost hand presses harder — the damage cap rises to 8.', tune: t => { t.dmgCap = 8; } },
-  { key: 'marked',  name: 'Marked Cards',    chits: 2, blurb: 'The road turns mean — more Elites, fewer Reposes.', tune: t => { t.eliteBias = true; } },
+  { key: 'marked',  name: 'Marked Cards',    chits: 1, blurb: 'The road turns mean — more Elites, fewer Reposes.', tune: t => { t.eliteBias = true; } },
+  { key: 'purse',   name: 'Short Purse',     chits: 1, blurb: 'Draw one fewer stone each hand (2, not 3).', tune: t => { t.drawStones = 2; } },
+  { key: 'masters', name: 'Grimmer Masters', chits: 1, blurb: 'Act bosses stand far tougher (Standing ×1.85).', tune: t => { t.bossHpMult = 1.85; } },
+  { key: 'noquarter', name: 'No Quarter',    chits: 1, blurb: 'A lost hand presses harder — the damage cap rises to 8.', tune: t => { t.dmgCap = 8; } },
+  { key: 'lean',    name: 'Lean Season',     chits: 1, blurb: 'Respite between tables heals far less (4, not 7).', tune: t => { t.heal = 4; } },
+  { key: 'steep',   name: 'Steep Grade',     chits: 2, blurb: 'Foe Standing climbs faster the deeper you go.', tune: t => { t.foeStep = 1.7; } },
+  { key: 'costly',  name: 'Costly Road',     chits: 2, blurb: 'Coin comes slower — every purse is lighter.', tune: t => { t.coinMult = 0.6; } },
+  { key: 'thin',    name: 'Thin Footing',    chits: 2, blurb: 'Start the run with less Standing (20, not 24).', tune: t => { t.startStanding = 20; t.maxStanding = 20; } },
+  { key: 'loaded',  name: 'Loaded Table',    chits: 3, blurb: 'From Act 2 on, every foe reads its board +1 — they win more hands.', tune: t => { const m = (t.foeMenace || CIRCUIT.foeMenace).slice(); m[1] = (m[1] || 0) + 1; m[2] = (m[2] || 0) + 1; t.foeMenace = m; } },
   { key: 'longnight', name: 'The Long Night', chits: 3, blurb: 'Drag a table past hand 8 and your Standing bleeds 1 each hand.', tune: t => { t.longNight = true; } },
-  // Prestige debt — NOT on the value ladder. Earned by breaking the campaign
-  // Crucible (the hardest boss), it brings that boss's own cruelty to the Circuit:
-  // one of YOUR stone colours locked away every hand. Brutal, and worth a lot.
-  { key: 'ration', name: "Crucible's Mark", chits: 3, req: () => crucibleBeaten(), blurb: 'Each hand one of YOUR stone colours is locked away — cycling red → white → blue → black. Never lean on a favourite. (Earned by breaking the campaign Crucible.)', tune: t => { t.ration = true; } },
+  // Prestige debts — NOT on the value ladder. Each is earned by breaking a
+  // campaign boss on Hardcore, and brings THAT boss's signature cruelty to the
+  // Circuit. Weights are placeholders here; the tuning battery sets them.
+  { key: 'ration',    name: 'The Ration',    chits: 3, req: () => hcBeaten('quartermaster'), boss: 'The Quartermaster', blurb: 'Each hand one of YOUR stone colours is locked away — cycling red → white → blue → black.', tune: t => { t.ration = true; } },
+  { key: 'wideboard', name: 'Wide Board',    chits: 3, req: () => hcBeaten('magistrate'),    boss: 'The Magistrate',   blurb: 'Every foe fields one more card — a wider board to out-score.', tune: t => { t.foeWide = true; } },
+  { key: 'deeppouch', name: 'Deep Pouch',    chits: 3, req: () => hcBeaten('warden'),        boss: 'The Warden',       blurb: 'Every foe draws one more stone each hand — the pouch never runs dry.', tune: t => { t.foeDeepPouch = true; } },
+  { key: 'scalpel',   name: 'The Scalpel',   chits: 4, req: () => hcBeaten('apothecary'),    boss: 'The Apothecary',   blurb: 'From Act 2 on, each hand your best UNLOCKED Foundation card (the face-up two) is cut to nothing. Veil your prizes or lock them.', tune: t => { t.scalpel = true; } },
+  { key: 'fixedorder', name: 'By the Ledger', chits: 2, req: () => hcBeaten('archivist'),    boss: 'The Archivist',    blurb: 'The first stone you draw must be your first placement — no holding it back.', tune: t => { t.fixedOrder = true; } },
+  { key: 'reckoning', name: 'The Reckoning', chits: 2, req: () => hcBeaten('crucible'),      boss: 'The Crucible',     blurb: 'Every foe pouch gains one of each stone — red, white, blue, black, and a Green scalpel. The whole road can poison.', tune: t => { t.foeAllStones = true; } },
 ];
-function crucibleBeaten() { try { return [...campaignBeaten()].some(k => k.indexOf('crucible-') === 0); } catch (e) { return false; } }
+// A campaign boss broken on Hardcore (the Crucible has its own single difficulty).
+function hcBeaten(boss) {
+  try { return [...campaignBeaten()].some(k => k === boss + '-hard' || (boss === 'crucible' && k.indexOf('crucible-') === 0)); } catch (e) { return false; }
+}
 function chitByKey(k) { return CIRCUIT_CHITS.find(c => c.key === k) || null; }
 // The value ladder covers the plain debts; prestige debts (req) unlock on their
 // own condition and never affect the gate count.
@@ -6110,6 +6188,14 @@ function computeChitTune(keys) {
 function ccfg(key) {
   const t = (typeof GAUNTLET !== 'undefined' && GAUNTLET && GAUNTLET.tune) ? GAUNTLET.tune : null;
   return (t && key in t) ? t[key] : CIRCUIT[key];
+}
+// The Reckoning (prestige chit): seed every foe pouch with one of each stone —
+// including a Green scalpel, so any fight can poison. Non-mutating.
+function foePouchWithChits(pouch) {
+  if (!ccfg('foeAllStones')) return pouch;
+  const p = Object.assign({}, pouch);
+  for (const c of ['red', 'white', 'blue', 'black', 'green']) p[c] = (p[c] || 0) + 1;
+  return p;
 }
 
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
@@ -6562,7 +6648,7 @@ function circuitSetupFight(node) {
   g.foeMax = max; g.foeHp = max;
   g.foeCharms = node.foeCharms || [];
   const build = circuitBuildFor(node.foe);
-  g.oppDeck = build.deck; g.oppPouch = build.pouch;
+  g.oppDeck = build.deck; g.oppPouch = foePouchWithChits(build.pouch);
   circuitResetPiles();
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
@@ -7739,7 +7825,7 @@ function circuitSetupCoopFight(node, ally, foe) {
   g.foeCharms = COOP_FOE_CHARMS.slice();          // scoring leverage (Triads/Pairs), not theft
   const fb = circuitBuildFor(foe);
   g.oppDeck = fb.deck.concat(COOP_FOE_FX.map((fx, i) => ({ type: TYPES[i % TYPES.length], fx }))); // a developed deck
-  g.oppPouch = Object.assign({}, COOP_FOE_POUCH); // ally pile lives on g.allyDeck/g.allyPouch (from the draft)
+  g.oppPouch = foePouchWithChits(Object.assign({}, COOP_FOE_POUCH)); // ally pile lives on g.allyDeck/g.allyPouch (from the draft)
   circuitResetPiles();
   closeModal('circuitModal');
   if (logEl) logEl.innerHTML = '';
@@ -8759,6 +8845,7 @@ if (typeof window !== 'undefined') {
     circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS, CIRCUIT_MAX_FIGHTS,
+    CIRCUIT_CHITS, CHIT_GATES, computeChitTune, chitValue, chitsUnlocked, chitsUnlockedCount, chitsNextGate, chitsBestCleared, recordChitClear, chitByKey, gatedChits, bonusChits, hcBeaten,
     CIRCUIT_ALLY_LINES, CIRCUIT_FOE_TAUNTS, CIRCUIT_ALLY_WINLINES,
     FOE_SOLO_TAUNTS, BOSS_INTRO, BOSS_DEFEAT, dialoguePlate, foeSoloTaunt, bossIntroLine, bossDefeatLine,
     circuitDrawCards: n => pileDrawCards(GAUNTLET.piles[0], n),
