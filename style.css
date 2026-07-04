@@ -1278,7 +1278,9 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ledgerpick { display: grid; gap: 16px; }
 .coffer-lab, .ledger-head { font-family: 'Cinzel', Georgia, serif; text-transform: uppercase; letter-spacing: 0.11em;
   font-size: 11px; color: var(--gold-bright); opacity: 0.85; margin-bottom: 9px; }
-.coffer-coins { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 12px 4px; }
+/* 16 debts → an even 2 rows of 8 (not a ragged auto-fill); 4-wide when narrow. */
+.coffer-coins { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px 4px; }
+@media (max-width: 720px) { .coffer-coins { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .coffercoin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 6px 2px 4px; border-radius: 9px; cursor: pointer; transition: background 0.12s ease, transform 0.1s ease; }
 .coffercoin:hover { background: rgba(201,160,80,0.09); transform: translateY(-1px); }
