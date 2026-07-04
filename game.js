@@ -6015,7 +6015,7 @@ function circuitLoadoutScreen() {
   // Debts — a compact summary on the build; the picker lives behind a button so
   // the loadout stays clean. Hidden until the first is earned.
   const unlocked = chitsUnlocked();
-  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
+  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k)).slice(0, activeChitCap());
   circuitLoad.chits = sel;
   const val = chitValue(sel);
   const ds = document.createElement('div'); ds.className = 'ldsection lddebts';
@@ -6052,32 +6052,36 @@ function openChitMenu() {
   $('chitModal').classList.add('open');
 }
 function renderChitMenu() {
-  const unlocked = chitsUnlocked();
-  const sel = (circuitLoad.chits || []).filter(k => unlocked.some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
+  const cap = activeChitCap();
+  const sel = (circuitLoad.chits || []).filter(chitIsUnlockedKey).slice(0, cap);
   circuitLoad.chits = sel;
-  const val = chitValue(sel), atCap = sel.length >= MAX_ACTIVE_CHITS, gate = chitsNextGate();
+  const val = chitValue(sel), atCap = sel.length >= cap, gate = chitsNextGate(), slotAt = nextSlotAt();
   $('chitTitle').textContent = 'Debts — Raise the Stakes';
-  $('chitSub').innerHTML = `Carry up to <b>${MAX_ACTIVE_CHITS}</b> · this run <b>${val} chit${val === 1 ? '' : 's'}</b>` +
-    (gate != null ? ` · clear a run at <b>${gate}+</b> to earn more` : ' · every ladder Debt earned') +
-    `. Prestige Debts are won by breaking a boss on Hardcore.`;
+  $('chitSub').innerHTML = `<b>${cap}</b> slot${cap === 1 ? '' : 's'} · this run <b>${val} chit${val === 1 ? '' : 's'}</b>` +
+    (slotAt != null ? ` · clear a <b>${slotAt}-chit</b> run to earn a slot` : '') +
+    (gate != null ? ` · a <b>${gate}+</b> run unlocks more Debts` : '') +
+    `.`;
   const body = $('chitBody'); body.innerHTML = '';
   const row = document.createElement('div'); row.className = 'lddebtrow';
-  for (const c of unlocked) {
-    const on = sel.includes(c.key);
+  // Show EVERY debt — locked ones greyed with how to earn them, so the road ahead
+  // is visible (no hidden knowledge). Prestige debts list after the ladder.
+  for (const c of CIRCUIT_CHITS) {
+    const unlocked = chitIsUnlocked(c), on = sel.includes(c.key);
     const b = document.createElement('button');
-    b.className = 'lddebt' + (on ? ' on' : '') + (c.req ? ' prestige' : '') + (!on && atCap ? ' capped' : '');
-    b.innerHTML = `<span class="lddebt-n">${c.name}</span><span class="lddebt-c">${c.chits}</span><span class="lddebt-b">${c.blurb}${c.boss ? ` <i>— ${c.boss}</i>` : ''}</span>`;
-    b.disabled = !on && atCap;
-    b.onclick = () => {
+    b.className = 'lddebt' + (on ? ' on' : '') + (c.req ? ' prestige' : '') + (!unlocked ? ' locked' : (!on && atCap ? ' capped' : ''));
+    b.innerHTML = `<span class="lddebt-n">${c.name}</span><span class="lddebt-c">${c.chits}</span><span class="lddebt-b">${c.blurb}${unlocked && c.boss ? ` <i>— ${c.boss}</i>` : ''}</span>${!unlocked ? `<span class="lddebt-lock">🔒 ${chitUnlockHint(c)}</span>` : ''}`;
+    b.disabled = !unlocked || (!on && atCap);
+    if (unlocked) b.onclick = () => {
       const i = circuitLoad.chits.indexOf(c.key);
       if (i >= 0) circuitLoad.chits.splice(i, 1);
-      else if (circuitLoad.chits.length < MAX_ACTIVE_CHITS) circuitLoad.chits.push(c.key);
+      else if (circuitLoad.chits.length < cap) circuitLoad.chits.push(c.key);
       renderChitMenu();
     };
     row.appendChild(b);
   }
   body.appendChild(row);
 }
+function chitIsUnlockedKey(k) { const c = chitByKey(k); return !!c && chitIsUnlocked(c); }
 
 function circuitBegin() {
   const arch = CIRCUIT_POUCHES.find(a => a.key === circuitLoad.pouch) || (circuitLoad.pouchOffer && circuitLoad.pouchOffer[0]) || CIRCUIT_POUCHES[0];
@@ -6085,7 +6089,7 @@ function circuitBegin() {
   circuitLoad.picks.forEach(c => { if (c && c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you actually take into the run DO count as discovered
   // Chits: the difficulty debts carried into this run. Only ones still unlocked
   // count. The tune overlays CIRCUIT via ccfg(); start Standing reads it up front.
-  const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)).slice(0, MAX_ACTIVE_CHITS);
+  const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)).slice(0, activeChitCap());
   const tune = computeChitTune(chitKeys);
   const start = tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding;
   const startMax = tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding;
@@ -6175,13 +6179,14 @@ const CIRCUIT_MAX_FIGHTS = 7;
    base game is untouched when no chits are active. Weights/gates tune freely.
    ============================================================ */
 const CHIT_KEY = 'stonelock-chits-best'; // highest chit value of a completed run (-1 = never)
-const MAX_ACTIVE_CHITS = 5; // how many debts you may carry at once (a curated peak; the
-// five heaviest ladder debts sum to 12 ≥ the top gate, so the ladder stays unlockable)
 // Passing gate g (bestClearedChits >= g) unlocks another PAIR of debts, in list
 // order. gates[0]=0 → clearing the base Circuit once opens the first two.
 // Gates unlock the ladder two at a time (best-cleared value ≥ gate). Reachable at
 // every step with the pool earned so far. Derived from the tuned weights below.
-const CHIT_GATES = [0, 2, 4, 7, 11];
+// Re-derived for the progressive active cap (3 → 4 → 5 slots): reachable at every
+// step even while you carry only 3 debts, and the slot unlocks line up with the
+// gates (clear a 3-chit run → slot 4; a 5-chit run → slot 5). See activeChitCap().
+const CHIT_GATES = [0, 2, 3, 5, 8];
 // Ladder debts, ORDERED gentle → brutal (so early unlocks are mild and the two
 // worst arrive last). Weights are battery-graded (~1 chit per ~10pt win-rate
 // drop for the neutral pilot; the AI-blind ones judged by human impact). Each
@@ -6215,15 +6220,34 @@ function chitByKey(k) { return CIRCUIT_CHITS.find(c => c.key === k) || null; }
 // The value ladder covers the plain debts; prestige debts (req) unlock on their
 // own condition and never affect the gate count.
 function gatedChits() { return CIRCUIT_CHITS.filter(c => !c.req); }
-function bonusChits() { return CIRCUIT_CHITS.filter(c => c.req && (() => { try { return c.req(); } catch (e) { return false; } })()); }
+function chitAlpha() { return typeof alphaUnlock === 'function' && alphaUnlock(); } // the title's Alpha toggle opens every debt for testing
+function bonusChits() { return CIRCUIT_CHITS.filter(c => c.req && (chitAlpha() || (() => { try { return c.req(); } catch (e) { return false; } })())); }
 function chitsBestCleared() { const v = parseInt(ls.get(CHIT_KEY), 10); return isNaN(v) ? -1 : v; }
 // How many ladder debts are unlocked: two per gate passed by the best cleared value.
 function chitsUnlockedCount() {
+  if (chitAlpha()) return gatedChits().length;
   const best = chitsBestCleared();
   let passed = 0; for (const g of CHIT_GATES) if (best >= g) passed++;
   return Math.min(gatedChits().length, passed * 2);
 }
 function chitsUnlocked() { return gatedChits().slice(0, chitsUnlockedCount()).concat(bonusChits()); }
+function chitIsUnlocked(c) { return chitsUnlocked().some(x => x.key === c.key); }
+// The number of Debt slots earned — the ascension hook: start at 3, earn a 4th by
+// clearing a 3-chit run and a 5th by clearing a 5-chit run (Alpha opens all).
+const MAX_CHIT_SLOTS = 5;
+function activeChitCap() {
+  if (chitAlpha()) return MAX_CHIT_SLOTS;
+  const best = chitsBestCleared();
+  return Math.min(MAX_CHIT_SLOTS, 3 + (best >= 3 ? 1 : 0) + (best >= 5 ? 1 : 0));
+}
+// The value you must CLEAR to earn your next slot (null once all slots are earned).
+function nextSlotAt() { if (chitAlpha()) return null; const best = chitsBestCleared(); if (best < 3) return 3; if (best < 5) return 5; return null; }
+// Why a still-locked debt is locked, and how to earn it — shown greyed in the picker.
+function chitUnlockHint(c) {
+  if (c.req) return `Break ${c.boss} on Hardcore`;
+  const i = gatedChits().indexOf(c), g = CHIT_GATES[Math.floor(i / 2)] || 0;
+  return g > 0 ? `Clear a run worth ${g}+ chits` : 'Clear the Circuit once';
+}
 // The next value you must CLEAR a run at to unlock more ladder debts (null when
 // the whole ladder is out; a prestige debt has no gate).
 function chitsNextGate() {
