@@ -6069,7 +6069,7 @@ function circuitLoadoutScreen() {
     const rc = CHARMS[circuitLoad.charm] || { label: circuitLoad.charm };
     slot.style.setProperty('--d1', dk.tint[0]); slot.style.setProperty('--d2', dk.tint[1]);
     slot.innerHTML =
-      `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg?v=2'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
+      `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg?v=3'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
       `<div class="deckslot-info"><div class="deckslot-name">${dk.name}</div><div class="deckslot-lane">${dk.lane}</div>` +
       `<div class="deckslot-charm">Charm — <b>${rc.label}</b></div></div>` +
       `<div class="deckslot-change">Change ▾</div>`;
@@ -6151,7 +6151,7 @@ function renderDeckPicker() {
   const hero = document.createElement('div'); hero.className = 'deckhero enter';
   hero.style.setProperty('--d1', dk.tint[0]); hero.style.setProperty('--d2', dk.tint[1]);
   const art = document.createElement('div'); art.className = 'deckhero-art';
-  art.style.backgroundImage = `url('assets/portraits/${dk.portrait}.jpg?v=2'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})`;
+  art.style.backgroundImage = `url('assets/portraits/${dk.portrait}.jpg?v=3'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})`;
   const panel = document.createElement('div'); panel.className = 'deckhero-panel';
   const cardsHtml = dk.cards.map(c => {
     const v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : (REGIONS.bar.values[c.type] != null ? REGIONS.bar.values[c.type] : 2);
@@ -6186,7 +6186,7 @@ function renderDeckPicker() {
   CIRCUIT_DECKS.forEach((dd, j) => {
     const dot = document.createElement('button');
     dot.className = 'deckdot' + (j === di ? ' current' : '') + (circuitLoad.deck === dd.key ? ' chosen' : '');
-    dot.style.backgroundImage = `url('assets/portraits/${dd.portrait}.jpg?v=2'), linear-gradient(150deg, ${dd.tint[0]}, ${dd.tint[1]})`;
+    dot.style.backgroundImage = `url('assets/portraits/${dd.portrait}.jpg?v=3'), linear-gradient(150deg, ${dd.tint[0]}, ${dd.tint[1]})`;
     dot.setAttribute('data-tip-head', dd.name); dot.setAttribute('data-tip', dd.lane); dot.setAttribute('data-tip-cls', 'tip-gold');
     dot.onclick = () => goIdx(j);
     dock.appendChild(dot);
