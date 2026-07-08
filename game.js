@@ -5872,13 +5872,13 @@ const CIRCUIT_DECKS = [
   { key: 'vanguard', name: 'The Vanguard', portrait: 'vanguard', lane: 'Aggro — raw pressure',
     tint: ['#7a2d2d', '#c0563f'],
     blurb: 'Hit first, hit hardest — pump your own numbers and shave theirs.',
-    cards: [{ type: 'Road', fx: 'gambit' }, { type: 'Coin', fx: 'siphon' }],
-    charms: ['reckless', 'spite', 'firstblood'], grit: -8 }, // glass cannon
+    cards: [{ type: 'Road', fx: 'gambit' }, { type: 'Bread', fx: 'siphon' }],
+    charms: ['reckless', 'spite', 'firstblood'], grit: -8 }, // glass cannon (Bread=Coin=3 in bar, so the type swap is a wash here)
   { key: 'broker', name: 'The Broker', portrait: 'broker', lane: 'Value — dependable board',
     tint: ['#6b5424', '#caa23f'],
     blurb: 'No dead cards — a plain-heavy deck where every card reads its worth.',
-    cards: [{ type: 'Bread', fx: 'ledger' }, { type: 'Chain', fx: 'anchor' }],
-    charms: ['floorprice', 'crownjewel', 'loadedcoin'], grit: 0 }, // baseline
+    cards: [{ type: 'Coin', fx: 'ledger' }, { type: 'Chain', fx: 'anchor' }],
+    charms: ['floorprice', 'crownjewel', 'loadedcoin'], grit: 0 }, // baseline; a Coin signature gives Loaded Coin two cards to buff
   { key: 'anvil', name: 'The Anvil', portrait: 'anvil', lane: 'Defense — board wall',
     tint: ['#2f4a4a', '#4f8f8a'],
     blurb: 'Outlast them — a packed board where every card props up its neighbors.',
