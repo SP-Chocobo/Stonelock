@@ -5873,22 +5873,22 @@ const CIRCUIT_DECKS = [
     tint: ['#7a2d2d', '#c0563f'],
     blurb: 'Hit first, hit hardest — pump your own numbers and shave theirs.',
     cards: [{ type: 'Road', fx: 'gambit' }, { type: 'Coin', fx: 'siphon' }],
-    charms: ['reckless', 'spite', 'firstblood'] },
+    charms: ['reckless', 'spite', 'firstblood'], grit: -4 }, // glass cannon
   { key: 'broker', name: 'The Broker', portrait: 'broker', lane: 'Value — dependable board',
     tint: ['#6b5424', '#caa23f'],
     blurb: 'No dead cards — a plain-heavy deck where every card reads its worth.',
     cards: [{ type: 'Bread', fx: 'ledger' }, { type: 'Chain', fx: 'anchor' }],
-    charms: ['floorprice', 'crownjewel', 'loadedcoin'] }, // in-run board value, not dead score
+    charms: ['floorprice', 'crownjewel', 'loadedcoin'], grit: 0 }, // baseline
   { key: 'anvil', name: 'The Anvil', portrait: 'anvil', lane: 'Defense — board wall',
     tint: ['#2f4a4a', '#4f8f8a'],
     blurb: 'Outlast them — a packed board where every card props up its neighbors.',
     cards: [{ type: 'Ferry', fx: 'bulwark' }, { type: 'Sword', fx: 'lodestone' }],
-    charms: ['bulwarkcharm', 'counterpunch', 'laststand'] },
+    charms: ['bulwarkcharm', 'counterpunch', 'laststand'], grit: 6 }, // the wall
   { key: 'weaver', name: 'The Weaver', portrait: 'weaver', lane: 'Synergy — effect engine',
     tint: ['#3d2f5a', '#8163c4'],
     blurb: 'Stack effects and type-pairs into an engine that snowballs late.',
     cards: [{ type: 'Quill', fx: 'harmony' }, { type: 'Crest', fx: 'keen' }],
-    charms: ['whetstone', 'forgerseal', 'fullsatchel'] },
+    charms: ['whetstone', 'forgerseal', 'fullsatchel'], grit: 8 }, // buffer to reach the late-game engine
 ];
 function deckByKey(k) { return CIRCUIT_DECKS.find(d => d.key === k) || null; }
 let circuitLoad = { pouch: null, deck: null, charm: null, chits: [] };
@@ -6069,7 +6069,7 @@ function circuitLoadoutScreen() {
     const rc = CHARMS[circuitLoad.charm] || { label: circuitLoad.charm };
     slot.style.setProperty('--d1', dk.tint[0]); slot.style.setProperty('--d2', dk.tint[1]);
     slot.innerHTML =
-      `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
+      `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg?v=2'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
       `<div class="deckslot-info"><div class="deckslot-name">${dk.name}</div><div class="deckslot-lane">${dk.lane}</div>` +
       `<div class="deckslot-charm">Charm — <b>${rc.label}</b></div></div>` +
       `<div class="deckslot-change">Change ▾</div>`;
@@ -6151,7 +6151,7 @@ function renderDeckPicker() {
   const hero = document.createElement('div'); hero.className = 'deckhero enter';
   hero.style.setProperty('--d1', dk.tint[0]); hero.style.setProperty('--d2', dk.tint[1]);
   const art = document.createElement('div'); art.className = 'deckhero-art';
-  art.style.backgroundImage = `url('assets/portraits/${dk.portrait}.jpg'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})`;
+  art.style.backgroundImage = `url('assets/portraits/${dk.portrait}.jpg?v=2'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})`;
   const panel = document.createElement('div'); panel.className = 'deckhero-panel';
   const cardsHtml = dk.cards.map(c => {
     const v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : (REGIONS.bar.values[c.type] != null ? REGIONS.bar.values[c.type] : 2);
@@ -6186,7 +6186,7 @@ function renderDeckPicker() {
   CIRCUIT_DECKS.forEach((dd, j) => {
     const dot = document.createElement('button');
     dot.className = 'deckdot' + (j === di ? ' current' : '') + (circuitLoad.deck === dd.key ? ' chosen' : '');
-    dot.style.backgroundImage = `url('assets/portraits/${dd.portrait}.jpg'), linear-gradient(150deg, ${dd.tint[0]}, ${dd.tint[1]})`;
+    dot.style.backgroundImage = `url('assets/portraits/${dd.portrait}.jpg?v=2'), linear-gradient(150deg, ${dd.tint[0]}, ${dd.tint[1]})`;
     dot.setAttribute('data-tip-head', dd.name); dot.setAttribute('data-tip', dd.lane); dot.setAttribute('data-tip-cls', 'tip-gold');
     dot.onclick = () => goIdx(j);
     dock.appendChild(dot);
@@ -6343,8 +6343,9 @@ function circuitBegin() {
   // count. The tune overlays CIRCUIT via ccfg(); start Standing reads it up front.
   const chitKeys = (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)).slice(0, activeChitCap());
   const tune = computeChitTune(chitKeys);
-  let start = tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding;
-  let startMax = tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding;
+  const grit = arch.grit || 0; // per-archetype Standing: the Vanguard runs fragile, the Anvil & Weaver tanky
+  let start = (tune.startStanding != null ? tune.startStanding : CIRCUIT.startStanding) + grit;
+  let startMax = (tune.maxStanding != null ? tune.maxStanding : CIRCUIT.maxStanding) + grit;
   const msa = relic && CHARMS[relic] && CHARMS[relic].maxStandingAdd; // a relic that lifts max Standing sets it up front
   if (msa) { startMax += msa; start += msa; }
   GAUNTLET = { active: true, act: 1, cleared: 0, coin: 0, standing: start, maxStanding: startMax, foeHp: CIRCUIT.foeBase, foeMax: CIRCUIT.foeBase, score: 0, opp: null, venue: null, tableCleared: false, groundOut: false, deck, pouch, pouchName: stoneSummary(pouch), deckName: arch.name, charms, foeCharms: [], handBuff: 0, curNode: null, seed: circuitSeed, allies: [], allyOffered: false, chits: chitKeys, chitValue: chitValue(chitKeys), tune };
@@ -9213,7 +9214,7 @@ if (typeof window !== 'undefined') {
     startCircuit, circuitEnd, circuitHandResult, applyCardEffects, FX_INFO,
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitSetupCoopFight, circuitAllyDraftPool, pickFoeFor, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,
-    circuitResetPiles, circuitBuildFor, makeReward, circuitTakeRewardAndAdvance,
+    circuitResetPiles, circuitBuildFor, CIRCUIT_DECKS, deckByKey, makeReward, circuitTakeRewardAndAdvance,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS, CIRCUIT_MAX_FIGHTS,
     CIRCUIT_CHITS, CHIT_GATES, computeChitTune, chitValue, chitsUnlocked, chitsUnlockedCount, chitsNextGate, chitsBestCleared, recordChitClear, chitByKey, gatedChits, bonusChits, hcBeaten,
