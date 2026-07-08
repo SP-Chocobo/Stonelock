@@ -6264,7 +6264,7 @@ function renderSelectView(view, sel, cap) {
     coffer.appendChild(coins);
     // Touch can't hover, so a toggle spells out each Debt's effect inline.
     const fxwrap = chitMk('div', 'chitfxwrap');
-    const fxbtn = chitMk('button', 'btn chitfxtoggle' + (chitDescOpen ? ' on' : ''), chitDescOpen ? '▾ Hide effects' : '◇ What they do');
+    const fxbtn = chitMk('button', 'btn chitfxtoggle' + (chitDescOpen ? ' on' : ''), chitDescOpen ? '▾ Hide Chit Descriptions' : '◇ Show Chit Descriptions');
     fxbtn.onclick = () => { chitDescOpen = !chitDescOpen; renderChitMenu(); };
     fxwrap.appendChild(fxbtn);
     if (chitDescOpen) {
