@@ -1444,7 +1444,6 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .deckstat-n { font-size: 15px; color: var(--gold); }
 .deckstat-n.lo { color: #d98a6a; }
 .deckstat-n.hi { color: #8fbf8a; }
-.deckstat-note { font-style: italic; opacity: 0.85; }
 .deckhero-panel .deckblurb { font-size: 13px; font-style: italic; color: var(--parchment); line-height: 1.4; margin-bottom: 15px; }
 .deckcards-lab, .deckcharms-lab { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--parchment-dim); margin-bottom: 7px; }
 .deckplus { text-transform: none; letter-spacing: 0; font-style: italic; color: var(--gold-dim); }

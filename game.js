@@ -6166,14 +6166,14 @@ function renderDeckPicker() {
   // Signature-card effects spelled out inline (not hover-only) so touch players
   // read them too — same reason the charm blurbs sit under each charm.
   const cardFx = dk.cards.map(c => { const info = FX_INFO[c.fx] || { label: c.fx, blurb: '' }; return `<div class="deckfx-line"><b>${info.label}</b> — ${info.blurb}</div>`; }).join('');
-  // Starting Standing — each archetype's grit shifts it (glass cannon vs wall),
-  // so surface it: base ± the deck's grit, with a word on where it sits.
+  // Starting Standing — each archetype's grit shifts it (glass cannon vs wall).
+  // Just the value + colour (low red, high green) tells the story; no caption.
   const baseSt = (typeof CIRCUIT !== 'undefined' ? CIRCUIT.startStanding : 24), grit = dk.grit || 0, standing = baseSt + grit;
-  const stCls = grit < 0 ? 'lo' : grit > 0 ? 'hi' : '', stNote = grit === 0 ? 'the standard footing' : grit < 0 ? `${-grit} below standard — fragile` : `${grit} above standard — hardy`;
+  const stCls = grit < 0 ? 'lo' : grit > 0 ? 'hi' : '';
   panel.innerHTML =
     `<div class="deckhero-id"><span class="deckname">${dk.name}</span><span class="deckcount">${di + 1} / ${N}</span></div>` +
     `<div class="decklane">${dk.lane}</div>` +
-    `<div class="deckstat">Starting Standing <b class="deckstat-n ${stCls}">${standing}</b> <span class="deckstat-note">${stNote}</span></div>` +
+    `<div class="deckstat">Starting Standing <b class="deckstat-n ${stCls}">${standing}</b></div>` +
     `<div class="deckblurb">${dk.blurb}</div>` +
     `<div class="deckcards-lab">Signature cards <span class="deckplus">+ 8 plain (one of each type)</span></div>` +
     `<div class="deckcards">${cardsHtml}</div>` +
