@@ -1401,6 +1401,45 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .loadcard .cname { position: absolute; top: 7px; left: 30px; right: 6px; margin: 0; text-align: left; font-size: 12.5px; line-height: 1.0; }
 .loadcard .cicon { order: 1; margin: 0 auto; }
 .loadcard .cfx { position: static; order: 2; top: auto; right: auto; margin: 7px auto 0; font-size: 8.5px; letter-spacing: 0.02em; padding: 1px 4px; box-shadow: none; max-width: 100%; }
+
+/* ── Starter-deck picker (Circuit loadout) — four named archetype tiles, each
+   laying out its two signature cards and three relic choices in full so there's
+   no guesswork; the relic is chosen right on the selected tile. ── */
+.deckpick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 720px; margin: 0 auto; }
+.decktile { --d1: #444; --d2: #777; position: relative; text-align: left;
+  border: 1px solid rgba(232,196,119,0.22); border-radius: 12px; padding: 12px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(0,0,0,0.18));
+  cursor: pointer; transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease; }
+.decktile:hover { border-color: rgba(232,196,119,0.5); transform: translateY(-2px); }
+.decktile.selected { border-color: var(--gold-bright);
+  box-shadow: 0 0 0 1px var(--gold-bright) inset, 0 0 18px rgba(232,196,119,0.35), 0 8px 18px rgba(0,0,0,0.45); }
+.decktop { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.deckportrait { position: relative; width: 46px; height: 46px; flex: 0 0 46px; border-radius: 9px; overflow: hidden;
+  background: linear-gradient(150deg, var(--d1), var(--d2)); border: 1px solid rgba(0,0,0,0.35); display: grid; place-items: center; }
+.deckportrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.deckglyph { font-family: var(--serif, Georgia, serif); font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.88); text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.deckid { min-width: 0; }
+.deckname { font-family: var(--serif, Georgia, serif); font-size: 16px; color: var(--gold-bright); line-height: 1.1; }
+.decklane { font-size: 10.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--parchment-dim); margin-top: 2px; }
+.deckblurb { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); line-height: 1.35; margin-bottom: 9px; min-height: 30px; }
+.deckcards { display: flex; align-items: flex-end; gap: 7px; margin-bottom: 10px; }
+.deckplus { font-size: 10px; color: var(--parchment-dim); align-self: center; }
+.loadcard.mini { height: 96px; width: 62px; padding: 22px 3px 5px; cursor: default; }
+.loadcard.mini:hover { transform: none; box-shadow: none; }
+.loadcard.mini .cval { top: 12px; left: 12px; }
+.loadcard.mini .cname { top: 5px; left: 22px; font-size: 9.5px; }
+.loadcard.mini .cfx { font-size: 7px; margin-top: 4px; }
+.deckrelics-lab { font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--parchment-dim); margin-bottom: 5px; }
+.deckrelics { display: flex; flex-direction: column; gap: 5px; }
+.deckrelic { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
+  border: 1px solid rgba(232,196,119,0.18); border-radius: 7px; padding: 5px 8px; font-size: 11.5px;
+  color: var(--parchment, #e8dcc0); background: rgba(0,0,0,0.15); cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease; }
+.deckrelic[disabled] { opacity: 0.5; cursor: default; }
+.decktile.selected .deckrelic:not([disabled]):hover { border-color: rgba(232,196,119,0.6); background: rgba(232,196,119,0.08); }
+.deckrelic .relicdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; background: linear-gradient(150deg, var(--d1), var(--d2)); box-shadow: 0 0 0 1px rgba(0,0,0,0.3) inset; }
+.deckrelic.picked { border-color: var(--gold-bright); background: rgba(232,196,119,0.14); color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
+.deckrelic.picked .relicdot { background: var(--gold-bright); }
+@media (max-width: 620px) { .deckpick { grid-template-columns: 1fr; } }
 /* A freshly drawn card deals into the hand — slides + fades in with a gold ring
    that settles, so the eye can track what arrived (no fill-mode → reverts to the
    card's resting style). */

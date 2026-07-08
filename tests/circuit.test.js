@@ -11,7 +11,11 @@ function assert(c, m) { if (!c) { console.error('FAIL:', m); process.exit(1); } 
 const DMG_CAP = M.CIRCUIT.dmgCap; // read the live config so tuning can't desync the test
 const STONE_KEYS = ['red', 'white', 'blue', 'black'];
 function card(type, fx, owner) { return { type, fx: fx || null, owner: owner || 0, origOwner: owner || 0, faceUp: true, known: [true, true], stones: [], zone: 'board' }; }
-function enterFirstFight() { M.startCircuit(); const g = M._gauntlet(); M.circuitEnterNode(g.map.cols[0][0]); return [g, M._state()]; }
+// A clean fight baseline for raw-mechanic assertions: the auto-outfit now grants
+// a starting relic (whose handStart/board levers would otherwise leak into these
+// checks), so strip charms + any residual hand buff. Tests that exercise charms
+// set them explicitly below.
+function enterFirstFight() { M.startCircuit(); const g = M._gauntlet(); M.circuitEnterNode(g.map.cols[0][0]); g.charms = []; g.handBuff = 0; return [g, M._state()]; }
 
 // --- the act map ---
 M.startCircuit();
@@ -37,6 +41,7 @@ assert(g.pouch && STONE_KEYS.reduce((s, c) => s + (g.pouch[c] || 0), 0) === 4, '
 assert(STONE_KEYS.reduce((s, c) => s + (G.players[0].pool[c] || 0), 0) === 3, 'seat 0 draws a 3-stone working set');
 
 // --- two-pool damage: hands hit the loser's Standing, shaped/capped ---
+g.charms = []; // isolate the raw damage math from any starting relic (e.g. Reckless Wager shifts it)
 const youFull = g.standing, foeFull = g.foeHp;
 M.circuitHandResult({ members: [1] }, 3);
 assert(g.standing === youFull - 3, 'a lost hand drains YOUR Standing by its margin');
@@ -718,7 +723,7 @@ assert(/dplate-face--none/.test(noface), 'plate falls back to an initial tile wi
   const mkBoard = owner => [card('Sword', null, owner), card('Coin', null, owner), card('Bread', null, owner)];
   // Identical plain boards on both seats: the ONLY seat-1 delta is the menace.
   const foeDelta = act => {
-    gg.act = act; gg.foeCharms = [];
+    gg.act = act; gg.foeCharms = []; gg.charms = []; gg.handBuff = 0; // seat 0 clean too: isolate the seat-1 menace
     GG.players[0].board = mkBoard(0);
     GG.players[1].board = mkBoard(1);
     M.applyCardEffects();
