@@ -6219,6 +6219,7 @@ function openChitMenu() {
 //   · The Reckoning — the progression rail: what you've earned, what's next, slots.
 // Keeping the roadmap out of the selection screen is what keeps it uncluttered.
 let chitView = 'select';
+let chitDescOpen = false; // touch-friendly: a toggle spells out every Debt's effect (hover tips don't fire on phones)
 const chitMk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 function renderChitMenu() {
   const cap = activeChitCap();
@@ -6261,6 +6262,17 @@ function renderSelectView(view, sel, cap) {
       coins.appendChild(slot);
     }
     coffer.appendChild(coins);
+    // Touch can't hover, so a toggle spells out each Debt's effect inline.
+    const fxwrap = chitMk('div', 'chitfxwrap');
+    const fxbtn = chitMk('button', 'btn chitfxtoggle' + (chitDescOpen ? ' on' : ''), chitDescOpen ? '▾ Hide effects' : '◇ What they do');
+    fxbtn.onclick = () => { chitDescOpen = !chitDescOpen; renderChitMenu(); };
+    fxwrap.appendChild(fxbtn);
+    if (chitDescOpen) {
+      const pop = chitMk('div', 'chitfxpop');
+      pop.innerHTML = unlocked.map(c => `<div class="chitfx-line">${chitCoinHtml(c)}<span class="chitfx-name">${c.name}${c.boss ? ` <i>· ${c.boss}</i>` : ''}</span><span class="chitfx-blurb">${c.blurb}</span></div>`).join('');
+      fxwrap.appendChild(pop);
+    }
+    coffer.appendChild(fxwrap);
   }
   view.appendChild(coffer);
   const book = chitMk('div', 'ledgerbook');
