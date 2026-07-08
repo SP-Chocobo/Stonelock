@@ -5873,7 +5873,7 @@ const CIRCUIT_DECKS = [
     tint: ['#7a2d2d', '#c0563f'],
     blurb: 'Hit first, hit hardest — pump your own numbers and shave theirs.',
     cards: [{ type: 'Road', fx: 'gambit' }, { type: 'Coin', fx: 'siphon' }],
-    charms: ['reckless', 'spite', 'firstblood'], grit: -4 }, // glass cannon
+    charms: ['reckless', 'spite', 'firstblood'], grit: -8 }, // glass cannon
   { key: 'broker', name: 'The Broker', portrait: 'broker', lane: 'Value — dependable board',
     tint: ['#6b5424', '#caa23f'],
     blurb: 'No dead cards — a plain-heavy deck where every card reads its worth.',
@@ -5883,12 +5883,12 @@ const CIRCUIT_DECKS = [
     tint: ['#2f4a4a', '#4f8f8a'],
     blurb: 'Outlast them — a packed board where every card props up its neighbors.',
     cards: [{ type: 'Ferry', fx: 'bulwark' }, { type: 'Sword', fx: 'lodestone' }],
-    charms: ['bulwarkcharm', 'counterpunch', 'laststand'], grit: 6 }, // the wall
+    charms: ['bulwarkcharm', 'counterpunch', 'laststand'], grit: 3 }, // the wall
   { key: 'weaver', name: 'The Weaver', portrait: 'weaver', lane: 'Synergy — effect engine',
     tint: ['#3d2f5a', '#8163c4'],
-    blurb: 'Stack effects and type-pairs into an engine that snowballs late.',
-    cards: [{ type: 'Quill', fx: 'harmony' }, { type: 'Crest', fx: 'keen' }],
-    charms: ['whetstone', 'forgerseal', 'fullsatchel'], grit: 8 }, // buffer to reach the late-game engine
+    blurb: 'Stack effects into an engine — lift the weak, and snowball late.',
+    cards: [{ type: 'Ferry', fx: 'harmony' }, { type: 'Crest', fx: 'surge' }],
+    charms: ['whetstone', 'forgerseal', 'fullsatchel'], grit: 6 }, // both signatures floored (Ferry 2-3, Surge·Crest 3) + a buffer
 ];
 function deckByKey(k) { return CIRCUIT_DECKS.find(d => d.key === k) || null; }
 let circuitLoad = { pouch: null, deck: null, charm: null, chits: [] };
