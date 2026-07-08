@@ -1402,44 +1402,75 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .loadcard .cicon { order: 1; margin: 0 auto; }
 .loadcard .cfx { position: static; order: 2; top: auto; right: auto; margin: 7px auto 0; font-size: 8.5px; letter-spacing: 0.02em; padding: 1px 4px; box-shadow: none; max-width: 100%; }
 
-/* ── Starter-deck picker (Circuit loadout) — four named archetype tiles, each
-   laying out its two signature cards and three relic choices in full so there's
-   no guesswork; the relic is chosen right on the selected tile. ── */
-.deckpick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 720px; margin: 0 auto; }
-.decktile { --d1: #444; --d2: #777; position: relative; text-align: left;
-  border: 1px solid rgba(232,196,119,0.22); border-radius: 12px; padding: 12px;
-  background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(0,0,0,0.18));
-  cursor: pointer; transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease; }
-.decktile:hover { border-color: rgba(232,196,119,0.5); transform: translateY(-2px); }
-.decktile.selected { border-color: var(--gold-bright);
-  box-shadow: 0 0 0 1px var(--gold-bright) inset, 0 0 18px rgba(232,196,119,0.35), 0 8px 18px rgba(0,0,0,0.45); }
-.decktop { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.deckportrait { position: relative; width: 46px; height: 46px; flex: 0 0 46px; border-radius: 9px; overflow: hidden;
-  background: linear-gradient(150deg, var(--d1), var(--d2)); border: 1px solid rgba(0,0,0,0.35); display: grid; place-items: center; }
-.deckportrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.deckglyph { font-family: var(--serif, Georgia, serif); font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.88); text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-.deckid { min-width: 0; }
-.deckname { font-family: var(--serif, Georgia, serif); font-size: 16px; color: var(--gold-bright); line-height: 1.1; }
-.decklane { font-size: 10.5px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--parchment-dim); margin-top: 2px; }
-.deckblurb { font-size: 11.5px; font-style: italic; color: var(--parchment-dim); line-height: 1.35; margin-bottom: 9px; min-height: 30px; }
-.deckcards { display: flex; align-items: flex-end; gap: 7px; margin-bottom: 10px; }
-.deckplus { font-size: 10px; color: var(--parchment-dim); align-self: center; }
-.loadcard.mini { height: 96px; width: 62px; padding: 22px 3px 5px; cursor: default; }
+/* ── Starter-deck: a compact SLOT on the loadout that opens the full-page
+   picker, then shows your pick. ── */
+.deckslot { --d1: #444; --d2: #777; display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  border: 1px solid rgba(232,196,119,0.22); border-radius: 12px; padding: 12px 14px; cursor: pointer;
+  background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(0,0,0,0.2)); transition: border-color 0.14s ease, box-shadow 0.14s ease; }
+.deckslot:hover { border-color: rgba(232,196,119,0.55); box-shadow: 0 0 14px rgba(232,196,119,0.18); }
+.deckslot.filled { border-color: var(--gold-dim); }
+.deckslot-art { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 10px; background-size: cover; background-position: center top; border: 1px solid rgba(0,0,0,0.4); }
+.deckslot-plus { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 10px; display: grid; place-items: center; font-size: 30px; color: var(--gold-dim);
+  border: 1px dashed rgba(232,196,119,0.4); }
+.deckslot-info { flex: 1; min-width: 0; }
+.deckslot-name { font-family: 'Cinzel', Georgia, serif; font-size: 17px; color: var(--gold-bright); line-height: 1.1; }
+.deckslot-lane { font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--parchment-dim); margin-top: 2px; }
+.deckslot-charm { font-size: 12px; color: var(--parchment); margin-top: 4px; }
+.deckslot-charm b { color: var(--gold); font-weight: 600; }
+.deckslot-change { font-size: 12px; color: var(--gold-dim); flex: none; }
+.deckslot:hover .deckslot-change { color: var(--gold-bright); }
+
+/* ── Starter-deck PICKER — the campaign boss browser laid on its side: ‹ big
+   hero portrait + details › with a dock of four below. ── */
+.deckcarousel { display: flex; align-items: stretch; justify-content: center; gap: 8px; margin: 10px auto 14px; max-width: 780px; }
+.deckarrow { font-size: 42px; padding: 0 6px; align-self: center; flex: none; }
+.deckhero { --d1: #444; --d2: #777; display: flex; gap: 20px; flex: 1; min-width: 0; text-align: left;
+  border: 1px solid rgba(232,196,119,0.28); border-radius: 16px; padding: 18px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.24)); }
+.deckhero.enter { animation: deckHeroIn 0.22s ease; }
+@keyframes deckHeroIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .deckhero.enter { animation: none; } }
+.deckhero-art { flex: 0 0 280px; width: 280px; align-self: stretch; min-height: 320px; border-radius: 12px;
+  background-size: cover; background-position: center top; border: 1px solid rgba(0,0,0,0.45); box-shadow: 0 10px 26px rgba(0,0,0,0.55); }
+.deckhero-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.deckhero-id { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.deckhero-panel .deckname { font-family: 'Cinzel', Georgia, serif; font-size: 27px; color: var(--gold-bright); line-height: 1.05; }
+.deckcount { font-size: 12px; color: var(--parchment-dim); letter-spacing: 0.08em; flex: none; }
+.deckhero-panel .decklane { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--parchment-dim); margin: 3px 0 11px; }
+.deckhero-panel .deckblurb { font-size: 13px; font-style: italic; color: var(--parchment); line-height: 1.4; margin-bottom: 15px; }
+.deckcards-lab, .deckcharms-lab { font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--parchment-dim); margin-bottom: 7px; }
+.deckplus { text-transform: none; letter-spacing: 0; font-style: italic; color: var(--gold-dim); }
+.deckhero-panel .deckcards { display: flex; gap: 12px; margin-bottom: 10px; }
+.deckcards-fx { margin-bottom: 15px; }
+.deckfx-line { font-size: 11.5px; color: var(--parchment-dim); line-height: 1.35; }
+.deckfx-line b { color: var(--gold); font-weight: 600; font-style: normal; }
+.loadcard.mini { height: 100px; width: 66px; padding: 24px 3px 5px; cursor: default; }
 .loadcard.mini:hover { transform: none; box-shadow: none; }
-.loadcard.mini .cval { top: 12px; left: 12px; }
-.loadcard.mini .cname { top: 5px; left: 22px; font-size: 9.5px; }
-.loadcard.mini .cfx { font-size: 7px; margin-top: 4px; }
-.deckrelics-lab { font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase; color: var(--parchment-dim); margin-bottom: 5px; }
-.deckrelics { display: flex; flex-direction: column; gap: 5px; }
-.deckrelic { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
-  border: 1px solid rgba(232,196,119,0.18); border-radius: 7px; padding: 5px 8px; font-size: 11.5px;
-  color: var(--parchment, #e8dcc0); background: rgba(0,0,0,0.15); cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease; }
-.deckrelic[disabled] { opacity: 0.5; cursor: default; }
-.decktile.selected .deckrelic:not([disabled]):hover { border-color: rgba(232,196,119,0.6); background: rgba(232,196,119,0.08); }
-.deckrelic .relicdot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; background: linear-gradient(150deg, var(--d1), var(--d2)); box-shadow: 0 0 0 1px rgba(0,0,0,0.3) inset; }
-.deckrelic.picked { border-color: var(--gold-bright); background: rgba(232,196,119,0.14); color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
-.deckrelic.picked .relicdot { background: var(--gold-bright); }
-@media (max-width: 620px) { .deckpick { grid-template-columns: 1fr; } }
+.loadcard.mini .cval { top: 13px; left: 13px; }
+.loadcard.mini .cname { top: 5px; left: 23px; font-size: 10px; }
+.loadcard.mini .cfx { font-size: 7.5px; margin-top: 4px; }
+.deckcharms { display: flex; flex-direction: column; gap: 7px; }
+.deckcharm { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; flex-wrap: wrap;
+  border: 1px solid rgba(232,196,119,0.2); border-radius: 8px; padding: 7px 10px;
+  color: var(--parchment, #e8dcc0); background: rgba(0,0,0,0.16); cursor: pointer; transition: border-color 0.12s ease, background 0.12s ease; }
+.deckcharm:hover { border-color: rgba(232,196,119,0.6); background: rgba(232,196,119,0.08); }
+.deckcharm .charmdot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; background: linear-gradient(150deg, var(--d1), var(--d2)); box-shadow: 0 0 0 1px rgba(0,0,0,0.3) inset; }
+.deckcharm .charmname { font-weight: 600; color: var(--gold); font-size: 13px; }
+.deckcharm .charmblurb { flex: 1 0 100%; font-size: 11.5px; color: var(--parchment-dim); padding-left: 18px; line-height: 1.3; }
+.deckcharm.picked { border-color: var(--gold-bright); background: rgba(232,196,119,0.14); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
+.deckcharm.picked .charmdot { background: var(--gold-bright); }
+.deckhero-panel .deckcharms { --d1: inherit; }
+.deckdock { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 4px; }
+.deckdot { width: 54px; height: 54px; border-radius: 11px; border: 2px solid var(--gold-dim); background-size: cover; background-position: center top;
+  cursor: pointer; opacity: 0.6; transition: opacity 0.14s ease, transform 0.14s ease, border-color 0.14s ease; }
+.deckdot:hover { opacity: 0.9; }
+.deckdot.current { opacity: 1; border-color: var(--gold-bright); box-shadow: 0 0 12px rgba(232,196,119,0.5); transform: scale(1.12); }
+.deckdot.chosen:not(.current) { border-color: var(--gold); }
+@media (max-width: 640px) {
+  .deckhero { flex-direction: column; gap: 12px; padding: 14px; }
+  .deckhero-art { flex-basis: auto; width: 100%; min-height: 220px; }
+  .deckarrow { font-size: 32px; }
+}
 /* A freshly drawn card deals into the hand — slides + fades in with a gold ring
    that settles, so the eye can track what arrived (no fill-mode → reverts to the
    card's resting style). */

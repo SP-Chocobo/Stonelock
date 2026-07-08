@@ -2306,7 +2306,7 @@ const FX_INFO = EFFECTS;
 //   cardBonus(card,i,board) → +value to your board cards (seat 0)
 //   bonusAdd / triadAdd     → added to your Pair&Triad / Triad-only bonus
 //   valueFloor              → your cards never read below this
-//   drawStones / maxStandingAdd / healBonus / scoreBonus → economy levers
+//   drawStones / maxStandingAdd / healBonus / coinBonus → economy levers
 //   noExhaust               → ignore exhaustion
 //   on: { fightStart, handStart, handWon, handLost }(g, ctx) → event hooks
 const CHARMS = {
@@ -2320,12 +2320,12 @@ const CHARMS = {
   ironpouch:    { label: 'Iron Pouch',        blurb: 'Your stones ignore exhaustion.', noExhaust: 1 },
   hardened:     { label: 'Hardened',          blurb: 'Your maximum Standing is +3.', maxStandingAdd: 3 },
   fieldsurgeon: { label: 'Field Surgeon',     blurb: 'Clearing a table heals +2 Standing.', healBonus: 2 },
-  warchest:     { label: 'War Chest',         blurb: 'Clearing a table pays +5 score.', scoreBonus: 5 },
+  warchest:     { label: 'War Chest',         blurb: 'Clearing a table pays +3 coin.', coinBonus: 3 },
   firstblood:   { label: 'First Blood',       blurb: 'The first card you play each hand reads +1.', cardBonus: (c, i) => i === 0 ? 1 : 0 },
   strongfinish: { label: 'Strong Finish',     blurb: 'The last card you play each hand reads +2.', cardBonus: (c, i, b) => i === b.length - 1 ? 2 : 0 },
   opening:      { label: 'Opening Gambit',    blurb: 'On the first hand of each table, your board reads +1.', on: { handStart: (g, c) => { if (c.handNum === 1) g.handBuff = (g.handBuff || 0) + 1; } } },
   spite:        { label: 'Spite Engine',      blurb: 'After a hand you lose, your board reads +1 the next hand.', on: { handLost: g => { g.spitePending = true; }, handStart: g => { if (g.spitePending) { g.handBuff = (g.handBuff || 0) + 1; g.spitePending = false; } } } },
-  momentum:     { label: 'Momentum',          blurb: 'Each hand won in a row pays +1 score, stacking.', on: { handWon: g => { g.winStreak = (g.winStreak || 0) + 1; g.score += (g.winStreak - 1); }, handLost: g => { g.winStreak = 0; } } },
+  momentum:     { label: 'Momentum',          blurb: 'Each hand won in a row, your board reads +1 more (up to +3) — a loss resets it.', on: { handWon: g => { g.winStreak = (g.winStreak || 0) + 1; }, handLost: g => { g.winStreak = 0; }, handStart: g => { if (g.winStreak) g.handBuff = (g.handBuff || 0) + Math.min(3, g.winStreak); } } },
   counterpunch: { label: 'Counterpunch',      blurb: 'The first hand they take from you each table, heal 2.', on: { handLost: g => { if (!g.cpDone) { g.cpDone = true; g.standing = Math.min(g.maxStanding, g.standing + 2); } } } },
   tithe:        { label: 'Tithe',             blurb: 'Win a hand by 4 or more and press 1 extra Standing.' },
   crownjewel:   { label: 'Crown Jewel',       blurb: 'Your single highest-value card reads +2.', cardBonus: (c, i, b) => { const m = Math.max(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 2 : 0; } },
@@ -2333,7 +2333,7 @@ const CHARMS = {
   fullsatchel:  { label: 'Full Satchel',      blurb: 'Draw one extra card each hand (more to choose from).', drawCards: 1 },
   bulwarkcharm: { label: 'Bracing',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
   vigor:        { label: 'Vigor',             blurb: 'Start each table at full Standing.', on: { fightStart: g => { g.standing = g.maxStanding; } } },
-  tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +2 score.', on: { handWon: g => { g.score += 2; } } },
+  tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +1 coin.', on: { handWon: g => { g.coin = (g.coin || 0) + 1; } } },
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
   cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
   foresight:    { label: 'Foresight',         blurb: 'See the next cards waiting in your draw pile (in the deck view).', foresight: 2 },
@@ -5863,7 +5863,7 @@ function circuitOfferCards(n, reveal = true) {
 // Four named decks you choose between at the door instead of drafting blind.
 // Each run's deck is the 8 plain base (one of each type) + two signature effect
 // cards that define the lane = a tuned 10-card deck. Then you pick ONE of three
-// relics — a reward-style beat right at the start. The signature cards pin a
+// charms — a reward-style beat right at the start. The signature cards pin a
 // base TYPE on purpose: for steady value (Road/Ferry never drop below 2), a
 // venue arc (House-payoff types pay off as you climb), or to twin a plain base
 // card (Keen·Crest fires off the base Crest from turn one). Portraits load from
@@ -5873,25 +5873,25 @@ const CIRCUIT_DECKS = [
     tint: ['#7a2d2d', '#c0563f'],
     blurb: 'Hit first, hit hardest — pump your own numbers and shave theirs.',
     cards: [{ type: 'Road', fx: 'gambit' }, { type: 'Coin', fx: 'siphon' }],
-    relics: ['reckless', 'spite', 'firstblood'] },
-  { key: 'broker', name: 'The Broker', portrait: 'broker', lane: 'Value — score grind',
+    charms: ['reckless', 'spite', 'firstblood'] },
+  { key: 'broker', name: 'The Broker', portrait: 'broker', lane: 'Value — dependable board',
     tint: ['#6b5424', '#caa23f'],
-    blurb: 'Grind a long game into points — plain-heavy, dependable, relentless.',
+    blurb: 'No dead cards — a plain-heavy deck where every card reads its worth.',
     cards: [{ type: 'Bread', fx: 'ledger' }, { type: 'Chain', fx: 'anchor' }],
-    relics: ['warchest', 'tollkeeper', 'loadedcoin'] },
+    charms: ['floorprice', 'crownjewel', 'loadedcoin'] }, // in-run board value, not dead score
   { key: 'anvil', name: 'The Anvil', portrait: 'anvil', lane: 'Defense — board wall',
     tint: ['#2f4a4a', '#4f8f8a'],
     blurb: 'Outlast them — a packed board where every card props up its neighbors.',
     cards: [{ type: 'Ferry', fx: 'bulwark' }, { type: 'Sword', fx: 'lodestone' }],
-    relics: ['bulwarkcharm', 'counterpunch', 'laststand'] },
+    charms: ['bulwarkcharm', 'counterpunch', 'laststand'] },
   { key: 'weaver', name: 'The Weaver', portrait: 'weaver', lane: 'Synergy — effect engine',
     tint: ['#3d2f5a', '#8163c4'],
     blurb: 'Stack effects and type-pairs into an engine that snowballs late.',
     cards: [{ type: 'Quill', fx: 'harmony' }, { type: 'Crest', fx: 'keen' }],
-    relics: ['whetstone', 'forgerseal', 'fullsatchel'] },
+    charms: ['whetstone', 'forgerseal', 'fullsatchel'] },
 ];
 function deckByKey(k) { return CIRCUIT_DECKS.find(d => d.key === k) || null; }
-let circuitLoad = { pouch: null, deck: null, relic: null, chits: [] };
+let circuitLoad = { pouch: null, deck: null, charm: null, chits: [] };
 function stoneSummary(p) { return STONE_KEYS.filter(c => p[c]).map(c => `${p[c]} ${STONES[c].name.replace(' Stone', '')}`).join(' · '); }
 
 let circuitSeed = 0;
@@ -5905,10 +5905,10 @@ function startCircuit(seed) {
   circuitSeed = (typeof seed === 'number' && isFinite(seed)) ? (seed >>> 0) : freshSeed();
   seedRng(circuitSeed);
   // You compose your own opening: build a pouch (four stones, max two of a colour)
-  // and choose one of four named starter decks + one relic. Carry the chits
+  // and choose one of four named starter decks + one charm. Carry the chits
   // forward; everything else resets. The pouch is yours to lay out, from EMPTY.
-  circuitLoad = { pouch: { red: 0, white: 0, blue: 0, black: 0 }, deck: null, relic: null, chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) };
-  if (typeof document === 'undefined') { circuitLoad.pouch = { red: 1, white: 1, blue: 1, black: 1 }; circuitLoad.deck = CIRCUIT_DECKS[0].key; circuitLoad.relic = CIRCUIT_DECKS[0].relics[0]; circuitBegin(); return; } // headless: auto-outfit (balanced pouch + first archetype)
+  circuitLoad = { pouch: { red: 0, white: 0, blue: 0, black: 0 }, deck: null, charm: null, chits: (circuitLoad.chits || []).filter(k => chitsUnlocked().some(c => c.key === k)) };
+  if (typeof document === 'undefined') { circuitLoad.pouch = { red: 1, white: 1, blue: 1, black: 1 }; circuitLoad.deck = CIRCUIT_DECKS[0].key; circuitLoad.charm = CIRCUIT_DECKS[0].charms[0]; circuitBegin(); return; } // headless: auto-outfit (balanced pouch + first archetype)
   circuitIntro();
 }
 
@@ -6019,7 +6019,7 @@ function circuitLoadoutScreen() {
   const mc = $('circuitModal').querySelector('.modalcard');
   if (mc) mc.classList.add('wide');
   $('circuitTitle').textContent = 'Outfit for the Circuit';
-  $('circuitText').textContent = 'Lay out your stone pouch, then choose one of four decks and the relic to carry with it.';
+  $('circuitText').textContent = 'Lay out your stone pouch, then choose one of four decks and the charm to carry with it.';
   const body = $('circuitStats');
   body.className = 'circuitload';
   body.innerHTML = '';
@@ -6058,56 +6058,29 @@ function circuitLoadoutScreen() {
   ps.appendChild(pbuild);
   body.appendChild(ps);
 
-  // Deck — pick one of four named archetypes. Each tile lays its two signature
-  // cards AND its three relic choices out in full (no guesswork), and the relic
-  // is picked right on the chosen tile — a reward-style beat at the door. Every
-  // deck is 8 plain (one of each type) + these two = a tuned 10-card deck.
-  const chosen = circuitLoad.deck ? deckByKey(circuitLoad.deck) : null;
+  // Deck — a compact slot that opens the full-page picker. Empty until you
+  // choose; once you do, it shows your pick (portrait + name + charm). Re-click
+  // to change. The picker itself (renderDeckPicker) is the big carousel.
   const cs = document.createElement('div'); cs.className = 'ldsection';
-  cs.innerHTML = `<div class="ldhead">Choose your deck${chosen ? ` — <b>${chosen.name}</b>` : ''}</div>`;
-  const grid = document.createElement('div'); grid.className = 'deckpick';
-  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
-  for (const d of CIRCUIT_DECKS) {
-    const on = circuitLoad.deck === d.key;
-    const tile = document.createElement('div');
-    tile.className = 'decktile' + (on ? ' selected' : '');
-    tile.style.setProperty('--d1', d.tint[0]); tile.style.setProperty('--d2', d.tint[1]);
-    // Portrait: real art when present (assets/portraits/<portrait>.jpg), else the
-    // tinted gradient behind it shows through (the <img> hides itself on error).
-    const initial = d.name.replace(/^The\s+/, '').charAt(0);
-    const port = `<div class="deckportrait"><img src="assets/portraits/${d.portrait}.jpg" alt="" onerror="this.style.display='none'"><span class="deckglyph">${initial}</span></div>`;
-    // Signature cards — real card faces (the .cfx-<fx> class drives the hover tip).
-    const cardsHtml = d.cards.map(c => {
-      const v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : (REGIONS.bar.values[c.type] != null ? REGIONS.bar.values[c.type] : 2);
-      const info = FX_INFO[c.fx] || { label: c.fx };
-      return `<div class="card faceup loadcard mini"><div class="cval val-${v}">${v}</div><div class="cfx cfx-${c.fx}">${info.label}</div><div class="cicon icon-${c.type}"></div><div class="cname">${c.type}</div></div>`;
-    }).join('');
-    // Relics — all three shown; selectable only once the deck is chosen.
-    const relHtml = d.relics.map(rk => {
-      const ch = CHARMS[rk] || { label: rk, blurb: '' };
-      const picked = on && circuitLoad.relic === rk;
-      return `<button class="deckrelic${picked ? ' picked' : ''}" data-deck="${d.key}" data-relic="${rk}" data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"${on ? '' : ' disabled'}><span class="relicdot"></span><span class="relicname">${ch.label}</span></button>`;
-    }).join('');
-    tile.innerHTML =
-      `<div class="decktop">${port}<div class="deckid"><div class="deckname">${d.name}</div><div class="decklane">${d.lane}</div></div></div>` +
-      `<div class="deckblurb">${d.blurb}</div>` +
-      `<div class="deckcards">${cardsHtml}<span class="deckplus">+ 8 plain</span></div>` +
-      `<div class="deckrelics-lab">${on ? 'Pick one relic' : 'One of these relics — choose this deck'}</div>` +
-      `<div class="deckrelics">${relHtml}</div>`;
-    tile.onclick = e => {
-      if (e.target.closest('.deckrelic')) return; // relic buttons handle themselves
-      if (circuitLoad.deck !== d.key) { circuitLoad.deck = d.key; circuitLoad.relic = null; }
-      circuitLoadoutScreen();
-    };
-    grid.appendChild(tile);
+  cs.innerHTML = `<div class="ldhead">Your deck</div>`;
+  const dk = circuitLoad.deck ? deckByKey(circuitLoad.deck) : null;
+  const slot = document.createElement('button'); slot.className = 'deckslot' + (dk && circuitLoad.charm ? ' filled' : ' empty');
+  if (dk && circuitLoad.charm) {
+    const rc = CHARMS[circuitLoad.charm] || { label: circuitLoad.charm };
+    slot.style.setProperty('--d1', dk.tint[0]); slot.style.setProperty('--d2', dk.tint[1]);
+    slot.innerHTML =
+      `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
+      `<div class="deckslot-info"><div class="deckslot-name">${dk.name}</div><div class="deckslot-lane">${dk.lane}</div>` +
+      `<div class="deckslot-charm">Charm — <b>${rc.label}</b></div></div>` +
+      `<div class="deckslot-change">Change ▾</div>`;
+  } else {
+    slot.innerHTML =
+      `<div class="deckslot-plus">＋</div>` +
+      `<div class="deckslot-info"><div class="deckslot-name">Choose your deck</div><div class="deckslot-lane">Four archetypes — pick one and the charm it carries</div></div>` +
+      `<div class="deckslot-change">Open ›</div>`;
   }
-  grid.querySelectorAll('.deckrelic:not([disabled])').forEach(b => {
-    b.onclick = () => { circuitLoad.deck = b.dataset.deck; circuitLoad.relic = b.dataset.relic; circuitLoadoutScreen(); };
-  });
-  cs.appendChild(grid);
-  const note = document.createElement('div'); note.className = 'ldnote';
-  note.textContent = 'Every deck is 8 plain cards + its two signature cards. Values shown are the common table — every venue reshapes them.';
-  cs.appendChild(note);
+  slot.onclick = openDeckPicker;
+  cs.appendChild(slot);
   body.appendChild(cs);
 
   // Debts — a compact summary on the build; the picker lives behind a button so
@@ -6134,15 +6107,94 @@ function circuitLoadoutScreen() {
   body.appendChild(ds);
 
   const pouchFull = STONE_KEYS.reduce((s, c) => s + (circuitLoad.pouch[c] || 0), 0) === POUCH_SIZE;
-  const deckReady = !!circuitLoad.deck && !!circuitLoad.relic;
+  const deckReady = !!circuitLoad.deck && !!circuitLoad.charm;
   const ready = pouchFull && deckReady;
   const next = $('circuitNext'); next.style.display = '';
   next.textContent = !ready
-    ? (!pouchFull ? 'Fill your pouch…' : !circuitLoad.deck ? 'Choose a deck…' : 'Pick a relic…')
+    ? (!pouchFull ? 'Fill your pouch…' : 'Choose your deck…')
     : (val > 0 ? `Begin — ${val} chit${val === 1 ? '' : 's'} ›` : 'Begin the Circuit ›');
   next.disabled = !ready;
   next.onclick = () => { if (ready) circuitBegin(); };
   const back = $('circuitQuit'); if (back) { back.textContent = '‹ Back'; back.onclick = () => circuitIntro(); } // back to the briefing, not the title
+  $('circuitModal').classList.add('open');
+}
+
+// The deck picker — a full-page horizontal carousel (the campaign boss browser,
+// laid on its side): one archetype at a time with its portrait big enough to
+// actually read, its two signature cards + three charm choices beside it, ‹ ›
+// to page (wrapping endlessly), a dock of four below. Picking a charm locks the
+// deck in and returns to the outfit. Back returns without changing your pick.
+function openDeckPicker() {
+  if (typeof document === 'undefined') return;
+  if (circuitLoad.deckIdx == null) circuitLoad.deckIdx = Math.max(0, CIRCUIT_DECKS.findIndex(d => d.key === circuitLoad.deck));
+  renderDeckPicker();
+}
+function renderDeckPicker() {
+  const N = CIRCUIT_DECKS.length;
+  circuitLoad.deckIdx = (((circuitLoad.deckIdx || 0) % N) + N) % N;
+  const di = circuitLoad.deckIdx, dk = CIRCUIT_DECKS[di];
+  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+  $('circuitTitle').textContent = 'Choose your deck';
+  $('circuitText').textContent = 'Eight plain cards plus two signature cards — pick the charm to carry and lock the deck in.';
+  const body = $('circuitStats'); body.className = 'circuitload deckpicker'; body.innerHTML = '';
+
+  const goIdx = i => { circuitLoad.deckIdx = ((i % N) + N) % N; renderDeckPicker(); }; // wraps both ways
+
+  const carousel = document.createElement('div'); carousel.className = 'deckcarousel';
+  const arrow = dir => {
+    const a = document.createElement('button'); a.className = 'camparrow deckarrow';
+    a.innerHTML = dir < 0 ? '‹' : '›'; a.setAttribute('aria-label', dir < 0 ? 'Previous deck' : 'Next deck');
+    a.onclick = () => goIdx(di + dir);
+    return a;
+  };
+
+  const hero = document.createElement('div'); hero.className = 'deckhero enter';
+  hero.style.setProperty('--d1', dk.tint[0]); hero.style.setProperty('--d2', dk.tint[1]);
+  const art = document.createElement('div'); art.className = 'deckhero-art';
+  art.style.backgroundImage = `url('assets/portraits/${dk.portrait}.jpg'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})`;
+  const panel = document.createElement('div'); panel.className = 'deckhero-panel';
+  const cardsHtml = dk.cards.map(c => {
+    const v = (c.fx === 'anchor') ? CIRCUIT_ANCHOR : (REGIONS.bar.values[c.type] != null ? REGIONS.bar.values[c.type] : 2);
+    const info = FX_INFO[c.fx] || { label: c.fx };
+    return `<div class="card faceup loadcard mini"><div class="cval val-${v}">${v}</div><div class="cfx cfx-${c.fx}">${info.label}</div><div class="cicon icon-${c.type}"></div><div class="cname">${c.type}</div></div>`;
+  }).join('');
+  const charmHtml = dk.charms.map(ck => {
+    const ch = CHARMS[ck] || { label: ck, blurb: '' };
+    const picked = circuitLoad.deck === dk.key && circuitLoad.charm === ck;
+    return `<button class="deckcharm${picked ? ' picked' : ''}" data-charm="${ck}" data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"><span class="charmdot"></span><span class="charmname">${ch.label}</span><span class="charmblurb">${esc(ch.blurb)}</span></button>`;
+  }).join('');
+  // Signature-card effects spelled out inline (not hover-only) so touch players
+  // read them too — same reason the charm blurbs sit under each charm.
+  const cardFx = dk.cards.map(c => { const info = FX_INFO[c.fx] || { label: c.fx, blurb: '' }; return `<div class="deckfx-line"><b>${info.label}</b> — ${info.blurb}</div>`; }).join('');
+  panel.innerHTML =
+    `<div class="deckhero-id"><span class="deckname">${dk.name}</span><span class="deckcount">${di + 1} / ${N}</span></div>` +
+    `<div class="decklane">${dk.lane}</div>` +
+    `<div class="deckblurb">${dk.blurb}</div>` +
+    `<div class="deckcards-lab">Signature cards <span class="deckplus">+ 8 plain (one of each type)</span></div>` +
+    `<div class="deckcards">${cardsHtml}</div>` +
+    `<div class="deckcards-fx">${cardFx}</div>` +
+    `<div class="deckcharms-lab">Pick one charm to choose this deck</div>` +
+    `<div class="deckcharms">${charmHtml}</div>`;
+  panel.querySelectorAll('.deckcharm').forEach(b => {
+    b.onclick = () => { circuitLoad.deck = dk.key; circuitLoad.charm = b.dataset.charm; circuitLoadoutScreen(); }; // commit + back to outfit
+  });
+  hero.append(art, panel);
+  carousel.append(arrow(-1), hero, arrow(1));
+  body.appendChild(carousel);
+
+  const dock = document.createElement('div'); dock.className = 'deckdock';
+  CIRCUIT_DECKS.forEach((dd, j) => {
+    const dot = document.createElement('button');
+    dot.className = 'deckdot' + (j === di ? ' current' : '') + (circuitLoad.deck === dd.key ? ' chosen' : '');
+    dot.style.backgroundImage = `url('assets/portraits/${dd.portrait}.jpg'), linear-gradient(150deg, ${dd.tint[0]}, ${dd.tint[1]})`;
+    dot.setAttribute('data-tip-head', dd.name); dot.setAttribute('data-tip', dd.lane); dot.setAttribute('data-tip-cls', 'tip-gold');
+    dot.onclick = () => goIdx(j);
+    dock.appendChild(dot);
+  });
+  body.appendChild(dock);
+
+  const next = $('circuitNext'); next.style.display = 'none'; // committing is done by picking a charm
+  const back = $('circuitQuit'); if (back) { back.style.display = ''; back.textContent = '‹ Back to outfit'; back.onclick = () => circuitLoadoutScreen(); }
   $('circuitModal').classList.add('open');
 }
 
@@ -6279,12 +6331,12 @@ function circuitBegin() {
   if (typeof document !== 'undefined') circuitQuitToTitle(); // restore the shared quit button for the map/rewards ahead
   const pouch = Object.assign({}, circuitLoad.pouch); // the pouch you built (four stones)
   // The chosen archetype: 8 plain (one of each type) + its two signature cards
-  // = a tuned 10-card deck, plus one starting relic (charm) you picked.
+  // = a tuned 10-card deck, plus one starting charm you picked.
   const arch = deckByKey(circuitLoad.deck) || CIRCUIT_DECKS[0];
   const sig = arch.cards.map(c => ({ type: c.type, fx: c.fx }));
   const deck = TYPES.slice().concat(sig); // one of each (8) + 2 signature = 10
   sig.forEach(c => { if (c.fx) markCharmSeen('fx:' + c.fx); }); // the modifiers you carry in DO count as discovered
-  const relic = (circuitLoad.relic && CHARMS[circuitLoad.relic]) ? circuitLoad.relic : arch.relics[0];
+  const relic = (circuitLoad.charm && CHARMS[circuitLoad.charm]) ? circuitLoad.charm : arch.charms[0];
   const charms = relic ? [relic] : [];
   if (relic) markCharmSeen(relic);
   // Chits: the difficulty debts carried into this run. Only ones still unlocked
@@ -7281,10 +7333,11 @@ function circuitEnd() {
   if (g.tableCleared) {
     g.cleared++;
     const tier = nodeTier(g.act, node.col || 0);
-    g.score += 10 + tier + charmVal('scoreBonus');
+    g.score += 10 + tier;
     g.standing = Math.min(g.maxStanding, g.standing + ccfg('heal') + charmVal('healBonus'));
     const coinMult = ccfg('coinMult') || 1; // Costly Road (chit) lightens every purse
     let coinWon = Math.round((node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel)) * coinMult);
+    coinWon += charmVal('coinBonus'); // War Chest — pays coin on a clear
     g.coin += coinWon;
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances.
