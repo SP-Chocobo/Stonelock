@@ -1335,7 +1335,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .ledger-total { margin-top: 11px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; font-family: 'Cinzel', Georgia, serif; letter-spacing: 0.04em; color: var(--gold); }
 .lt-val { color: var(--gold-bright); font-size: 18px; font-weight: 700; }
 .lt-slots { color: var(--parchment-dim); font-size: 11px; }
-.ledger-clear { margin-right: auto; font-size: 11px; padding: 4px 11px; letter-spacing: 0.03em; }
+.ledger-clear { margin-right: auto; font-size: 11px; padding: 4px 12px; letter-spacing: 0.05em; cursor: pointer;
+  font-family: 'Cinzel', Georgia, serif; text-transform: uppercase; color: var(--parchment-dim);
+  background: rgba(168,55,46,0.10); border: 1px solid rgba(168,55,46,0.42); border-radius: 7px;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+.ledger-clear:hover { background: rgba(168,55,46,0.22); color: #e6b9a8; border-color: rgba(210,90,70,0.7); }
 /* Two views (Sign Debts / The Reckoning) with a single toggle, plus a soft enter. */
 .chitnav { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .chitnavbtn { font-size: 11px; padding: 6px 13px; letter-spacing: 0.05em; }
