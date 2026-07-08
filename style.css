@@ -1424,14 +1424,14 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
    hero portrait + details › with a dock of four below. ── */
 .deckcarousel { display: flex; align-items: stretch; justify-content: center; gap: 8px; margin: 10px auto 14px; max-width: 780px; }
 .deckarrow { font-size: 42px; padding: 0 6px; align-self: center; flex: none; }
-.deckhero { --d1: #444; --d2: #777; display: flex; gap: 20px; flex: 1; min-width: 0; text-align: left;
+.deckhero { --d1: #444; --d2: #777; display: flex; align-items: flex-start; gap: 20px; flex: 1; min-width: 0; text-align: left;
   border: 1px solid rgba(232,196,119,0.28); border-radius: 16px; padding: 18px;
   background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.24)); }
 .deckhero.enter { animation: deckHeroIn 0.22s ease; }
 @keyframes deckHeroIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .deckhero.enter { animation: none; } }
-.deckhero-art { flex: 0 0 280px; width: 280px; align-self: stretch; min-height: 320px; border-radius: 12px;
-  background-size: cover; background-position: center top; border: 1px solid rgba(0,0,0,0.45); box-shadow: 0 10px 26px rgba(0,0,0,0.55); }
+.deckhero-art { flex: 0 0 300px; width: 300px; height: 300px; aspect-ratio: 1; border-radius: 12px;
+  background-size: cover; background-position: center center; border: 1px solid rgba(0,0,0,0.45); box-shadow: 0 10px 26px rgba(0,0,0,0.55); }
 .deckhero-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .deckhero-id { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .deckhero-panel .deckname { font-family: 'Cinzel', Georgia, serif; font-size: 27px; color: var(--gold-bright); line-height: 1.05; }
@@ -1468,7 +1468,7 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .deckdot.chosen:not(.current) { border-color: var(--gold); }
 @media (max-width: 640px) {
   .deckhero { flex-direction: column; gap: 12px; padding: 14px; }
-  .deckhero-art { flex-basis: auto; width: 100%; min-height: 220px; }
+  .deckhero-art { flex-basis: auto; width: 100%; height: auto; max-width: 300px; align-self: center; }
   .deckarrow { font-size: 32px; }
 }
 /* A freshly drawn card deals into the hand — slides + fades in with a gold ring
