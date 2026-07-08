@@ -5878,7 +5878,7 @@ const CIRCUIT_DECKS = [
     tint: ['#6b5424', '#caa23f'],
     blurb: 'No dead cards — a plain-heavy deck where every card reads its worth.',
     cards: [{ type: 'Coin', fx: 'ledger' }, { type: 'Chain', fx: 'anchor' }],
-    charms: ['floorprice', 'crownjewel', 'loadedcoin'], grit: 0 }, // baseline; a Coin signature gives Loaded Coin two cards to buff
+    charms: ['evenkeel', 'crownjewel', 'loadedcoin'], grit: 0 }, // baseline; a Coin signature gives Loaded Coin two cards to buff
   { key: 'anvil', name: 'The Anvil', portrait: 'anvil', lane: 'Defense — board wall',
     tint: ['#2f4a4a', '#4f8f8a'],
     blurb: 'Outlast them — a packed board where every card props up its neighbors.',
