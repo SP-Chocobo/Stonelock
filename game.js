@@ -9379,6 +9379,7 @@ if (typeof window !== 'undefined') {
     buildAct, circuitReachable, circuitEnterNode, circuitSetupFight, circuitSetupCoopFight, circuitAllyDraftPool, pickFoeFor, circuitAfterNode, makeShop, circuitShopBuy, circuitShopThin,
     seedRng, clearRng, rnd, dailySeed,
     circuitResetPiles, circuitBuildFor, CIRCUIT_DECKS, deckByKey, makeReward, circuitTakeRewardAndAdvance,
+    fixerDeal, charmCat, CHARM_CATS, CHARM_META,
     circuitTakeEventAndAdvance, circuitHealAmount, makeCircuitEvent, variantForBase, upgradableStones,
     PUZZLES, PUZZLE_KEYS, solvePuzzle, puzzleAcademySafe, puzzlePreview, puzzleValues, puzzleKey, actVenues, actCast, CIRCUIT_MIN_FIGHTS, CIRCUIT_MAX_FIGHTS,
     CIRCUIT_CHITS, CHIT_GATES, computeChitTune, chitValue, chitsUnlocked, chitsUnlockedCount, chitsNextGate, chitsBestCleared, recordChitClear, chitByKey, gatedChits, bonusChits, hcBeaten,
