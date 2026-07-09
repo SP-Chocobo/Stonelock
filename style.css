@@ -1657,6 +1657,11 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compgroup-h { font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
   display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px; padding-bottom: 5px; border-bottom: 1px solid currentColor; opacity: 0.95; }
 .compgroup-n { font-size: 10px; letter-spacing: 0.04em; color: var(--parchment-dim); font-weight: 400; }
+.reliclede { font-size: 10px; letter-spacing: 0.02em; text-transform: none; color: var(--parchment-dim); font-weight: 400; }
+.compcard.relic { border-color: rgba(232,196,119,0.42); background: linear-gradient(180deg, rgba(44,32,16,0.55), rgba(20,14,8,0.5)); }
+.compcard.relic .compcard-h { display: block; }
+.relicboss { display: block; font-family: Georgia, serif; font-size: 10px; font-style: italic; font-weight: 400; color: var(--gold-dim); letter-spacing: 0.02em; margin-top: 1px; text-transform: none; }
+.relicboss::before { content: '⚔ '; font-style: normal; }
 .compcard { padding: 8px 10px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 8px; }
 .compcard.hasicon { display: flex; align-items: center; gap: 10px; }
 .compcard.hasicon .compcard-t { min-width: 0; }

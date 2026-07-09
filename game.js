@@ -6000,20 +6000,27 @@ function showCircuitRecords() {
         ? `<div class="compcard${icon ? ' hasicon' : ''}">${icon ? icon(k) : ''}<div class="compcard-t"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div></div>`
         : lockedCard).join('') + `</div></div>`;
   };
-  // Charms — grouped by category (the deck each pairs with) so the compendium
-  // reads as five tidy clusters instead of one 42-item wall.
+  // Common charms — grouped by category (the deck each pairs with) so the
+  // compendium reads as tidy clusters. Signature (boss) relics live apart below.
+  const commons = all.filter(k => !CHARMS[k].bossOnly), relics = all.filter(k => CHARMS[k].bossOnly);
   const catOrder = ['aggro', 'value', 'defense', 'cunning', 'neutral'];
-  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${seen}/${all.length}</div>`;
+  const charmCardHtml = k => `<div class="compcard hasicon">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}</div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`;
+  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${commons.filter(shown).length}/${commons.length}</div>`;
   for (const cat of catOrder) {
-    const keys = all.filter(k => charmCat(k) === cat);
+    const keys = commons.filter(k => charmCat(k) === cat);
     if (!keys.length) continue;
     const cc = CHARM_CATS[cat], gotN = keys.filter(k => shown(k)).length;
     html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium">` +
-      keys.map(k => shown(k)
-        ? `<div class="compcard hasicon">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}</div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`
-        : lockedCard).join('') + `</div></div>`;
+      keys.map(k => shown(k) ? charmCardHtml(k) : lockedCard).join('') + `</div></div>`;
   }
   html += `</div>`;
+  // Signature Relics — the rare boss trophies, each naming the boss that drops it.
+  const relicSource = k => CHARMS[k].persona || (k === 'wildcard' ? 'any boss' : k === 'doublecross' ? 'The Old Rival' : 'a boss');
+  const lockedRelic = `<div class="compcard locked relic"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — break the boss who carries it.</div></div>`;
+  html += `<div class="ldsection"><div class="ldhead">Signature Relics — ${relics.filter(shown).length}/${relics.length} <span class="reliclede">· rare boss trophies</span></div><div class="compendium">` +
+    relics.map(k => shown(k)
+      ? `<div class="compcard hasicon relic">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}<span class="relicboss">${relicSource(k)}</span></div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`
+      : lockedRelic).join('') + `</div></div>`;
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
   // Stone variants (the pouch upgrade track)
