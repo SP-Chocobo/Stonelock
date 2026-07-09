@@ -6629,6 +6629,17 @@ const CHARM_META = {
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
 function charmGlyphStyle(g) { return `transform:translate(0.04em,${CHARM_DIAMONDS.indexOf(g) >= 0 ? '0.01em' : '0.04em'})`; }
+// Hidden per-charm effectiveness (sole-charm win rate from tests/charm-value-battery.js,
+// K=60). Not shown to players — general knowledge the fixer uses to target dead
+// weight, never elites. Higher = stronger. Relics/unmeasured default to mid.
+const CHARM_VAL = {
+  momentum: 73, crownjewel: 67, reckless: 54, whetstone: 50, evenkeel: 23, passagetoll: 16,
+  strongfinish: 15, laststand: 13, loadedcoin: 7, firstblood: 7, forgerseal: 6, masterforger: 6,
+  spite: 6, floorprice: 5, bulwarkcharm: 4, hardened: 3, tithe: 3, fullsatchel: 3, mulligan: 2,
+  smugglers: 1, ironpouch: 1, fieldsurgeon: 1, warchest: 1, opening: 1, counterpunch: 1,
+  cycle: 1, foresight: 1, foulplay: 1, vigor: 0, tollkeeper: 0, resonance: 0,
+};
+function charmWorth(key) { return CHARM_VAL[key] != null ? CHARM_VAL[key] : 45; } // NB: not charmVal() — that sums charm fields
 // The emblem markup. opts: { size:'sm'|'lg', tip:true (styled hover tooltip) }.
 function charmEmblemHtml(key, opts) {
   opts = opts || {};
@@ -7780,20 +7791,31 @@ function eventReady() {
 // for a random one), and an ambush (fight for spoils or pay Standing to slip).
 function variantForBase(base) { return Object.keys(STONE_VARIANTS).find(v => STONE_VARIANTS[v].base === base) || null; }
 function upgradableStones(g) { return STONE_KEYS.filter(c => (g.pouch[c] || 0) > 0 && variantForBase(c)); }
-// "A Voice in the Alley" — the fixer's swap. He takes a COMMON charm from your
-// least-represented category (your odd-one-out) and, sight unseen, hands back an
-// unowned common drawn from your most-represented category — falling to the next
-// most-represented if that lane is already complete. Signature relics are never
-// touched. Returns { giveCharm, gain } or null if no valid trade exists.
+// "A Voice in the Alley" — the fixer's swap. He takes DEAD WEIGHT: a common charm
+// from your least-represented category that sits in the bottom ~40% of its class
+// by value (and is never globally elite) — walking to the next-least lane if a
+// lane offers only strong charms. In return, sight unseen, an unowned common from
+// your most-represented category (falling down the ranking if that lane is full).
+// Signature relics are never touched. Returns { giveCharm, gain } or null.
 function fixerDeal(g) {
   const owned = playerCharms();
   const commonsOwned = owned.filter(k => !CHARMS[k].bossOnly);
   const unowned = unownedCharmKeys(); // unowned commons only
   if (!commonsOwned.length || !unowned.length) return null;
   const byCat = {}; for (const k of owned) byCat[charmCat(k)] = (byCat[charmCat(k)] || 0) + 1; // relics count toward representation
-  // Sacrifice: a common from the least-represented category you own a common in.
-  const giveCat = [...new Set(commonsOwned.map(charmCat))].sort((a, b) => (byCat[a] || 0) - (byCat[b] || 0))[0];
-  const giveCharm = shuffle(commonsOwned.filter(k => charmCat(k) === giveCat))[0];
+  const ELITE = 45; // never trade away a charm this strong, whatever the lane
+  const commonsAll = Object.keys(CHARMS).filter(k => !CHARMS[k].bossOnly);
+  const bottom40 = cat => { const vs = commonsAll.filter(k => charmCat(k) === cat).map(charmWorth).sort((a, b) => a - b); return vs.length ? vs[Math.max(0, Math.ceil(vs.length * 0.4) - 1)] : 100; };
+  // Sacrifice: walk your lanes least-represented first; take the lowest-value owned
+  // charm in that lane's bottom 40% that isn't elite. Skip a lane of only strong charms.
+  const catsAsc = [...new Set(commonsOwned.map(charmCat))].sort((a, b) => (byCat[a] || 0) - (byCat[b] || 0));
+  let giveCharm = null;
+  for (const cat of catsAsc) {
+    const th = bottom40(cat);
+    const cands = commonsOwned.filter(k => charmCat(k) === cat && charmWorth(k) <= th && charmWorth(k) < ELITE).sort((a, b) => charmWorth(a) - charmWorth(b));
+    if (cands.length) { giveCharm = cands[0]; break; }
+  }
+  if (!giveCharm) giveCharm = commonsOwned.slice().sort((a, b) => charmWorth(a) - charmWorth(b))[0]; // you own only strong charms → your weakest
   // Reward: an unowned common from the most-represented category, falling down the ranking.
   const ranked = Object.keys(byCat).sort((a, b) => (byCat[b] || 0) - (byCat[a] || 0));
   let gain = null;
@@ -7813,7 +7835,10 @@ function makeCircuitEvent() {
   if (upgradableStones(g).length) kinds.push('whetstone');
   if (pouchTotal(g.pouch) > 1) kinds.push('swap');
   if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
-  if (playerCharms().some(k => !CHARMS[k].bossOnly) && unownedCharmKeys().length) kinds.push('fixer'); // the alley fixer's swap
+  // The alley fixer only surfaces late — back half of act 2 onward — once you've
+  // built a real charm pool worth reshaping.
+  const fixerLate = g.act >= 3 || (g.act === 2 && (g.curNode ? g.curNode.col : 0) >= Math.ceil(CIRCUIT.actRows / 2));
+  if (fixerLate && playerCharms().some(k => !CHARMS[k].bossOnly) && unownedCharmKeys().length) kinds.push('fixer');
   // The Dark Pact is rare and self-limiting: only when your Standing pool is
   // still healthy, and behind a coin flip on top of being one kind among many.
   if (g.maxStanding >= 15 && rnd() < 0.5) kinds.push('pact');
