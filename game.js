@@ -5993,15 +5993,15 @@ function showCircuitRecords() {
     : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
   html += `</div>`;
   const lockedCard = `<div class="compcard locked"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — meet it in a run to reveal it.</div></div>`;
-  const compSection = (head, keys, info) => {
+  const compSection = (head, keys, info, icon) => {
     const got = keys.filter(k => shown(k.seenKey)).length;
     return `<div class="ldsection"><div class="ldhead">${head} — ${got}/${keys.length}</div><div class="compendium">` +
       keys.map(k => shown(k.seenKey)
-        ? `<div class="compcard"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div>`
+        ? `<div class="compcard${icon ? ' hasicon' : ''}">${icon ? icon(k) : ''}<div class="compcard-t"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div></div>`
         : lockedCard).join('') + `</div></div>`;
   };
-  // Charms (relics)
-  html += compSection('Charm compendium', all.map(k => ({ key: k, seenKey: k })), k => ({ h: CHARMS[k.key].label, b: CHARMS[k.key].blurb }));
+  // Charms (relics) — each shows its category emblem
+  html += compSection('Charm compendium', all.map(k => ({ key: k, seenKey: k })), k => ({ h: CHARMS[k.key].label, b: CHARMS[k.key].blurb }), k => charmEmblemHtml(k.key, { size: 'sm' }));
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
   // Stone variants (the pouch upgrade track)
@@ -7552,7 +7552,7 @@ function circuitRewardScreen() {
       const sel = r.charmPick === key;
       const b = document.createElement('button');
       b.className = 'charmcard' + (sel ? ' selected' : '');
-      b.innerHTML = `<div class="charmcard-h">${ch.label}</div><div class="charmcard-b">${ch.blurb}</div>`;
+      b.innerHTML = `${charmEmblemHtml(key)}<div class="charmcard-t"><div class="charmcard-h">${ch.label}</div><div class="charmcard-b">${ch.blurb}</div></div>`;
       b.onclick = () => { r.charmPick = (r.charmPick === key) ? null : key; circuitRewardScreen(); };
       cmrow.appendChild(b);
     }
@@ -7694,7 +7694,7 @@ function circuitShopScreen() {
   s.charms.forEach((it, i) => {
     const sold = s.sold['m' + i], ch = CHARMS[it.key];
     urow.appendChild(shopTile({
-      accent: 'charm', icon: '✦', name: ch.label, desc: ch.blurb, title: ch.blurb,
+      accent: 'charm', icon: charmEmblemHtml(it.key), name: ch.label, desc: ch.blurb, title: ch.blurb,
       price: it.price, sold, afford: can(it.price), onClick: () => circuitShopBuy('charm', i),
     }));
   });
