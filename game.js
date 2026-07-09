@@ -8056,14 +8056,14 @@ function renderFixerEvent(g) {
   SFX.play('win');
   const give = CHARMS[ev.giveCharm] || { label: '—', blurb: '' };
   const body = eventShell('A Voice in the Alley',
-    `Standing ${g.standing}/${g.maxStanding}. A shadow peels off a doorway and beckons you into the dark between two buildings. A fixer — the kind who arranges outcomes for a cut — has been watching your play. “That trinket's dead weight on you, friend. Doesn't suit your game. Slip it here… I'll see you get one that does. No — don't ask which. You'll like it.”`);
+    `Standing ${g.standing}/${g.maxStanding}. A shadow peels off a doorway and beckons you into the dark between two buildings. A fixer — the kind who arranges outcomes for a cut — has been watching your play. “That trinket's dead weight on you, friend. Slip it here… I'll square you up with something better. What? No, you don't get to pick. Trust the arrangement. And that fancy piece you're carrying — too hot to move. Keep it.”`);
   const sec = document.createElement('div'); sec.className = 'ldsection';
   sec.innerHTML = `<div class="ldhead">He wants this charm — you won't see what you get</div>`;
   const row = document.createElement('div'); row.className = 'fixertrade';
   row.innerHTML =
     `<div class="charmcard static"><div class="charmcard-tag give">He takes</div>${charmEmblemHtml(ev.giveCharm)}<div class="charmcard-t"><div class="charmcard-h">${give.label}</div><div class="charmcard-b">${give.blurb}</div></div></div>` +
     `<div class="fixer-arrow">→</div>` +
-    `<div class="charmcard static mystery"><div class="charmcard-tag get">You get</div><span class="charmemblem ce-mystery" style="--cc:#9a9184;--cd:#39332a"><span class="ce-frame"></span><span class="ce-gem"><span class="ce-g">?</span></span></span><div class="charmcard-t"><div class="charmcard-h">? ? ?</div><div class="charmcard-b">A charm from your strongest calling. (Signature relics are safe — he won't touch them.)</div></div></div>`;
+    `<div class="charmcard static mystery"><div class="charmcard-tag get">You get</div><span class="charmemblem ce-mystery" style="--cc:#9a9184;--cd:#39332a"><span class="ce-frame"></span><span class="ce-gem"><span class="ce-g">?</span></span></span><div class="charmcard-t"><div class="charmcard-h">? ? ?</div><div class="charmcard-b">You won't know until it's in your hand.</div></div></div>`;
   sec.appendChild(row); body.appendChild(sec);
   const orow = document.createElement('div'); orow.className = 'eventopts';
   const take = document.createElement('button'); take.className = 'eventopt';
