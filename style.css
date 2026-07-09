@@ -1652,6 +1652,11 @@ body[data-compact="1"] .board .cfx { display: none; }
 .recrow-s { color: var(--parchment); min-width: 56px; }
 .recrow-f { color: var(--parchment-dim); font-style: italic; }
 .compendium { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.compgroup { margin-top: 15px; }
+.compgroup:first-of-type { margin-top: 8px; }
+.compgroup-h { font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
+  display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px; padding-bottom: 5px; border-bottom: 1px solid currentColor; opacity: 0.95; }
+.compgroup-n { font-size: 10px; letter-spacing: 0.04em; color: var(--parchment-dim); font-weight: 400; }
 .compcard { padding: 8px 10px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 8px; }
 .compcard.hasicon { display: flex; align-items: center; gap: 10px; }
 .compcard.hasicon .compcard-t { min-width: 0; }

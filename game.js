@@ -6000,8 +6000,20 @@ function showCircuitRecords() {
         ? `<div class="compcard${icon ? ' hasicon' : ''}">${icon ? icon(k) : ''}<div class="compcard-t"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div></div>`
         : lockedCard).join('') + `</div></div>`;
   };
-  // Charms (relics) — each shows its category emblem
-  html += compSection('Charm compendium', all.map(k => ({ key: k, seenKey: k })), k => ({ h: CHARMS[k.key].label, b: CHARMS[k.key].blurb }), k => charmEmblemHtml(k.key, { size: 'sm' }));
+  // Charms — grouped by category (the deck each pairs with) so the compendium
+  // reads as five tidy clusters instead of one 42-item wall.
+  const catOrder = ['aggro', 'value', 'defense', 'cunning', 'neutral'];
+  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${seen}/${all.length}</div>`;
+  for (const cat of catOrder) {
+    const keys = all.filter(k => charmCat(k) === cat);
+    if (!keys.length) continue;
+    const cc = CHARM_CATS[cat], gotN = keys.filter(k => shown(k)).length;
+    html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium">` +
+      keys.map(k => shown(k)
+        ? `<div class="compcard hasicon">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}</div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`
+        : lockedCard).join('') + `</div></div>`;
+  }
+  html += `</div>`;
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
   // Stone variants (the pouch upgrade track)
