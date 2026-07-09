@@ -6071,7 +6071,7 @@ function circuitLoadoutScreen() {
     slot.innerHTML =
       `<div class="deckslot-art" style="background-image:url('assets/portraits/${dk.portrait}.jpg?v=3'), linear-gradient(150deg, ${dk.tint[0]}, ${dk.tint[1]})"></div>` +
       `<div class="deckslot-info"><div class="deckslot-name">${dk.name}</div><div class="deckslot-lane">${dk.lane}</div>` +
-      `<div class="deckslot-charm">Charm — <b>${rc.label}</b></div></div>` +
+      `<div class="deckslot-charm">${charmEmblemHtml(circuitLoad.charm, { size: 'sm' })}<b>${rc.label}</b></div></div>` +
       `<div class="deckslot-change">Change ▾</div>`;
   } else {
     slot.innerHTML =
@@ -6161,7 +6161,8 @@ function renderDeckPicker() {
   const charmHtml = dk.charms.map(ck => {
     const ch = CHARMS[ck] || { label: ck, blurb: '' };
     const picked = circuitLoad.deck === dk.key && circuitLoad.charm === ck;
-    return `<button class="deckcharm${picked ? ' picked' : ''}" data-charm="${ck}" data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"><span class="charmdot"></span><span class="charmname">${ch.label}</span><span class="charmblurb">${esc(ch.blurb)}</span></button>`;
+    const catL = (CHARM_CATS[charmCat(ck)] || {}).label || '';
+    return `<button class="deckcharm${picked ? ' picked' : ''}" data-charm="${ck}">${charmEmblemHtml(ck)}<span class="charmtext"><span class="charmname">${ch.label}<span class="charmcat cc-${charmCat(ck)}">${catL}</span></span><span class="charmblurb">${esc(ch.blurb)}</span></span></button>`;
   }).join('');
   // Signature-card effects spelled out inline (not hover-only) so touch players
   // read them too — same reason the charm blurbs sit under each charm.
@@ -6575,6 +6576,51 @@ function chitCoinHtml(c) {
 function chitPileHtml(keys) {
   const cs = (keys || []).map(chitByKey).filter(Boolean);
   return cs.length ? `<span class="chitpile">${cs.map(chitCoinHtml).join('')}</span>` : '';
+}
+
+// ── Charm emblems ──────────────────────────────────────────────────────────
+// Each charm renders as the ornate frame (assets/charms/frame.png) with a
+// category-tinted gem + halo and an engraved glyph. Category colour follows the
+// deck archetype the charm best suits, so the colour reads as "pairs with X":
+//   Aggression → Vanguard (crimson) · Value → Broker (amber)
+//   Defense → Anvil (teal) · Cunning → Weaver (violet) · Neutral → pewter
+const CHARM_CATS = {
+  aggro:   { label: 'Aggression', color: '#cf4b32', dark: '#5a140b' },
+  value:   { label: 'Value',      color: '#c99a33', dark: '#5c3f0e' },
+  defense: { label: 'Defense',    color: '#45a89b', dark: '#123a35' },
+  cunning: { label: 'Cunning',    color: '#8e63cf', dark: '#341066' },
+  neutral: { label: 'Neutral',    color: '#9a9184', dark: '#39332a' },
+};
+// key → [glyph, category]. Glyph is engraved on the gem; diamond-family glyphs
+// get a slightly higher optical nudge (see charmGlyphStyle).
+const CHARM_META = {
+  firstblood: ['➊', 'aggro'], strongfinish: ['⇥', 'aggro'], opening: ['◈', 'aggro'], spite: ['↯', 'aggro'],
+  momentum: ['➤', 'aggro'], reckless: ['⚡', 'aggro'], laststand: ['⚔', 'aggro'], followingsea: ['≋', 'aggro'],
+  loadedcoin: ['◉', 'value'], passagetoll: ['⇄', 'value'], forgerseal: ['✦', 'value'], masterforger: ['✷', 'value'],
+  matchedset: ['⧉', 'value'], floorprice: ['▂', 'value'], evenkeel: ['⚖', 'value'], crownjewel: ['♦', 'value'],
+  warchest: ['▣', 'value'], tollkeeper: ['⊚', 'value'], sovereign: ['♛', 'value'], riverking: ['≈', 'value'],
+  hardened: ['⬢', 'defense'], fieldsurgeon: ['✚', 'defense'], counterpunch: ['❂', 'defense'], bulwarkcharm: ['⛨', 'defense'],
+  vigor: ['❀', 'defense'], resonance: ['◎', 'defense'], secondwind: ['↺', 'defense'], ironpouch: ['⬚', 'defense'],
+  smugglers: ['◍', 'cunning'], fullsatchel: ['❐', 'cunning'], mulligan: ['⟲', 'cunning'], cycle: ['⟳', 'cunning'],
+  foresight: ['◐', 'cunning'], foulplay: ['☠', 'cunning'], whetstone: ['✧', 'cunning'], motherlode: ['◆', 'cunning'],
+  wildcard: ['✺', 'cunning'], ironverdict: ['⛓', 'cunning'], highwayman: ['⚑', 'cunning'], veilwalker: ['◑', 'cunning'],
+  doublecross: ['✕', 'cunning'],
+  tithe: ['⊕', 'neutral'],
+};
+const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
+function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
+function charmGlyphStyle(g) { return `transform:translate(0.04em,${CHARM_DIAMONDS.indexOf(g) >= 0 ? '0.01em' : '0.04em'})`; }
+// The emblem markup. opts: { size:'sm'|'lg', tip:true (styled hover tooltip) }.
+function charmEmblemHtml(key, opts) {
+  opts = opts || {};
+  const ch = CHARMS[key] || { label: key, blurb: '' };
+  const m = CHARM_META[key] || ['◆', 'neutral'];
+  const cat = CHARM_CATS[m[1]] || CHARM_CATS.neutral;
+  const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+  const tip = opts.tip ? ` data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"` : '';
+  const cls = 'charmemblem' + (opts.size ? ' ce-' + opts.size : '');
+  return `<span class="${cls}" style="--cc:${cat.color};--cd:${cat.dark}"${tip}><span class="ce-frame"></span>` +
+    `<span class="ce-gem"><span class="ce-g" style="${charmGlyphStyle(m[0])}">${m[0]}</span></span></span>`;
 }
 
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).
