@@ -7780,6 +7780,27 @@ function eventReady() {
 // for a random one), and an ambush (fight for spoils or pay Standing to slip).
 function variantForBase(base) { return Object.keys(STONE_VARIANTS).find(v => STONE_VARIANTS[v].base === base) || null; }
 function upgradableStones(g) { return STONE_KEYS.filter(c => (g.pouch[c] || 0) > 0 && variantForBase(c)); }
+// "A Voice in the Alley" — the fixer's swap. He takes a COMMON charm from your
+// least-represented category (your odd-one-out) and, sight unseen, hands back an
+// unowned common drawn from your most-represented category — falling to the next
+// most-represented if that lane is already complete. Signature relics are never
+// touched. Returns { giveCharm, gain } or null if no valid trade exists.
+function fixerDeal(g) {
+  const owned = playerCharms();
+  const commonsOwned = owned.filter(k => !CHARMS[k].bossOnly);
+  const unowned = unownedCharmKeys(); // unowned commons only
+  if (!commonsOwned.length || !unowned.length) return null;
+  const byCat = {}; for (const k of owned) byCat[charmCat(k)] = (byCat[charmCat(k)] || 0) + 1; // relics count toward representation
+  // Sacrifice: a common from the least-represented category you own a common in.
+  const giveCat = [...new Set(commonsOwned.map(charmCat))].sort((a, b) => (byCat[a] || 0) - (byCat[b] || 0))[0];
+  const giveCharm = shuffle(commonsOwned.filter(k => charmCat(k) === giveCat))[0];
+  // Reward: an unowned common from the most-represented category, falling down the ranking.
+  const ranked = Object.keys(byCat).sort((a, b) => (byCat[b] || 0) - (byCat[a] || 0));
+  let gain = null;
+  for (const c of ranked) { const pool = unowned.filter(k => charmCat(k) === c); if (pool.length) { gain = shuffle(pool)[0]; break; } }
+  if (!gain) gain = shuffle(unowned.slice())[0]; // every represented lane complete → any unowned common
+  return gain ? { giveCharm, gain } : null;
+}
 function makeCircuitEvent() {
   const g = GAUNTLET;
   // An Old Rival: once you've bested an act boss, the next Encounter in a later
@@ -7792,6 +7813,7 @@ function makeCircuitEvent() {
   if (upgradableStones(g).length) kinds.push('whetstone');
   if (pouchTotal(g.pouch) > 1) kinds.push('swap');
   if (playerCharms().length && unownedCharmKeys().length) kinds.push('gamble');
+  if (playerCharms().some(k => !CHARMS[k].bossOnly) && unownedCharmKeys().length) kinds.push('fixer'); // the alley fixer's swap
   // The Dark Pact is rare and self-limiting: only when your Standing pool is
   // still healthy, and behind a coin flip on top of being one kind among many.
   if (g.maxStanding >= 15 && rnd() < 0.5) kinds.push('pact');
@@ -7800,6 +7822,7 @@ function makeCircuitEvent() {
   if (kind === 'cache') ev.offer = circuitOfferCards(3);
   else if (kind === 'swap') ev.gain = STONE_KEYS[Math.floor(rnd() * STONE_KEYS.length)];
   else if (kind === 'gamble') ev.gain = shuffle(unownedCharmKeys())[0];
+  else if (kind === 'fixer') { const d = fixerDeal(g); if (d) { ev.giveCharm = d.giveCharm; ev.gain = d.gain; } else { ev.kind = 'gold'; ev.gold = 10 + Math.floor(rnd() * 6); } }
   else if (kind === 'ambush') { ev.foe = pickFoeFor('duel', g.act); ev.dmg = Math.max(4, Math.round(g.maxStanding * 0.3)); }
   else if (kind === 'gold') ev.gold = 10 + Math.floor(rnd() * 6); // a 10–15 coin windfall
   else if (kind === 'blood') { ev.step = 0; ev.spentHp = 0; ev.gotGold = 0; }
@@ -7876,6 +7899,7 @@ function circuitEventScreen() {
     case 'whetstone': return renderWhetstoneEvent(g);
     case 'swap': return renderSwapEvent(g);
     case 'gamble': return renderGambleEvent(g);
+    case 'fixer': return renderFixerEvent(g);
     case 'ambush': return renderAmbushEvent(g);
     case 'gold': return renderGoldEvent(g);
     case 'blood': return renderBloodEvent(g);
@@ -8021,6 +8045,44 @@ function renderGambleEvent(g) {
   const next = $('circuitNext'); next.style.display = ''; next.disabled = false;
   next.textContent = ev.giveCharm ? 'Pawn it ›' : 'Walk on ›';
   next.onclick = circuitTakeEventAndAdvance;
+  $('circuitModal').classList.add('open');
+}
+
+// A Voice in the Alley — the fixer shows the charm he'll take (your least-aligned
+// one) but never what you'll get; the payout is an unowned charm from your
+// strongest lane. He won't touch a signature relic. Two buttons resolve inline.
+function renderFixerEvent(g) {
+  const ev = g.event;
+  SFX.play('win');
+  const give = CHARMS[ev.giveCharm] || { label: '—', blurb: '' };
+  const body = eventShell('A Voice in the Alley',
+    `Standing ${g.standing}/${g.maxStanding}. A shadow peels off a doorway and beckons you into the dark between two buildings. A fixer — the kind who arranges outcomes for a cut — has been watching your play. “That trinket's dead weight on you, friend. Doesn't suit your game. Slip it here… I'll see you get one that does. No — don't ask which. You'll like it.”`);
+  const sec = document.createElement('div'); sec.className = 'ldsection';
+  sec.innerHTML = `<div class="ldhead">He wants this charm — you won't see what you get</div>`;
+  const row = document.createElement('div'); row.className = 'fixertrade';
+  row.innerHTML =
+    `<div class="charmcard static"><div class="charmcard-tag give">He takes</div>${charmEmblemHtml(ev.giveCharm)}<div class="charmcard-t"><div class="charmcard-h">${give.label}</div><div class="charmcard-b">${give.blurb}</div></div></div>` +
+    `<div class="fixer-arrow">→</div>` +
+    `<div class="charmcard static mystery"><div class="charmcard-tag get">You get</div><span class="charmemblem ce-mystery" style="--cc:#9a9184;--cd:#39332a"><span class="ce-frame"></span><span class="ce-gem"><span class="ce-g">?</span></span></span><div class="charmcard-t"><div class="charmcard-h">? ? ?</div><div class="charmcard-b">A charm from your strongest calling. (Signature relics are safe — he won't touch them.)</div></div></div>`;
+  sec.appendChild(row); body.appendChild(sec);
+  const orow = document.createElement('div'); orow.className = 'eventopts';
+  const take = document.createElement('button'); take.className = 'eventopt';
+  take.innerHTML = `<div class="eventopt-l">Take the deal</div><div class="eventopt-n">Hand over ${give.label}; he slips you something that fits.</div>`;
+  take.onclick = () => {
+    const lost = CHARMS[ev.giveCharm] && CHARMS[ev.giveCharm].maxStandingAdd;
+    if (lost) { g.maxStanding = Math.max(4, g.maxStanding - lost); g.standing = Math.min(g.standing, g.maxStanding); }
+    g.charms = (g.charms || []).filter(c => c !== ev.giveCharm).concat([ev.gain]);
+    markCharmSeen(ev.gain);
+    const got = CHARMS[ev.gain] && CHARMS[ev.gain].maxStandingAdd;
+    if (got) { g.maxStanding += got; g.standing += got; }
+    g.event = null; circuitAfterNode();
+  };
+  const walk = document.createElement('button'); walk.className = 'eventopt';
+  walk.innerHTML = `<div class="eventopt-l">Walk away</div><div class="eventopt-n">Keep what you have; leave him in the dark.</div>`;
+  walk.onclick = () => { g.event = null; circuitAfterNode(); };
+  orow.appendChild(take); orow.appendChild(walk); body.appendChild(orow);
+  eventReviewBtn(body);
+  $('circuitNext').style.display = 'none';
   $('circuitModal').classList.add('open');
 }
 

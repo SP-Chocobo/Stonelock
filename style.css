@@ -1571,6 +1571,19 @@ body[data-compact="1"] .board .cfx { display: none; }
   background: rgba(20,14,8,0.6); border: 1px solid var(--gold-dim); border-radius: 9px; transition: all 0.12s ease; }
 .charmcard:hover { border-color: var(--gold-bright); background: rgba(40,30,17,0.8); }
 .charmcard.selected { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
+/* The fixer's swap — a static "he takes → you get" trade, reward hidden. */
+.fixertrade { display: flex; align-items: stretch; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.fixertrade .charmcard { flex: 0 1 270px; position: relative; padding-top: 24px; }
+.charmcard.static { cursor: default; }
+.charmcard.static:hover { border-color: var(--gold-dim); background: rgba(0,0,0,0.16); }
+.charmcard-tag { position: absolute; top: 7px; left: 12px; font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--parchment-dim); }
+.charmcard-tag.get { color: var(--gold); }
+.charmcard.mystery { border-style: dashed; }
+.charmcard.mystery .charmcard-h { color: var(--parchment-dim); letter-spacing: 0.12em; }
+.fixer-arrow { align-self: center; font-size: 28px; color: var(--gold-dim); }
+.ce-mystery .ce-gem { background: radial-gradient(circle at 38% 32%, #ffffff99, #9a9184 55%, #39332a 100%); }
+.ce-mystery .ce-g { transform: none; font-weight: 700; }
+@media (max-width: 620px) { .fixer-arrow { transform: rotate(90deg); } }
 .charmcard-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 13.5px; }
 .charmcard-b { font-size: 11.5px; color: var(--parchment-dim); margin-top: 3px; }
 /* Owned charms in the HUD. */
