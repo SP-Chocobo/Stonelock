@@ -7298,19 +7298,39 @@ function drawMapEdges(grid, m) {
 
 function circuitVictory() {
   const g = GAUNTLET; g.active = false; g.won = true;
+  // Snapshot progression BEFORE recording the clear, so we can reveal exactly
+  // which Debts (and slots) this win just opened.
+  const unlockedBefore = chitsUnlockedCount(), capBefore = activeChitCap();
   recordCircuitRun(g);
-  const newDebts = recordChitClear(g.chitValue || 0); // clearing at this chit value can open more debts
+  recordChitClear(g.chitValue || 0); // clearing at this chit value can open more debts
   if (typeof document === 'undefined') return;
   SFX.play('win');
+  const newChits = gatedChits().slice(unlockedBefore, chitsUnlockedCount()); // the exact coins earned
+  const newSlots = activeChitCap() - capBefore;
   const mc = $('circuitModal').querySelector('.modalcard'); if (mc) mc.classList.remove('wide');
   $('circuitStats').className = 'victoryunlocks';
   $('circuitTitle').textContent = 'The Circuit — Conquered';
   $('circuitText').textContent = `You ran all ${CIRCUIT.acts} acts and broke the final boss. Masterful.`;
-  $('circuitStats').innerHTML = `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b></div>` +
+  // The payoff: reveal the coins this win unlocked (staggered pop-in), the slot
+  // gained, and a hook toward the next gate. Only when something actually opened.
+  let reveal = '';
+  if (newChits.length) {
+    const coins = newChits.map((c, i) => `<span class="ur-coin" style="animation-delay:${(0.2 + i * 0.14).toFixed(2)}s">${chitCoinHtml(c)}<span class="ur-coin-n">${c.name}</span></span>`).join('');
+    const ng = chitsNextGate(), remaining = gatedChits().length - chitsUnlockedCount();
+    reveal =
+      `<div class="unlockreveal">` +
+        `<div class="ur-head">⛓ Debts Settled</div>` +
+        `<div class="ur-coins">${coins}</div>` +
+        `<div class="ur-sub">${newChits.length} new difficulty modifier${newChits.length === 1 ? '' : 's'} unlocked — carry ${newChits.length === 1 ? 'it' : 'them'} next run to climb higher.</div>` +
+        (newSlots > 0 ? `<div class="ur-slot">＋${newSlots} Debt slot — you can now carry <b>${activeChitCap()}</b> at once.</div>` : '') +
+        (ng != null && remaining > 0 ? `<div class="ur-next">Next: win a <b>${ng}-chit</b> run to open ${Math.min(2, remaining)} more.</div>` : '') +
+      `</div>`;
+  }
+  $('circuitStats').innerHTML = reveal +
+    `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b></div>` +
     `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
     `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>` +
-    (g.chitValue ? `<div class="unlockitem">Debts carried: <b>${g.chitValue} chit${g.chitValue === 1 ? '' : 's'}</b></div>` : '') +
-    (newDebts ? `<div class="unlockitem gold">⛓ ${newDebts} new Debt${newDebts === 1 ? '' : 's'} earned — raise the stakes next run.</div>` : '');
+    (g.chitValue ? `<div class="unlockitem">Debts carried: <b>${g.chitValue} chit${g.chitValue === 1 ? '' : 's'}</b></div>` : '');
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
   $('circuitStats').appendChild(rb);
   const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = () => startCircuit();
