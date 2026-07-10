@@ -1669,7 +1669,14 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compendium { --chipw: calc(25% - 7.5px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .compendium.cols-3 { --chipw: calc(33.333% - 6.67px); }
 @media (max-width: 720px) { .compendium, .compendium.cols-3 { --chipw: calc(50% - 5px); } }
-@media (max-width: 430px) { .compendium, .compendium.cols-3 { --chipw: 100%; } }
+/* Phones: keep 2-up but stack the name UNDER the emblem so it gets the full chip
+   width and wraps instead of truncating. Boss source lives in the overlay only. */
+@media (max-width: 430px) {
+  .compchip { flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 12px 8px; }
+  .compchip-t { flex: none; width: 100%; }
+  .compchip-n { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .compchip .compchip-sub { display: none; }
+}
 .compgroup { margin-top: 15px; }
 .compgroup:first-of-type { margin-top: 8px; }
 .compgroup-h { font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
