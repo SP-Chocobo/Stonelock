@@ -6039,9 +6039,10 @@ function showCircuitRecords() {
     const keys = commons.filter(k => charmCat(k) === cat);
     if (!keys.length) continue;
     const cc = CHARM_CATS[cat], gotN = keys.filter(k => shown(k)).length;
-    html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium">` +
+    const cols = keys.length <= 6 ? ' cols-3' : ''; // small lanes (Neutral's 5) go 3-up → 3+2, not 4+1
+    html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium${cols}">` +
       keys.map(k => shown(k)
-        ? compChip({ emblem: charmEmblemHtml(k, { size: 'sm' }), name: CHARMS[k].label, blurb: CHARMS[k].blurb, cat })
+        ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, blurb: CHARMS[k].blurb, cat })
         : compChip({ locked: true })).join('') + `</div></div>`;
   }
   html += `</div>`;
@@ -6049,7 +6050,7 @@ function showCircuitRecords() {
   const relicSource = k => CHARMS[k].persona || (k === 'wildcard' ? 'any boss' : k === 'doublecross' ? 'The Old Rival' : 'a boss');
   html += `<div class="ldsection"><div class="ldhead">Signature Relics — ${relics.filter(shown).length}/${relics.length} <span class="reliclede">· rare boss trophies</span></div><div class="compendium">` +
     relics.map(k => shown(k)
-      ? compChip({ emblem: charmEmblemHtml(k, { size: 'sm' }), name: CHARMS[k].label, sub: relicSource(k), blurb: CHARMS[k].blurb, relic: true })
+      ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, sub: relicSource(k), blurb: CHARMS[k].blurb, relic: true })
       : compChip({ locked: true, relic: true })).join('') + `</div></div>`;
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));

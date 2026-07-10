@@ -1664,7 +1664,12 @@ body[data-compact="1"] .board .cfx { display: none; }
 .recrow-t { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); min-width: 64px; }
 .recrow-s { color: var(--parchment); min-width: 56px; }
 .recrow-f { color: var(--parchment-dim); font-style: italic; }
-.compendium { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+/* Column count is per-section (--chipw): 4-up for the 7-charm lanes, 3-up for the
+   5-charm Neutral lane (3+2) and the boss relics (3+3+3+2). Trailing rows centre. */
+.compendium { --chipw: calc(25% - 7.5px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.compendium.cols-3 { --chipw: calc(33.333% - 6.67px); }
+@media (max-width: 720px) { .compendium, .compendium.cols-3 { --chipw: calc(50% - 5px); } }
+@media (max-width: 430px) { .compendium, .compendium.cols-3 { --chipw: 100%; } }
 .compgroup { margin-top: 15px; }
 .compgroup:first-of-type { margin-top: 8px; }
 .compgroup-h { font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
@@ -1683,27 +1688,34 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compcard.locked { opacity: 0.55; filter: grayscale(0.7); border-style: dashed; }
 .compcard.locked .compcard-h { color: var(--parchment-dim); letter-spacing: 0.15em; }
 .compcard.locked .compcard-b { color: var(--parchment-dim); font-style: italic; }
-/* Compendium chips: uniform emblem+name tiles that expand to full-width on tap. */
-.compchip { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  padding: 7px 10px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 8px;
-  color: inherit; font: inherit; cursor: pointer; transition: border-color .14s ease, background .14s ease; }
+/* Compendium chips: 4-up, uniform emblem+name tiles that break out to a full-width
+   highlighted card on tap. Trailing rows centre (justify-content on .compendium). */
+.compchip { --cat: var(--gold); flex: 0 1 var(--chipw); max-width: var(--chipw); box-sizing: border-box;
+  display: flex; align-items: center; gap: 11px; text-align: left;
+  padding: 9px 12px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 9px;
+  color: inherit; font: inherit; cursor: pointer; transition: border-color .14s ease, background .14s ease, box-shadow .14s ease; }
 .compchip:hover { border-color: var(--gold); background: rgba(30,21,11,0.6); }
 .compchip .charmemblem { flex: none; }
 .compchip-t { min-width: 0; flex: 1; }
-.compchip-n { display: block; font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 12.5px;
+.compchip-n { display: block; font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 13px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compchip-sub { font-family: Georgia, serif; font-size: 10px; font-style: italic; font-weight: 400; color: var(--gold-dim);
   letter-spacing: 0.02em; text-transform: none; white-space: nowrap; }
 .compchip-sub::before { content: ' · ⚔ '; font-style: normal; }
-.compchip-d { display: none; font-size: 11.5px; color: var(--parchment); line-height: 1.45; margin-top: 5px; }
-.compchip.relic { border-color: rgba(232,196,119,0.42); background: linear-gradient(180deg, rgba(44,32,16,0.55), rgba(20,14,8,0.5)); }
+.compchip-d { display: none; font-size: 12px; color: var(--parchment); line-height: 1.5; margin-top: 6px; }
+.compchip.cc-aggro { --cat: #cf4b32; } .compchip.cc-value { --cat: #c99a33; } .compchip.cc-defense { --cat: #45a89b; }
+.compchip.cc-cunning { --cat: #8e63cf; } .compchip.cc-neutral { --cat: #b6ac9a; }
+.compchip.relic { --cat: #e8c477; border-color: rgba(232,196,119,0.42); background: linear-gradient(180deg, rgba(44,32,16,0.55), rgba(20,14,8,0.5)); }
 .compchip.locked { opacity: 0.5; filter: grayscale(0.7); border-style: dashed; cursor: default; }
 .compchip.locked .compchip-n { color: var(--parchment-dim); letter-spacing: 0.12em; }
-/* Expanded: span the whole row, lift, reveal the description under the name. */
-.compchip.open { grid-column: 1 / -1; align-items: flex-start; background: rgba(48,35,17,0.72); border-color: var(--gold);
-  box-shadow: 0 2px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(232,196,119,0.14); }
-.compchip.open .compchip-n { white-space: normal; overflow: visible; font-size: 13.5px; }
-.compchip.open .compchip-sub { display: block; margin-top: 1px; }
+/* Expanded: break onto its own full-width row, lift off the grid, and reveal the
+   description. A category-tinted rail + glow makes the pick read as pulled-out. */
+.compchip.open { flex-basis: 100%; max-width: 100%; align-items: flex-start; margin: 5px 0; padding: 14px 16px 15px;
+  align-self: stretch; background: rgba(48,35,17,0.78); border-color: var(--cat); border-left: 3px solid var(--cat);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,196,119,0.12), -8px 0 18px -10px var(--cat); }
+.compchip.open .charmemblem { transform: scale(1.28); margin: 3px 9px 0 3px; }
+.compchip.open .compchip-n { white-space: normal; overflow: visible; font-size: 15px; }
+.compchip.open .compchip-sub { display: block; margin-top: 2px; }
 .compchip.open .compchip-sub::before { content: '⚔ '; }
 .compchip.open .compchip-d { display: block; }
 .recordsbody { max-height: 70vh; overflow-y: auto; }
