@@ -6016,11 +6016,11 @@ function showCircuitRecords() {
     : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
   html += `</div>`;
   // Compact chip: emblem + name only (uniform height, name clipped to one line so
-  // nothing spills). Tap to expand it full-width with its description; the click
-  // handler (wired after render) keeps only one open at a time — accordion style.
+  // nothing spills). Tap it to pop a detail overlay ON TOP of the grid (the chip
+  // itself stays put); the blurb rides along hidden and the overlay reads it.
   const compChip = o => o.locked
     ? `<div class="compchip locked${o.relic ? ' relic' : ''}"><span class="compchip-t"><span class="compchip-n">? ? ?</span></span></div>`
-    : `<button type="button" class="compchip${o.cat ? ' cc-' + o.cat : ''}${o.relic ? ' relic' : ''}${o.emblem ? ' hasicon' : ''}">${o.emblem || ''}` +
+    : `<button type="button" class="compchip${o.cat ? ' cc-' + o.cat : ''}${o.relic ? ' relic' : ''}${o.emblem ? ' hasicon' : ''}"${o.key ? ` data-key="${o.key}"` : ''}>${o.emblem || ''}` +
         `<span class="compchip-t"><span class="compchip-n">${o.name}${o.sub ? `<span class="compchip-sub">${o.sub}</span>` : ''}</span>` +
         `<span class="compchip-d">${o.blurb}</span></span></button>`;
   const compSection = (head, keys, info, icon) => {
@@ -6042,7 +6042,7 @@ function showCircuitRecords() {
     const cols = keys.length <= 6 ? ' cols-3' : ''; // small lanes (Neutral's 5) go 3-up → 3+2, not 4+1
     html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium${cols}">` +
       keys.map(k => shown(k)
-        ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, blurb: CHARMS[k].blurb, cat })
+        ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, blurb: CHARMS[k].blurb, cat, key: k })
         : compChip({ locked: true })).join('') + `</div></div>`;
   }
   html += `</div>`;
@@ -6050,21 +6050,41 @@ function showCircuitRecords() {
   const relicSource = k => CHARMS[k].persona || (k === 'wildcard' ? 'any boss' : k === 'doublecross' ? 'The Old Rival' : 'a boss');
   html += `<div class="ldsection"><div class="ldhead">Signature Relics — ${relics.filter(shown).length}/${relics.length} <span class="reliclede">· rare boss trophies</span></div><div class="compendium">` +
     relics.map(k => shown(k)
-      ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, sub: relicSource(k), blurb: CHARMS[k].blurb, relic: true })
+      ? compChip({ emblem: charmEmblemHtml(k), name: CHARMS[k].label, sub: relicSource(k), blurb: CHARMS[k].blurb, relic: true, key: k })
       : compChip({ locked: true, relic: true })).join('') + `</div></div>`;
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
   // Stone variants (the pouch upgrade track)
   html += compSection('Stone variants', Object.keys(STONE_VARIANTS).map(k => ({ key: k, seenKey: 'var:' + k })), k => ({ h: `${STONE_VARIANTS[k.key].name} — ${STONE_VARIANTS[k.key].power}`, b: STONE_VARIANTS[k.key].desc }));
+  // Detail overlay — floats above the whole grid on tap; the grid stays intact.
+  html += `<div class="compdetail" id="compdetail" hidden><div class="compdetail-card" id="compdetailCard" role="dialog" aria-modal="true"></div></div>`;
   const body = $('recordsBody');
   body.innerHTML = html;
-  // Tap a chip to expand its description (full-width, highlighted); tap it again,
-  // another chip, or empty space to collapse. One open at a time.
+  const detail = $('compdetail'), dcard = $('compdetailCard');
+  const closeDetail = () => { detail.hidden = true; dcard.className = 'compdetail-card'; dcard.innerHTML = ''; };
+  const openDetail = chip => {
+    const key = chip.getAttribute('data-key');
+    const catCls = (chip.className.match(/\bcc-\w+/) || [''])[0];
+    const relic = chip.classList.contains('relic');
+    const nameEl = chip.querySelector('.compchip-n'), subEl = chip.querySelector('.compchip-sub');
+    const name = nameEl ? (nameEl.childNodes[0] ? nameEl.childNodes[0].textContent : nameEl.textContent) : '';
+    const sub = subEl ? subEl.textContent : '';
+    const blurbEl = chip.querySelector('.compchip-d'), blurb = blurbEl ? blurbEl.innerHTML : '';
+    const emblem = key ? charmEmblemHtml(key, { size: 'lg' }) : '';
+    dcard.className = 'compdetail-card' + (catCls ? ' ' + catCls : '') + (relic ? ' relic' : '');
+    dcard.innerHTML = `<button type="button" class="compdetail-x" aria-label="Close">×</button>` +
+      (emblem ? `<div class="compdetail-em">${emblem}</div>` : '') +
+      `<div class="compdetail-name">${name}${sub ? `<span class="compchip-sub">${sub}</span>` : ''}</div>` +
+      `<div class="compdetail-d">${blurb}</div>`;
+    detail.hidden = false;
+  };
+  // One delegated handler: X or a click off the card tears the overlay down; a chip
+  // tap (only when nothing is open) raises it.
   body.onclick = e => {
+    if (e.target.closest('.compdetail-x')) return closeDetail();
+    if (!detail.hidden) { if (!e.target.closest('.compdetail-card')) closeDetail(); return; }
     const chip = e.target.closest('.compchip');
-    const open = body.querySelector('.compchip.open');
-    if (open && open !== chip) open.classList.remove('open');
-    if (chip && !chip.classList.contains('locked')) chip.classList.toggle('open');
+    if (chip && !chip.classList.contains('locked')) openDetail(chip);
   };
   $('recordsClose').onclick = () => closeModal('recordsModal');
   $('recordsModal').classList.add('open');
@@ -6668,7 +6688,22 @@ const CHARM_META = {
 };
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
-function charmGlyphStyle(g) { return `transform:translate(0.04em,${CHARM_DIAMONDS.indexOf(g) >= 0 ? '0.01em' : '0.04em'})`; }
+// Per-glyph optical centring. Each symbol's ink sits differently inside its em box,
+// so one uniform nudge leaves many off-centre; these [x,y] em offsets seat each on
+// the gem's true centre (tuned against a crosshair sheet). Unlisted glyphs fall to
+// a default that lifts diamonds a hair. +x = right, +y = down.
+const CHARM_GLYPH_OFF = {
+  '⇥': [0.10, 0.05], '⇄': [0.10, 0.05], '➤': [0.09, 0.04],       // arrows read left-heavy
+  '≋': [0.04, 0.15], '≈': [0.04, 0.14], '♛': [0.04, 0.14],         // waves / crown sit high
+  '⧉': [0.02, 0.12], '❐': [0.02, 0.11], '☠': [0.04, 0.11],         // stacked squares / skull
+  '⛓': [0.04, 0.13], '⚑': [0.07, 0.13], '⊕': [0.03, 0.13],         // chain / flag / circled plus
+  '⚖': [0.04, 0.12], '％': [0.02, 0.11], '♠': [0.03, 0.11],         // scales / percent / spade
+  '▂': [0.04, -0.26],                                              // low block → lift to centre
+};
+function charmGlyphStyle(g) {
+  const o = CHARM_GLYPH_OFF[g] || [0.04, CHARM_DIAMONDS.indexOf(g) >= 0 ? 0.01 : 0.05];
+  return `transform:translate(${o[0]}em,${o[1]}em)`;
+}
 // Hidden per-charm effectiveness (sole-charm win rate from tests/charm-value-battery.js,
 // K=60). Not shown to players — general knowledge the fixer uses to target dead
 // weight, never elites. Higher = stronger. Relics/unmeasured default to mid.

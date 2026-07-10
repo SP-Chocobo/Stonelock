@@ -1703,21 +1703,37 @@ body[data-compact="1"] .board .cfx { display: none; }
   letter-spacing: 0.02em; text-transform: none; white-space: nowrap; }
 .compchip-sub::before { content: ' · ⚔ '; font-style: normal; }
 .compchip-d { display: none; font-size: 12px; color: var(--parchment); line-height: 1.5; margin-top: 6px; }
-.compchip.cc-aggro { --cat: #cf4b32; } .compchip.cc-value { --cat: #c99a33; } .compchip.cc-defense { --cat: #45a89b; }
-.compchip.cc-cunning { --cat: #8e63cf; } .compchip.cc-neutral { --cat: #b6ac9a; }
+.compchip.cc-aggro, .compdetail-card.cc-aggro { --cat: #cf4b32; }
+.compchip.cc-value, .compdetail-card.cc-value { --cat: #c99a33; }
+.compchip.cc-defense, .compdetail-card.cc-defense { --cat: #45a89b; }
+.compchip.cc-cunning, .compdetail-card.cc-cunning { --cat: #8e63cf; }
+.compchip.cc-neutral, .compdetail-card.cc-neutral { --cat: #b6ac9a; }
 .compchip.relic { --cat: #e8c477; border-color: rgba(232,196,119,0.42); background: linear-gradient(180deg, rgba(44,32,16,0.55), rgba(20,14,8,0.5)); }
 .compchip.locked { opacity: 0.5; filter: grayscale(0.7); border-style: dashed; cursor: default; }
 .compchip.locked .compchip-n { color: var(--parchment-dim); letter-spacing: 0.12em; }
-/* Expanded: break onto its own full-width row, lift off the grid, and reveal the
-   description. A category-tinted rail + glow makes the pick read as pulled-out. */
-.compchip.open { flex-basis: 100%; max-width: 100%; align-items: flex-start; margin: 5px 0; padding: 14px 16px 15px;
-  align-self: stretch; background: rgba(48,35,17,0.78); border-color: var(--cat); border-left: 3px solid var(--cat);
-  box-shadow: 0 6px 22px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,196,119,0.12), -8px 0 18px -10px var(--cat); }
-.compchip.open .charmemblem { transform: scale(1.28); margin: 3px 9px 0 3px; }
-.compchip.open .compchip-n { white-space: normal; overflow: visible; font-size: 15px; }
-.compchip.open .compchip-sub { display: block; margin-top: 2px; }
-.compchip.open .compchip-sub::before { content: '⚔ '; }
-.compchip.open .compchip-d { display: block; }
+/* Detail overlay: a lightbox floating above the intact grid. Scrim dims the rest;
+   click the scrim or the × to dismiss. The chip you tapped stays in place. */
+.compdetail { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(8,5,2,0.72); animation: compdfade .15s ease; }
+.compdetail[hidden] { display: none; }
+@keyframes compdfade { from { opacity: 0; } to { opacity: 1; } }
+.compdetail-card { --cat: var(--gold); position: relative; width: min(430px, 92vw); max-height: 82vh; overflow-y: auto; text-align: center;
+  padding: 30px 26px 26px; border-radius: 14px; border: 1px solid var(--cat);
+  background: linear-gradient(180deg, rgba(46,34,17,0.98), rgba(23,15,8,0.99));
+  box-shadow: 0 20px 64px rgba(0,0,0,0.62), 0 0 0 1px rgba(232,196,119,0.12), 0 0 46px -14px var(--cat);
+  animation: compdpop .2s cubic-bezier(.2,.8,.3,1.25); }
+.compdetail-card.relic { --cat: #e8c477; }
+@keyframes compdpop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.compdetail-em { display: flex; justify-content: center; align-items: center; height: 96px; margin-bottom: 6px; }
+.compdetail-em .charmemblem { transform: scale(1.32); }
+.compdetail-name { font-family: 'Cinzel', Georgia, serif; font-weight: 700; color: var(--gold-bright); font-size: 20px; letter-spacing: 0.01em; }
+.compdetail-name .compchip-sub { display: block; white-space: normal; margin-top: 5px; font-size: 12px; }
+.compdetail-name .compchip-sub::before { content: '⚔ '; font-style: normal; }
+.compdetail-d { margin-top: 13px; font-size: 13.5px; line-height: 1.6; color: var(--parchment); }
+.compdetail-x { position: absolute; top: 9px; right: 10px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--gold-dim); background: rgba(0,0,0,0.35); color: var(--gold-bright); font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: border-color .14s ease, background .14s ease; }
+.compdetail-x:hover { border-color: var(--gold); background: rgba(0,0,0,0.55); }
 .recordsbody { max-height: 70vh; overflow-y: auto; }
 .deckstatus { text-align: center; font-family: 'Alegreya', serif; font-size: 13px; color: var(--parchment-dim);
   margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gold-dim); }
