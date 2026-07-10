@@ -89,9 +89,12 @@ function simulateRun(deckKey, charms) {
 }
 function winPct(deckKey, charms) { let w = 0; for (let i = 0; i < K; i++) { let r; try { r = simulateRun(deckKey, charms); } catch (e) { continue; } if (r && r.won) w++; } return 100 * w / K; }
 
-const commons = Object.keys(CHARMS).filter(k => !CHARMS[k].bossOnly);
+// ALL=1 measures relics too (full spectrum); default is commons only.
+const measured = process.env.ALL ? Object.keys(CHARMS) : Object.keys(CHARMS).filter(k => !CHARMS[k].bossOnly);
+const commons = measured;
 const lab = k => CHARMS[k].label;
 const catOf = k => (M.charmCat ? M.charmCat(k) : '?');
+const relicTag = k => CHARMS[k].bossOnly ? ' ★relic' : '';
 console.log(`\nCharm-value battery — ${K} runs/charm/deck, decks [${DECKS.join(', ')}], chit load [${CHIT_LOAD.join(', ') || 'none'}].`);
 console.log('Sole-charm win rate = value signal (higher = stronger charm).\n');
 
@@ -104,7 +107,7 @@ const hi = rows[0].val, lo = rows[rows.length - 1].val, span = Math.max(1, hi - 
 console.log('CHARM VALUE HIERARCHY (avg sole-charm win%) — top = elite, bottom = dead weight');
 rows.forEach((r, i) => {
   const norm = Math.round(100 * (r.val - lo) / span); // 0..100 within the observed spread
-  console.log(`  ${String(i + 1).padStart(2)}. ${r.val.toFixed(0).padStart(3)}%  (${String(norm).padStart(3)})  ${lab(r.k).padEnd(16)} [${catOf(r.k)}]`);
+  console.log(`  ${String(i + 1).padStart(2)}. ${r.val.toFixed(0).padStart(3)}%  (${String(norm).padStart(3)})  ${lab(r.k).padEnd(16)} [${catOf(r.k)}]${relicTag(r.k)}`);
 });
 // Per-category ranking (what the fixer actually uses — bottom 40% of the class).
 console.log('\nPER-CATEGORY (the fixer targets the bottom ~40% within a class):');
