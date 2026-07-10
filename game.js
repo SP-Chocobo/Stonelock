@@ -6661,7 +6661,7 @@ const CHARM_VAL = {
   spite: 6, floorprice: 5, bulwarkcharm: 4, hardened: 3, tithe: 3, fullsatchel: 3, mulligan: 2,
   smugglers: 1, ironpouch: 1, fieldsurgeon: 1, warchest: 1, opening: 1, counterpunch: 1,
   cycle: 1, foresight: 1, foulplay: 1, vigor: 0, tollkeeper: 0, resonance: 0,
-  interest: 9, gentlemansbet: 14, // new neutrals — estimated (economy / death-save), pending a battery pass
+  interest: 9, gentlemansbet: 45, // interest = economy (metric-blind, tradeable); gentlemansbet = a run-saver the metric can't see — pinned at ELITE so the fixer never sheds your safety net
 };
 function charmWorth(key) { return CHARM_VAL[key] != null ? CHARM_VAL[key] : 45; } // NB: not charmVal() — that sums charm fields
 // The emblem markup. opts: { size:'sm'|'lg', tip:true (styled hover tooltip) }.
@@ -7842,15 +7842,22 @@ function fixerDeal(g) {
   }
   if (!giveCharm) giveCharm = [...band].sort((a, b) => charmWorth(a) - charmWorth(b))[0] || sorted[Math.min(n - 1, Math.floor(n * 0.3))]; // no lane match → lowest band charm
 
-  // Reward lane: most-represented; ties broken by the lane with your highest-value
-  // charm (support your heaviest hitter). Then fall down the representation ranking.
+  // Reward lane: your most-represented ARCHETYPE lane — never Neutral. The fixer
+  // sheds from anywhere (Neutral included) but always cashes out into a build lane,
+  // deepening a hitter rather than handing you filler. Ties → lane with your
+  // highest-value charm (support your heaviest hitter); then down the ranking.
   const ceilOf = c => Math.max(0, ...owned.filter(k => charmCat(k) === c).map(charmWorth));
-  const maxRep = Math.max(...Object.values(byCat));
-  const topCats = Object.keys(byCat).filter(c => byCat[c] === maxRep).sort((a, b) => ceilOf(b) - ceilOf(a));
-  const rest = Object.keys(byCat).filter(c => byCat[c] !== maxRep).sort((a, b) => (byCat[b] || 0) - (byCat[a] || 0));
+  const rewardCats = Object.keys(byCat).filter(c => c !== 'neutral');
   let gain = null;
-  for (const c of [...topCats, ...rest]) { const pool = unowned.filter(k => charmCat(k) === c); if (pool.length) { gain = shuffle(pool)[0]; break; } }
-  if (!gain) gain = shuffle(unowned.slice())[0]; // every represented lane complete → any unowned common
+  if (rewardCats.length) {
+    const maxRep = Math.max(...rewardCats.map(c => byCat[c]));
+    const topCats = rewardCats.filter(c => byCat[c] === maxRep).sort((a, b) => ceilOf(b) - ceilOf(a));
+    const rest = rewardCats.filter(c => byCat[c] !== maxRep).sort((a, b) => byCat[b] - byCat[a]);
+    for (const c of [...topCats, ...rest]) { const pool = unowned.filter(k => charmCat(k) === c); if (pool.length) { gain = shuffle(pool)[0]; break; } }
+  }
+  // Fallback: you hold only Neutral (no lane to deepen) or every lane is complete →
+  // any unowned non-Neutral charm; last resort, any unowned common.
+  if (!gain) { const arch = unowned.filter(k => charmCat(k) !== 'neutral'); gain = shuffle((arch.length ? arch : unowned).slice())[0]; }
   return gain ? { giveCharm, gain } : null;
 }
 function makeCircuitEvent() {
