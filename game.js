@@ -6691,19 +6691,25 @@ const CHARM_META = {
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
 // Per-glyph optical centring. Each symbol's ink sits differently inside its em box,
-// so one uniform nudge leaves many off-centre; these [x,y] em offsets seat each on
-// the gem's true centre (tuned against a crosshair sheet). Unlisted glyphs fall to
-// a default that lifts diamonds a hair. +x = right, +y = down.
+// so one uniform nudge leaves many off-centre. These [x,y] em offsets seat each glyph
+// on the gem's true centre — derived by rendering each glyph and measuring its ink
+// bounding box against centre, so they're precise, not eyeballed. +x = right,
+// +y = down. Two half-circles (◐ ◑) and the emoji ⚡ are set by eye, since bounding
+// the *dark* pixels alone would mis-centre a partly-unfilled glyph.
 const CHARM_GLYPH_OFF = {
-  '⇥': [0.10, 0.05], '⇄': [0.10, 0.05], '➤': [0.09, 0.04],       // arrows read left-heavy
-  '≋': [0.04, 0.15], '≈': [0.04, 0.14], '♛': [0.04, 0.14],         // waves / crown sit high
-  '⧉': [0.02, 0.12], '❐': [0.02, 0.11], '☠': [0.04, 0.11],         // stacked squares / skull
-  '⛓': [0.04, 0.13], '⚑': [0.07, 0.13], '⊕': [0.03, 0.13],         // chain / flag / circled plus
-  '⚖': [0.04, 0.12], '％': [0.02, 0.11], '♠': [0.03, 0.11],         // scales / percent / spade
-  '▂': [0.04, -0.26],                                              // low block → lift to centre
+  '➊': [0.006, 0.031], '⇥': [0, -0.019], '◈': [0.003, -0.075], '↯': [0, 0.028], '➤': [-0.028, -0.019],
+  '⚡': [0, 0], '⚔': [0.003, 0.047], '≋': [0.003, -0.003],
+  '◉': [0.003, -0.072], '⇄': [0.003, -0.022], '✦': [0.003, 0.031], '✷': [0.003, 0.028], '⧉': [0.003, -0.016],
+  '♦': [0.003, -0.041], '▣': [0.006, -0.075], '⊚': [0.003, -0.022], '♛': [0.003, 0.031], '≈': [0.003, 0.003],
+  '⬢': [0, -0.006], '✚': [0, 0.031], '❂': [0.003, 0.028], '⛨': [0.003, 0.016], '❀': [0.003, 0.022],
+  '◎': [0.003, -0.072], '↺': [-0.009, 0.037], '⬚': [0.006, -0.075], '◍': [0.003, -0.072], '❐': [0.006, 0.056],
+  '⟲': [-0.003, 0.022], '⟳': [-0.006, 0.028], '◐': [0.003, -0.053], '☠': [0.003, 0.031], '✧': [0.003, 0.031],
+  '◆': [0.003, -0.075], '✺': [0, 0.031], '⛓': [0.003, 0.009], '⚑': [0.003, 0.031], '◑': [0.003, -0.053],
+  '✕': [0.003, 0.028], '⊕': [0.003, -0.022], '▂': [0, -0.431], '⚖': [0.006, 0.037], '％': [-0.016, 0.009],
+  '♠': [0.003, -0.041],
 };
 function charmGlyphStyle(g) {
-  const o = CHARM_GLYPH_OFF[g] || [0.04, CHARM_DIAMONDS.indexOf(g) >= 0 ? 0.01 : 0.05];
+  const o = CHARM_GLYPH_OFF[g] || [0, CHARM_DIAMONDS.indexOf(g) >= 0 ? -0.04 : 0];
   return `transform:translate(${o[0]}em,${o[1]}em)`;
 }
 // Hidden per-charm effectiveness (sole-charm win rate from tests/charm-value-battery.js,
