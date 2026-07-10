@@ -6015,40 +6015,56 @@ function showCircuitRecords() {
     ? `<div class="rechist">` + rec.runs.map(r => `<div class="recrow"><span class="recrow-t">${r.won ? '★ ' : ''}${r.tables} node${r.tables === 1 ? '' : 's'}</span><span class="recrow-s">${r.score} pts</span><span class="recrow-f">${r.won ? 'conquered the Circuit' : 'fell to ' + (r.foe || '—')}${r.seed != null ? ' · seed ' + (r.seed >>> 0) : ''}</span></div>`).join('') + `</div>`
     : `<div class="ldnote">No runs yet — set out on the Circuit.</div>`;
   html += `</div>`;
-  const lockedCard = `<div class="compcard locked"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — meet it in a run to reveal it.</div></div>`;
+  // Compact chip: emblem + name only (uniform height, name clipped to one line so
+  // nothing spills). Tap to expand it full-width with its description; the click
+  // handler (wired after render) keeps only one open at a time — accordion style.
+  const compChip = o => o.locked
+    ? `<div class="compchip locked${o.relic ? ' relic' : ''}"><span class="compchip-t"><span class="compchip-n">? ? ?</span></span></div>`
+    : `<button type="button" class="compchip${o.cat ? ' cc-' + o.cat : ''}${o.relic ? ' relic' : ''}${o.emblem ? ' hasicon' : ''}">${o.emblem || ''}` +
+        `<span class="compchip-t"><span class="compchip-n">${o.name}${o.sub ? `<span class="compchip-sub">${o.sub}</span>` : ''}</span>` +
+        `<span class="compchip-d">${o.blurb}</span></span></button>`;
   const compSection = (head, keys, info, icon) => {
     const got = keys.filter(k => shown(k.seenKey)).length;
     return `<div class="ldsection"><div class="ldhead">${head} — ${got}/${keys.length}</div><div class="compendium">` +
       keys.map(k => shown(k.seenKey)
-        ? `<div class="compcard${icon ? ' hasicon' : ''}">${icon ? icon(k) : ''}<div class="compcard-t"><div class="compcard-h">${info(k).h}</div><div class="compcard-b">${info(k).b}</div></div></div>`
-        : lockedCard).join('') + `</div></div>`;
+        ? compChip({ emblem: icon ? icon(k) : '', name: info(k).h, blurb: info(k).b })
+        : compChip({ locked: true })).join('') + `</div></div>`;
   };
   // Common charms — grouped by category (the deck each pairs with) so the
   // compendium reads as tidy clusters. Signature (boss) relics live apart below.
   const commons = all.filter(k => !CHARMS[k].bossOnly), relics = all.filter(k => CHARMS[k].bossOnly);
   const catOrder = ['aggro', 'value', 'defense', 'cunning', 'neutral'];
-  const charmCardHtml = k => `<div class="compcard hasicon">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}</div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`;
-  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${commons.filter(shown).length}/${commons.length}</div>`;
+  html += `<div class="ldsection"><div class="ldhead">Charm compendium — ${commons.filter(shown).length}/${commons.length} <span class="reliclede">· tap a charm to read it</span></div>`;
   for (const cat of catOrder) {
     const keys = commons.filter(k => charmCat(k) === cat);
     if (!keys.length) continue;
     const cc = CHARM_CATS[cat], gotN = keys.filter(k => shown(k)).length;
     html += `<div class="compgroup"><div class="compgroup-h cc-${cat}">${cc.label}<span class="compgroup-n">${gotN}/${keys.length}</span></div><div class="compendium">` +
-      keys.map(k => shown(k) ? charmCardHtml(k) : lockedCard).join('') + `</div></div>`;
+      keys.map(k => shown(k)
+        ? compChip({ emblem: charmEmblemHtml(k, { size: 'sm' }), name: CHARMS[k].label, blurb: CHARMS[k].blurb, cat })
+        : compChip({ locked: true })).join('') + `</div></div>`;
   }
   html += `</div>`;
   // Signature Relics — the rare boss trophies, each naming the boss that drops it.
   const relicSource = k => CHARMS[k].persona || (k === 'wildcard' ? 'any boss' : k === 'doublecross' ? 'The Old Rival' : 'a boss');
-  const lockedRelic = `<div class="compcard locked relic"><div class="compcard-h">? ? ?</div><div class="compcard-b">Undiscovered — break the boss who carries it.</div></div>`;
   html += `<div class="ldsection"><div class="ldhead">Signature Relics — ${relics.filter(shown).length}/${relics.length} <span class="reliclede">· rare boss trophies</span></div><div class="compendium">` +
     relics.map(k => shown(k)
-      ? `<div class="compcard hasicon relic">${charmEmblemHtml(k, { size: 'sm' })}<div class="compcard-t"><div class="compcard-h">${CHARMS[k].label}<span class="relicboss">${relicSource(k)}</span></div><div class="compcard-b">${CHARMS[k].blurb}</div></div></div>`
-      : lockedRelic).join('') + `</div></div>`;
+      ? compChip({ emblem: charmEmblemHtml(k, { size: 'sm' }), name: CHARMS[k].label, sub: relicSource(k), blurb: CHARMS[k].blurb, relic: true })
+      : compChip({ locked: true, relic: true })).join('') + `</div></div>`;
   // Modifiers (effect-card riders)
   html += compSection('Modifier compendium', Object.keys(EFFECTS).map(k => ({ key: k, seenKey: 'fx:' + k })), k => ({ h: EFFECTS[k.key].label, b: EFFECTS[k.key].blurb }));
   // Stone variants (the pouch upgrade track)
   html += compSection('Stone variants', Object.keys(STONE_VARIANTS).map(k => ({ key: k, seenKey: 'var:' + k })), k => ({ h: `${STONE_VARIANTS[k.key].name} — ${STONE_VARIANTS[k.key].power}`, b: STONE_VARIANTS[k.key].desc }));
-  $('recordsBody').innerHTML = html;
+  const body = $('recordsBody');
+  body.innerHTML = html;
+  // Tap a chip to expand its description (full-width, highlighted); tap it again,
+  // another chip, or empty space to collapse. One open at a time.
+  body.onclick = e => {
+    const chip = e.target.closest('.compchip');
+    const open = body.querySelector('.compchip.open');
+    if (open && open !== chip) open.classList.remove('open');
+    if (chip && !chip.classList.contains('locked')) chip.classList.toggle('open');
+  };
   $('recordsClose').onclick = () => closeModal('recordsModal');
   $('recordsModal').classList.add('open');
 }
