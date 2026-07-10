@@ -6616,15 +6616,15 @@ const CHARM_META = {
   firstblood: ['➊', 'aggro'], strongfinish: ['⇥', 'aggro'], opening: ['◈', 'aggro'], spite: ['↯', 'aggro'],
   momentum: ['➤', 'aggro'], reckless: ['⚡', 'aggro'], laststand: ['⚔', 'aggro'], followingsea: ['≋', 'aggro'],
   loadedcoin: ['◉', 'value'], passagetoll: ['⇄', 'value'], forgerseal: ['✦', 'value'], masterforger: ['✷', 'value'],
-  matchedset: ['⧉', 'value'], floorprice: ['▂', 'value'], evenkeel: ['⚖', 'value'], crownjewel: ['♦', 'value'],
-  warchest: ['▣', 'value'], tollkeeper: ['⊚', 'value'], sovereign: ['♛', 'value'], riverking: ['≈', 'value'],
+  matchedset: ['⧉', 'value'], crownjewel: ['♦', 'value'], warchest: ['▣', 'value'], tollkeeper: ['⊚', 'value'],
+  sovereign: ['♛', 'value'], riverking: ['≈', 'value'],
   hardened: ['⬢', 'defense'], fieldsurgeon: ['✚', 'defense'], counterpunch: ['❂', 'defense'], bulwarkcharm: ['⛨', 'defense'],
   vigor: ['❀', 'defense'], resonance: ['◎', 'defense'], secondwind: ['↺', 'defense'], ironpouch: ['⬚', 'defense'],
   smugglers: ['◍', 'cunning'], fullsatchel: ['❐', 'cunning'], mulligan: ['⟲', 'cunning'], cycle: ['⟳', 'cunning'],
   foresight: ['◐', 'cunning'], foulplay: ['☠', 'cunning'], whetstone: ['✧', 'cunning'], motherlode: ['◆', 'cunning'],
   wildcard: ['✺', 'cunning'], ironverdict: ['⛓', 'cunning'], highwayman: ['⚑', 'cunning'], veilwalker: ['◑', 'cunning'],
   doublecross: ['✕', 'cunning'],
-  tithe: ['⊕', 'neutral'],
+  tithe: ['⊕', 'neutral'], floorprice: ['▂', 'neutral'], evenkeel: ['⚖', 'neutral'],
 };
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
