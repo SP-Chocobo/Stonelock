@@ -7812,10 +7812,12 @@ function eventReady() {
 function variantForBase(base) { return Object.keys(STONE_VARIANTS).find(v => STONE_VARIANTS[v].base === base) || null; }
 function upgradableStones(g) { return STONE_KEYS.filter(c => (g.pouch[c] || 0) > 0 && variantForBase(c)); }
 // "A Voice in the Alley" — the fixer's swap. He takes DEAD WEIGHT: a common charm
-// from your least-represented category that sits in the bottom ~40% of its class
-// by value (and is never globally elite) — walking to the next-least lane if a
-// lane offers only strong charms. In return, sight unseen, an unowned common from
-// your most-represented category (falling down the ranking if that lane is full).
+// from the MID-LOW band of your own charms (20–50th percentile by value) — the
+// bottom fifth is skipped so the fixer never eats a survival/card-flow charm the
+// value metric can't grade, and the top half protects your good stuff. Prefer
+// your least-represented lane; walk up if it offers no band charm. In return,
+// sight unseen, an unowned charm from your most-represented lane — and if lanes
+// tie for most, back your HEAVIEST HITTER (the lane holding your best charm).
 // Signature relics are never touched. Returns { giveCharm, gain } or null.
 function fixerDeal(g) {
   const owned = playerCharms();
@@ -7823,23 +7825,31 @@ function fixerDeal(g) {
   const unowned = unownedCharmKeys(); // unowned commons only
   if (!commonsOwned.length || !unowned.length) return null;
   const byCat = {}; for (const k of owned) byCat[charmCat(k)] = (byCat[charmCat(k)] || 0) + 1; // relics count toward representation
-  const ELITE = 45; // never trade away a charm this strong, whatever the lane
-  const commonsAll = Object.keys(CHARMS).filter(k => !CHARMS[k].bossOnly);
-  const bottom40 = cat => { const vs = commonsAll.filter(k => charmCat(k) === cat).map(charmWorth).sort((a, b) => a - b); return vs.length ? vs[Math.max(0, Math.ceil(vs.length * 0.4) - 1)] : 100; };
-  // Sacrifice: walk your lanes least-represented first; take the lowest-value owned
-  // charm in that lane's bottom 40% that isn't elite. Skip a lane of only strong charms.
+  const ELITE = 45; // never trade a charm this strong, whatever the lane
+
+  // Sacrifice band: the 20–50th percentile of YOUR owned charms by value. Skips
+  // the very bottom (metric blind spot) and the whole top half.
+  const sorted = commonsOwned.slice().sort((a, b) => charmWorth(a) - charmWorth(b));
+  const n = sorted.length;
+  const lo = Math.max(n >= 4 ? 1 : 0, Math.floor(n * 0.2)), hi = Math.max(lo + 1, Math.ceil(n * 0.5));
+  const band = new Set(sorted.slice(lo, hi).filter(k => charmWorth(k) < ELITE));
+  // Prefer your least-represented lane; take the lowest-value band charm there.
   const catsAsc = [...new Set(commonsOwned.map(charmCat))].sort((a, b) => (byCat[a] || 0) - (byCat[b] || 0));
   let giveCharm = null;
   for (const cat of catsAsc) {
-    const th = bottom40(cat);
-    const cands = commonsOwned.filter(k => charmCat(k) === cat && charmWorth(k) <= th && charmWorth(k) < ELITE).sort((a, b) => charmWorth(a) - charmWorth(b));
+    const cands = commonsOwned.filter(k => charmCat(k) === cat && band.has(k)).sort((a, b) => charmWorth(a) - charmWorth(b));
     if (cands.length) { giveCharm = cands[0]; break; }
   }
-  if (!giveCharm) giveCharm = commonsOwned.slice().sort((a, b) => charmWorth(a) - charmWorth(b))[0]; // you own only strong charms → your weakest
-  // Reward: an unowned common from the most-represented category, falling down the ranking.
-  const ranked = Object.keys(byCat).sort((a, b) => (byCat[b] || 0) - (byCat[a] || 0));
+  if (!giveCharm) giveCharm = [...band].sort((a, b) => charmWorth(a) - charmWorth(b))[0] || sorted[Math.min(n - 1, Math.floor(n * 0.3))]; // no lane match → lowest band charm
+
+  // Reward lane: most-represented; ties broken by the lane with your highest-value
+  // charm (support your heaviest hitter). Then fall down the representation ranking.
+  const ceilOf = c => Math.max(0, ...owned.filter(k => charmCat(k) === c).map(charmWorth));
+  const maxRep = Math.max(...Object.values(byCat));
+  const topCats = Object.keys(byCat).filter(c => byCat[c] === maxRep).sort((a, b) => ceilOf(b) - ceilOf(a));
+  const rest = Object.keys(byCat).filter(c => byCat[c] !== maxRep).sort((a, b) => (byCat[b] || 0) - (byCat[a] || 0));
   let gain = null;
-  for (const c of ranked) { const pool = unowned.filter(k => charmCat(k) === c); if (pool.length) { gain = shuffle(pool)[0]; break; } }
+  for (const c of [...topCats, ...rest]) { const pool = unowned.filter(k => charmCat(k) === c); if (pool.length) { gain = shuffle(pool)[0]; break; } }
   if (!gain) gain = shuffle(unowned.slice())[0]; // every represented lane complete → any unowned common
   return gain ? { giveCharm, gain } : null;
 }
