@@ -2343,6 +2343,10 @@ const CHARMS = {
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place at a table, recover 1 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 1); log('Resonance — a stone rings true; you recover 1 Standing.', 'you'); updateCircuitHud(); } } } },
+  // Neutral utility — build-agnostic, real decisions (not flat trickle).
+  interest:     { label: 'Interest',           blurb: 'Clearing a table pays +1 coin for every 10 you already carry.',
+    on: { tableCleared: g => { const b = Math.floor((g.coin || 0) / 10); if (b > 0) { g.coin += b; log(`Interest — your purse earns +${b} coin.`, 'you'); } } } },
+  gentlemansbet:{ label: "Gentleman's Bet",     blurb: 'The first hand that would break you, expend this: stand back up at 10 Standing — but your maximum Standing drops 4 for the rest of the run. (Second Wind, if you carry it, is spent first.)' },
   // The rarest relic — only ever offered after a boss. On gain you choose one
   // of your cards to imbue (see the wild-imbue invariant in circuitAfterNode).
   wildcard:     { label: 'Wildcard',          blurb: 'Choose one of your cards when taken — it counts as ANY type for a Pair or Triad. Falls inert if an opponent steals it.', bossOnly: 1 },
@@ -2392,6 +2396,25 @@ function charmCardBonusSeat(card, i, board, seat) { return charmsOf(seat).reduce
 function charmVal(field) { return charmValSeat(field, 0); }
 function charmCardBonus(card, i, board) { return charmCardBonusSeat(card, i, board, 0); }
 function charmFire(ev, ctx) { for (const k of playerCharms()) { const h = CHARMS[k] && CHARMS[k].on && CHARMS[k].on[ev]; if (h) h(GAUNTLET, ctx || {}); } }
+// Death-saves, in priority order: Second Wind (free, per-act, survive at 1) fires
+// first; Gentleman's Bet (once per run, revive at 10 but −4 max, expends itself)
+// only if you're still down. Call wherever Standing can reach 0.
+function circuitCheatDeath(g) {
+  if (!g || g.standing > 0) return;
+  if (charmHas('secondwind') && !g.secondWindUsed) {
+    g.secondWindUsed = true; g.standing = 1;
+    log('Second Wind — you should be finished, but you find your feet at 1 Standing.', 'you');
+    if (typeof announce === 'function') announce('Second Wind — you cling on at 1 Standing', 'white', 0);
+    return;
+  }
+  if (g.standing <= 0 && charmHas('gentlemansbet')) {
+    g.charms = (g.charms || []).filter(c => c !== 'gentlemansbet'); // expend it
+    g.maxStanding = Math.max(4, g.maxStanding - 4);
+    g.standing = Math.min(10, g.maxStanding);
+    log(`Gentleman's Bet — you cash in your reserves and stand back up at ${g.standing} Standing (max −4).`, 'you');
+    if (typeof announce === 'function') announce(`Gentleman's Bet — back up at ${g.standing}, max −4`, 'white', 0);
+  }
+}
 
 // ── Circuit records (persisted across runs) ────────────────────────────────
 // Run history, charms discovered (seen in an offer — others stay blacked out in
@@ -3191,7 +3214,7 @@ function circuitLongNightBleed() {
   g.standing = Math.max(0, g.standing - 1);
   log(`The Long Night — the table has dragged on; your Standing slips to ${g.standing}/${g.maxStanding}.`, 'ai');
   if (typeof announce === 'function') announce('The Long Night bleeds 1 Standing', 'black', 0);
-  if (g.standing <= 0 && charmHas('secondwind') && !g.secondWindUsed) { g.secondWindUsed = true; g.standing = 1; }
+  circuitCheatDeath(g);
   if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   if (typeof updateCircuitHud === 'function') updateCircuitHud();
 }
@@ -6624,7 +6647,7 @@ const CHARM_META = {
   foresight: ['◐', 'cunning'], foulplay: ['☠', 'cunning'], whetstone: ['✧', 'cunning'], motherlode: ['◆', 'cunning'],
   wildcard: ['✺', 'cunning'], ironverdict: ['⛓', 'cunning'], highwayman: ['⚑', 'cunning'], veilwalker: ['◑', 'cunning'],
   doublecross: ['✕', 'cunning'],
-  tithe: ['⊕', 'neutral'], floorprice: ['▂', 'neutral'], evenkeel: ['⚖', 'neutral'],
+  tithe: ['⊕', 'neutral'], floorprice: ['▂', 'neutral'], evenkeel: ['⚖', 'neutral'], interest: ['％', 'neutral'], gentlemansbet: ['♠', 'neutral'],
 };
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
@@ -6638,6 +6661,7 @@ const CHARM_VAL = {
   spite: 6, floorprice: 5, bulwarkcharm: 4, hardened: 3, tithe: 3, fullsatchel: 3, mulligan: 2,
   smugglers: 1, ironpouch: 1, fieldsurgeon: 1, warchest: 1, opening: 1, counterpunch: 1,
   cycle: 1, foresight: 1, foulplay: 1, vigor: 0, tollkeeper: 0, resonance: 0,
+  interest: 9, gentlemansbet: 14, // new neutrals — estimated (economy / death-save), pending a battery pass
 };
 function charmWorth(key) { return CHARM_VAL[key] != null ? CHARM_VAL[key] : 45; } // NB: not charmVal() — that sums charm fields
 // The emblem markup. opts: { size:'sm'|'lg', tip:true (styled hover tooltip) }.
@@ -7429,12 +7453,7 @@ function circuitHandResult(winner, diff) {
     g.standing = Math.max(0, g.standing - dmg);
     log(`The Circuit — ${g.opp} presses you for ${dmg} (your Standing ${g.standing}/${g.maxStanding}).`, 'ai');
     charmFire('handLost');
-    // Second Wind (boss relic): cheat death once per act.
-    if (g.standing <= 0 && charmHas('secondwind') && !g.secondWindUsed) {
-      g.secondWindUsed = true; g.standing = 1;
-      log('Second Wind — you should be finished, but you find your feet at 1 Standing.', 'you');
-      announce('Second Wind — you cling on at 1 Standing', 'white', 0);
-    }
+    circuitCheatDeath(g); // Second Wind, then Gentleman's Bet
     if (g.standing <= 0) { g.groundOut = true; G.over = true; }
   }
   updateCircuitHud();
@@ -7453,6 +7472,7 @@ function circuitEnd() {
     let coinWon = Math.round((node.coop ? CIRCUIT.coinBoss : (node.type === 'boss' ? CIRCUIT.coinBoss : node.type === 'elite' ? CIRCUIT.coinElite : CIRCUIT.coinDuel)) * coinMult);
     coinWon += charmVal('coinBonus'); // War Chest — pays coin on a clear
     g.coin += coinWon;
+    charmFire('tableCleared'); // Interest — earns on the coin now carried
     // Reward by node: duels grow the deck (card/stone); elites and bosses also
     // offer a charm. The reward screen's confirm advances.
     g.reward = makeReward({ charm: node.type === 'elite' || node.type === 'boss', charmCount: node.type === 'boss' ? 3 : 2, boss: node.type === 'boss', foe: node.foe });
