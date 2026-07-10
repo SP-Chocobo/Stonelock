@@ -1669,14 +1669,6 @@ body[data-compact="1"] .board .cfx { display: none; }
 .compendium { --chipw: calc(25% - 7.5px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .compendium.cols-3 { --chipw: calc(33.333% - 6.67px); }
 @media (max-width: 720px) { .compendium, .compendium.cols-3 { --chipw: calc(50% - 5px); } }
-/* Phones: keep 2-up but stack the name UNDER the emblem so it gets the full chip
-   width and wraps instead of truncating. Boss source lives in the overlay only. */
-@media (max-width: 430px) {
-  .compchip { flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 12px 8px; }
-  .compchip-t { flex: none; width: 100%; }
-  .compchip-n { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
-  .compchip .compchip-sub { display: none; }
-}
 .compgroup { margin-top: 15px; }
 .compgroup:first-of-type { margin-top: 8px; }
 .compgroup-h { font-family: 'Cinzel', Georgia, serif; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; font-weight: 600;
@@ -1741,6 +1733,15 @@ body[data-compact="1"] .board .cfx { display: none; }
   border: 1px solid var(--gold-dim); background: rgba(0,0,0,0.35); color: var(--gold-bright); font-size: 18px; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center; transition: border-color .14s ease, background .14s ease; }
 .compdetail-x:hover { border-color: var(--gold); background: rgba(0,0,0,0.55); }
+/* Phones: keep 2-up but stack the name UNDER the emblem so it gets the full chip
+   width and wraps + centres instead of truncating. Boss source lives in the overlay
+   only. (Placed after the base .compchip so its text-align/padding win the cascade.) */
+@media (max-width: 430px) {
+  .compchip { flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 12px 8px; }
+  .compchip-t { flex: none; width: 100%; }
+  .compchip-n { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .compchip .compchip-sub { display: none; }
+}
 .recordsbody { max-height: 70vh; overflow-y: auto; }
 .deckstatus { text-align: center; font-family: 'Alegreya', serif; font-size: 13px; color: var(--parchment-dim);
   margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--gold-dim); }
