@@ -6017,10 +6017,12 @@ function showCircuitRecords() {
   html += `</div>`;
   // Compact chip: emblem + name only (uniform height, name clipped to one line so
   // nothing spills). Tap it to pop a detail overlay ON TOP of the grid (the chip
-  // itself stays put); the blurb rides along hidden and the overlay reads it.
+  // itself stays put); the blurb rides along hidden and the overlay reads it. Every
+  // chip also carries data-tip → the shared styled hover tooltip (desktop quick-read).
+  const tipEsc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
   const compChip = o => o.locked
-    ? `<div class="compchip locked${o.relic ? ' relic' : ''}"><span class="compchip-t"><span class="compchip-n">? ? ?</span></span></div>`
-    : `<button type="button" class="compchip${o.cat ? ' cc-' + o.cat : ''}${o.relic ? ' relic' : ''}${o.emblem ? ' hasicon' : ''}"${o.key ? ` data-key="${o.key}"` : ''}>${o.emblem || ''}` +
+    ? `<div class="compchip locked${o.relic ? ' relic' : ''}" data-tip-head="Undiscovered" data-tip="${tipEsc(o.relic ? 'Break the boss who carries it to reveal it.' : 'Meet it in a run to reveal it.')}" data-tip-cls="tip-gold"><span class="compchip-t"><span class="compchip-n">? ? ?</span></span></div>`
+    : `<button type="button" class="compchip${o.cat ? ' cc-' + o.cat : ''}${o.relic ? ' relic' : ''}${o.emblem ? ' hasicon' : ''}"${o.key ? ` data-key="${o.key}"` : ''} data-tip-head="${tipEsc(o.sub ? o.name + ' — ' + o.sub : o.name)}" data-tip="${tipEsc(o.blurb)}" data-tip-cls="tip-gold">${o.emblem || ''}` +
         `<span class="compchip-t"><span class="compchip-n">${o.name}${o.sub ? `<span class="compchip-sub">${o.sub}</span>` : ''}</span>` +
         `<span class="compchip-d">${o.blurb}</span></span></button>`;
   const compSection = (head, keys, info, icon) => {
