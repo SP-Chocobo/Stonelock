@@ -6732,7 +6732,8 @@ function charmEmblemHtml(key, opts) {
   const cat = CHARM_CATS[m[1]] || CHARM_CATS.neutral;
   const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
   const tip = opts.tip ? ` data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"` : '';
-  const cls = 'charmemblem' + (opts.size ? ' ce-' + opts.size : '');
+  const relicCls = ch.bossOnly ? (key === 'wildcard' ? ' ce-relic ce-relic-wild' : ' ce-relic') : '';
+  const cls = 'charmemblem' + (opts.size ? ' ce-' + opts.size : '') + relicCls;
   return `<span class="${cls}" style="--cc:${cat.color};--cd:${cat.dark}"${tip}><span class="ce-frame"></span>` +
     `<span class="ce-gem"><span class="ce-g" style="${charmGlyphStyle(m[0])}">${m[0]}</span></span></span>`;
 }

@@ -1485,6 +1485,12 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .charmemblem .ce-g { font-size: 15px; color: #140d03; text-shadow: 0 1px 0 rgba(255,255,255,0.4); line-height: 1; font-weight: 700; }
 .charmemblem.ce-lg .ce-g { font-size: 22px; }
 .charmemblem.ce-sm .ce-g { font-size: 11px; }
+/* Relic (boss-trophy) emblems wear an ornate diamond bezel instead of the round
+   medallion; the category gem seats in the diamond's central socket (smaller than
+   the round frame's). Wildcard gets its own distinct diamond. */
+.charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=1'); }
+.charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=1'); }
+.charmemblem.ce-relic .ce-gem { width: 30%; height: 30%; }
 .deckdock { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 4px; }
 .deckdot { width: 54px; height: 54px; border-radius: 11px; border: 2px solid var(--gold-dim); background-size: cover; background-position: center top;
   cursor: pointer; opacity: 0.6; transition: opacity 0.14s ease, transform 0.14s ease, border-color 0.14s ease; }
