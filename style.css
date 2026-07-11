@@ -1485,13 +1485,11 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .charmemblem .ce-g { font-size: 15px; color: #140d03; text-shadow: 0 1px 0 rgba(255,255,255,0.4); line-height: 1; font-weight: 700; }
 .charmemblem.ce-lg .ce-g { font-size: 22px; }
 .charmemblem.ce-sm .ce-g { font-size: 11px; }
-/* Relic (boss-trophy) emblems wear an ornate diamond bezel instead of the round
-   medallion; the category gem seats in the diamond's central socket (smaller than
-   the round frame's). Wildcard gets its own distinct diamond. */
-/* Relics keep the frame's own pearl (the art is gorgeous) and TINT it the category
-   colour: a solid-colour layer masked to the pearl shape, blended with mix-blend-mode
-   :color so the pearl keeps its reflective shading but takes the category hue. The
-   glyph rides on top. No flat gem, no knockout — the original frame is untouched. */
+/* Relic (boss-trophy) emblems wear an ornate diamond frame (Wildcard gets its own),
+   and instead of a flat gem they TINT the frame's own pearl the category colour: a
+   solid-colour layer masked to the pearl shape, blended with mix-blend-mode:color so
+   the pearl keeps its reflective shading but takes the hue. The glyph rides on top;
+   the original frame art is untouched. */
 .charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=6'); }
 .charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=6'); }
 .charmemblem.ce-relic .ce-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: var(--cc);
@@ -1693,18 +1691,13 @@ body[data-compact="1"] .board .cfx { display: none; }
   display: flex; align-items: baseline; gap: 9px; margin-bottom: 9px; padding-bottom: 5px; border-bottom: 1px solid currentColor; opacity: 0.95; }
 .compgroup-n { font-size: 10px; letter-spacing: 0.04em; color: var(--parchment-dim); font-weight: 400; }
 .reliclede { font-size: 10px; letter-spacing: 0.02em; text-transform: none; color: var(--parchment-dim); font-weight: 400; }
-.compcard.relic { border-color: rgba(232,196,119,0.42); background: linear-gradient(180deg, rgba(44,32,16,0.55), rgba(20,14,8,0.5)); }
-.compcard.relic .compcard-h { display: block; }
-.relicboss { display: block; font-family: Georgia, serif; font-size: 10px; font-style: italic; font-weight: 400; color: var(--gold-dim); letter-spacing: 0.02em; margin-top: 1px; text-transform: none; }
-.relicboss::before { content: '⚔ '; font-style: normal; }
+/* Simple card, reused only by the fixer event's "pawn which charm?" picker. (The
+   compendium itself moved to .compchip; the old .compcard icon/relic/locked variants
+   were removed as dead CSS.) */
 .compcard { padding: 8px 10px; background: rgba(20,14,8,0.5); border: 1px solid var(--gold-dim); border-radius: 8px; }
-.compcard.hasicon { display: flex; align-items: center; gap: 10px; }
-.compcard.hasicon .compcard-t { min-width: 0; }
+.compcard.selected { border-color: var(--gold-bright); box-shadow: 0 0 10px rgba(232,196,119,0.25); }
 .compcard-h { font-family: 'Cinzel', Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 12.5px; }
 .compcard-b { font-size: 11px; color: var(--parchment); margin-top: 3px; }
-.compcard.locked { opacity: 0.55; filter: grayscale(0.7); border-style: dashed; }
-.compcard.locked .compcard-h { color: var(--parchment-dim); letter-spacing: 0.15em; }
-.compcard.locked .compcard-b { color: var(--parchment-dim); font-style: italic; }
 /* Compendium chips: 4-up, uniform emblem+name tiles that break out to a full-width
    highlighted card on tap. Trailing rows centre (justify-content on .compendium). */
 .compchip { --cat: var(--gold); flex: 0 1 var(--chipw); max-width: var(--chipw); box-sizing: border-box;
