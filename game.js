@@ -6735,8 +6735,11 @@ function charmEmblemHtml(key, opts) {
   const tip = opts.tip ? ` data-tip-head="${esc(ch.label)}" data-tip="${esc(ch.blurb)}" data-tip-cls="tip-gold"` : '';
   const relicCls = ch.bossOnly ? (key === 'wildcard' ? ' ce-relic ce-relic-wild' : ' ce-relic') : '';
   const cls = 'charmemblem' + (opts.size ? ' ce-' + opts.size : '') + relicCls;
-  return `<span class="${cls}" style="--cc:${cat.color};--cd:${cat.dark}"${tip}><span class="ce-frame"></span>` +
-    `<span class="ce-gem"><span class="ce-g" style="${charmGlyphStyle(m[0])}">${m[0]}</span></span></span>`;
+  // Relics keep the frame's own pearl and tint it the category colour (ce-tint, masked
+  // to the pearl); commons use the flat category gem. Glyph rides on top either way.
+  const glyph = `<span class="ce-gem"><span class="ce-g" style="${charmGlyphStyle(m[0])}">${m[0]}</span></span>`;
+  const body = ch.bossOnly ? `<span class="ce-frame"></span><span class="ce-tint"></span>${glyph}` : `<span class="ce-frame"></span>${glyph}`;
+  return `<span class="${cls}" style="--cc:${cat.color};--cd:${cat.dark}"${tip}>${body}</span>`;
 }
 
 // Spread `count` nodes evenly across the lanes (a lone node rides the middle).

@@ -1488,13 +1488,17 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Relic (boss-trophy) emblems wear an ornate diamond bezel instead of the round
    medallion; the category gem seats in the diamond's central socket (smaller than
    the round frame's). Wildcard gets its own distinct diamond. */
-/* The frame PNGs have their pearl socket knocked out to a transparent hole. The gem
-   sits BEHIND the frame (frame z-index wins) and fills the hole, so the ornate bezel
-   and metal render IN FRONT and clip any gem overflow — the gem can never bleed over
-   the frame edge. The glyph shows through the hole on top of the gem. */
-.charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=5'); z-index: 2; }
-.charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=5'); }
-.charmemblem.ce-relic .ce-gem { width: 40%; height: 40%; z-index: 1; box-shadow: none; }
+/* Relics keep the frame's own pearl (the art is gorgeous) and TINT it the category
+   colour: a solid-colour layer masked to the pearl shape, blended with mix-blend-mode
+   :color so the pearl keeps its reflective shading but takes the category hue. The
+   glyph rides on top. No flat gem, no knockout — the original frame is untouched. */
+.charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=6'); }
+.charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=6'); }
+.charmemblem.ce-relic .ce-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: var(--cc);
+  -webkit-mask: url('assets/charms/relic-frame-mask.png?v=1') center/contain no-repeat; mask: url('assets/charms/relic-frame-mask.png?v=1') center/contain no-repeat;
+  mix-blend-mode: color; }
+.charmemblem.ce-relic.ce-relic-wild .ce-tint { -webkit-mask-image: url('assets/charms/relic-frame-wild-mask.png?v=1'); mask-image: url('assets/charms/relic-frame-wild-mask.png?v=1'); }
+.charmemblem.ce-relic .ce-gem { width: 100%; height: 100%; background: none; box-shadow: none; border-radius: 0; z-index: 2; }
 .deckdock { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 4px; }
 .deckdot { width: 54px; height: 54px; border-radius: 11px; border: 2px solid var(--gold-dim); background-size: cover; background-position: center top;
   cursor: pointer; opacity: 0.6; transition: opacity 0.14s ease, transform 0.14s ease, border-color 0.14s ease; }
