@@ -1490,12 +1490,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
    the round frame's). Wildcard gets its own distinct diamond. */
 .charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=2'); }
 .charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=2'); }
-.charmemblem.ce-relic .ce-gem { width: 30%; height: 30%; }
-/* The relic socket is smaller than the round gem, so scale the glyph to match
-   (keeps the glyph:gem ratio, and its em offsets, consistent with common charms). */
-.charmemblem.ce-relic .ce-g { font-size: 12px; }
-.charmemblem.ce-relic.ce-lg .ce-g { font-size: 18px; }
-.charmemblem.ce-relic.ce-sm .ce-g { font-size: 9px; }
+/* The diamond's socket is larger than the round medallion's, so the gem fills more
+   of it (42% vs 37%) — a small gem left a big lit pearl showing asymmetrically, which
+   read as off-centre. At this size the standard glyph fits, so no glyph rescale. */
+.charmemblem.ce-relic .ce-gem { width: 42%; height: 42%; }
 .deckdock { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 4px; }
 .deckdot { width: 54px; height: 54px; border-radius: 11px; border: 2px solid var(--gold-dim); background-size: cover; background-position: center top;
   cursor: pointer; opacity: 0.6; transition: opacity 0.14s ease, transform 0.14s ease, border-color 0.14s ease; }
