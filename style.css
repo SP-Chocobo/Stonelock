@@ -1499,6 +1499,10 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   mix-blend-mode: color; }
 .charmemblem.ce-relic.ce-relic-wild .ce-tint { -webkit-mask-image: url('assets/charms/relic-frame-wild-mask.png?v=1'); mask-image: url('assets/charms/relic-frame-wild-mask.png?v=1'); }
 .charmemblem.ce-relic .ce-gem { width: 100%; height: 100%; background: none; box-shadow: none; border-radius: 0; z-index: 2; }
+/* Relic glyph rides on the pearl (~37% of the emblem); trim it a touch so it doesn't crowd the socket. */
+.charmemblem.ce-relic .ce-g { font-size: 13px; }
+.charmemblem.ce-relic.ce-lg .ce-g { font-size: 19px; }
+.charmemblem.ce-relic.ce-sm .ce-g { font-size: 9.5px; }
 .deckdock { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 4px; }
 .deckdot { width: 54px; height: 54px; border-radius: 11px; border: 2px solid var(--gold-dim); background-size: cover; background-position: center top;
   cursor: pointer; opacity: 0.6; transition: opacity 0.14s ease, transform 0.14s ease, border-color 0.14s ease; }
