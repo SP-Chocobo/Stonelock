@@ -1488,8 +1488,8 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 /* Relic (boss-trophy) emblems wear an ornate diamond bezel instead of the round
    medallion; the category gem seats in the diamond's central socket (smaller than
    the round frame's). Wildcard gets its own distinct diamond. */
-.charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=2'); }
-.charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=2'); }
+.charmemblem.ce-relic .ce-frame { background-image: url('assets/charms/relic-frame.png?v=3'); }
+.charmemblem.ce-relic.ce-relic-wild .ce-frame { background-image: url('assets/charms/relic-frame-wild.png?v=3'); }
 /* The diamond's socket is larger than the round medallion's, so the gem fills more
    of it (42% vs 37%) — a small gem left a big lit pearl showing asymmetrically, which
    read as off-centre. At this size the standard glyph fits, so no glyph rescale. */
