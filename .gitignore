@@ -1,0 +1,13 @@
+# Dependencies (only used transiently for headless rendering/screenshots)
+node_modules/
+package-lock.json
+package.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local scratch / build output
+/scratch/
+*.log
