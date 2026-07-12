@@ -380,7 +380,7 @@ assert(M.bestSelection(msHand, msv, { pairAdd: 3 }).score === M.bestSelection(ms
 // Following Sea — +2 board the hand after a win
 assert(M.CHARMS.followingsea.on.handWon && M.CHARMS.followingsea.on.handStart, 'Following Sea has win/start hooks');
 const fsG = { handBuff: 0 }; M.CHARMS.followingsea.on.handWon(fsG); M.CHARMS.followingsea.on.handStart(fsG);
-assert(fsG.handBuff === 2, 'Following Sea grants +2 board the hand after a win');
+assert(fsG.handBuff === 1, 'Following Sea grants +1 board the hand after a win');
 // Highwayman's Cut — a stolen card (owner ≠ origOwner) reads +2
 [g, G] = enterFirstFight(); g.charms = ['highwayman'];
 const bc = (type, orig) => ({ type, fx: null, owner: 0, origOwner: orig, faceUp: true, known: [true, true], zone: 'board', poisoned: false, stones: [] });

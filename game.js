@@ -2357,7 +2357,7 @@ const CHARMS = {
   sovereign:    { label: "Sovereign's Favor",  blurb: 'Your locked cards read +2.', bossOnly: 1, persona: 'The Lady', cardBonus: (c) => isLocked(c) ? 2 : 0 },
   matchedset:   { label: 'Matched Set',        blurb: 'Your Pairs pay +3.', bossOnly: 1, persona: 'The Tinker', pairAdd: 3 },
   highwayman:   { label: "Highwayman's Cut",    blurb: 'Cards you steal with Blue read +2 on your board.', bossOnly: 1, persona: 'The Wagoner', cardBonus: (c) => (c.owner === 0 && c.origOwner != null && c.origOwner !== c.owner) ? 2 : 0 },
-  followingsea: { label: 'Following Sea',       blurb: 'The hand after you win one, your whole board reads +2.', bossOnly: 1, persona: 'The Deckhand', on: { handWon: (g) => { g.pressNext = true; }, handStart: (g) => { if (g.pressNext) { g.handBuff = (g.handBuff || 0) + 2; g.pressNext = false; } } } },
+  followingsea: { label: 'Following Sea',       blurb: 'The hand after you win one, your whole board reads +1.', bossOnly: 1, persona: 'The Deckhand', on: { handWon: (g) => { g.pressNext = true; }, handStart: (g) => { if (g.pressNext) { g.handBuff = (g.handBuff || 0) + 1; g.pressNext = false; } } } },
   secondwind:   { label: 'Second Wind',         blurb: 'The first time your Standing would break each act, you survive at 1 instead.', bossOnly: 1, persona: 'The Old Hand' },
   veilwalker:   { label: 'Veilwalker',          blurb: "Each hand, one of the opponent's veiled cards is revealed to you.", bossOnly: 1, persona: 'The Stranger' },
   // The trophy of the 2v1 "Old Rival" event (its only source). Each hand, the
