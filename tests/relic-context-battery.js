@@ -104,9 +104,11 @@ function winPct(deckKey, pool) { let w = 0, n = 0; for (let i = 0; i < K; i++) {
 function buildWin(pool) { let s = 0; for (const d of DECKS) s += winPct(d, pool); return s / DECKS.length; }
 const lab = k => (CHARMS[k] && CHARMS[k].label) || k;
 
-const GRADE = process.env.GRADE === 'all' ? Object.keys(CHARMS) : Object.keys(CHARMS).filter(k => CHARMS[k].bossOnly);
+const GRADE = process.env.GRADE === 'all' ? Object.keys(CHARMS)
+  : (process.env.GRADE && process.env.GRADE.includes(',')) ? process.env.GRADE.split(',').map(s => s.trim()).filter(k => CHARMS[k])
+  : Object.keys(CHARMS).filter(k => CHARMS[k].bossOnly);
 console.log(`\nRelic-in-real-builds battery — ${K} runs/deck/build, decks [${DECKS.join(',')}], load [${CHITS.join(',')||'none'}], competent play.`);
-console.log(`Marginal win% lift across ${BUILD_KEYS.length} builds [${BUILD_KEYS.join(', ')}]. Grading ${GRADE.length} ${process.env.GRADE==='all'?'charms':'relics'}.\n`);
+console.log(`Marginal win% lift across ${BUILD_KEYS.length} builds [${BUILD_KEYS.join(', ')}]. Grading ${GRADE.length} ${process.env.GRADE && process.env.GRADE !== 'relics' ? 'charms' : 'relics'}.\n`);
 
 // per-build baselines (no relic)
 const base = {}; for (const b of BUILD_KEYS) base[b] = buildWin(BUILDS[b]);
