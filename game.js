@@ -2332,7 +2332,7 @@ const CHARMS = {
   evenkeel:     { label: 'Even Keel',         blurb: 'Your lowest-value card reads +1.', cardBonus: (c, i, b) => { const m = Math.min(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 1 : 0; } },
   fullsatchel:  { label: 'Full Satchel',      blurb: 'Draw one extra card each hand (more to choose from).', drawCards: 1 },
   bulwarkcharm: { label: 'Bracing',           blurb: 'Take 1 less Standing damage from a lost hand.', dmgReduce: 1 },
-  vigor:        { label: 'Vigor',             blurb: 'Start each table at full Standing.', on: { fightStart: g => { g.standing = g.maxStanding; } } },
+  vigor:        { label: 'Vigor',             blurb: 'Start each table with at least 60% Standing.', on: { fightStart: g => { g.standing = Math.max(g.standing, Math.round(g.maxStanding * 0.6)); } } },
   tollkeeper:   { label: 'Toll Keeper',       blurb: 'Each hand you win pays +1 coin.', on: { handWon: g => { g.coin = (g.coin || 0) + 1; } } },
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw that many.", mulliganFirst: 1 },
   cycle:        { label: 'Cycle',             blurb: 'At the start of each hand, you may discard a card and draw one.', cycleEach: 1 },
