@@ -2339,7 +2339,7 @@ const CHARMS = {
   foresight:    { label: 'Foresight',         blurb: 'See the next cards in your draw pile.', foresight: 2 },
   foulplay:     { label: 'Foul Play',         blurb: 'Each hand, discard 1 card to make your opponent discard 1 at random.', disruptEach: 1 },
   laststand:    { label: 'Last Stand',        blurb: 'While at 5 Standing or less, your whole board reads +1.', on: { handStart: (g) => { if (g.standing <= 5) g.handBuff = (g.handBuff || 0) + 1; } } },
-  reckless:     { label: 'Reckless Wager',    blurb: 'Your board reads +1 every hand. But you take 1 more Standing from every lost hand.', dmgReduce: -1, on: { handStart: (g) => { g.handBuff = (g.handBuff || 0) + 1; } } },
+  reckless:     { label: 'Reckless Wager',    blurb: 'Your board reads +1 every hand. You take 1 more Standing from every lost hand.', dmgReduce: -1, on: { handStart: (g) => { g.handBuff = (g.handBuff || 0) + 1; } } },
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place, recover 2 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 2); log('Resonance — a stone rings true; you recover 2 Standing.', 'you'); updateCircuitHud(); } } } },
