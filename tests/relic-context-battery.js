@@ -18,14 +18,15 @@ const DECKS = ['vanguard', 'broker', 'anvil', 'weaver'];
 const CHITS = (process.env.CHITS ? process.env.CHITS.split(',').map(s => s.trim()).filter(Boolean) : ['lean', 'thin']); // moderate: headroom for a lift
 const POUCH0 = { red: 1, white: 1, blue: 1, black: 1 };
 // A spectrum of realistic 3-charm builds (commons only, so relic grading isn't circular).
-// Moderate builds (no elite charms) so none ceiling at the load — leaves headroom for
-// a relic's lift to register in every build, not just a floored one.
+// Realistic ANCHORED builds — each has one real board charm so none floor, spanning
+// flavours. Grading relics on floored pure-category builds is useless (any board relic
+// "rescues" them and shows fake lift); these sit mid-range so a relic's delta is honest.
 const BUILDS = {
-  aggro:   ['firstblood', 'spite', 'strongfinish'],
-  value:   ['loadedcoin', 'passagetoll', 'forgerseal'],
-  defense: ['fieldsurgeon', 'bulwarkcharm', 'counterpunch'],
-  cunning: ['foresight', 'fullsatchel', 'cycle'],
-  neutral: ['floorprice', 'evenkeel', 'tithe'],
+  aggro:   ['reckless', 'spite', 'firstblood'],
+  value:   ['crownjewel', 'loadedcoin', 'passagetoll'],
+  defense: ['laststand', 'bulwarkcharm', 'fieldsurgeon'],
+  cunning: ['whetstone', 'foresight', 'fullsatchel'],
+  neutral: ['crownjewel', 'evenkeel', 'floorprice'],
 };
 const BUILD_KEYS = Object.keys(BUILDS);
 const cardVal = c => { const t = (c && typeof c === 'object') ? c.type : c; return (REGIONS.bar.values[t] || 2) + ((c && typeof c === 'object' && c.fx) ? 1.5 : 0); };
