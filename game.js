@@ -2331,7 +2331,7 @@ const CHARMS = {
   crownjewel:   { label: 'Crown Jewel',       blurb: 'Your highest-value card reads +2.', cardBonus: (c, i, b) => { const m = Math.max(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 2 : 0; } },
   evenkeel:     { label: 'Even Keel',         blurb: 'Your lowest-value card reads +1.', cardBonus: (c, i, b) => { const m = Math.min(...b.filter(Boolean).map(x => regionVal(x.type))); return regionVal(c.type) === m ? 1 : 0; } },
   fullsatchel:  { label: 'Full Satchel',      blurb: 'Draw 1 extra card each hand.', drawCards: 1 },
-  bulwarkcharm: { label: 'Bracing',           blurb: 'When you lose a hand, take 1 less Standing.', dmgReduce: 1 },
+  bulwarkcharm: { label: 'Bracing',           blurb: 'When you lose a hand, reduce the lost Standing by 1.', dmgReduce: 1 },
   vigor:        { label: 'Vigor',             blurb: 'When you enter a table below 60% Standing, recover to 60%.', on: { fightStart: g => { g.standing = Math.max(g.standing, Math.round(g.maxStanding * 0.6)); } } },
   tollkeeper:   { label: 'Toll Keeper',       blurb: 'When you win a hand, gain 1 coin.', on: { handWon: g => { g.coin = (g.coin || 0) + 1; } } },
   mulligan:     { label: 'Mulligan',          blurb: "On a table's first hand, discard any number of cards and redraw.", mulliganFirst: 1 },
