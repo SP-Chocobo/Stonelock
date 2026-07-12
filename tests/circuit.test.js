@@ -158,14 +158,14 @@ g.curNode = { type: 'event', col: 1 }; const coin0 = g.coin || 0;
 g.event = { kind: 'gold', gold: 12 };
 M.circuitTakeEventAndAdvance();
 assert((g.coin || 0) === coin0 + 12, 'a windfall banks its coin');
-// Resonance charm: heals 1 on every third stone placed
+// Resonance charm: heals 2 on every third stone placed
 assert(M.CHARMS.resonance && M.CHARMS.resonance.on.stonePlaced, 'Resonance fires on stone placement');
 assert(M.CHARMS.foulplay && M.CHARMS.foulplay.disruptEach === 1, 'Foul Play is registered as a per-hand disrupt charm');
 const rg = { standing: 5, maxStanding: 20, resoCount: 0 };
 M.CHARMS.resonance.on.stonePlaced(rg); M.CHARMS.resonance.on.stonePlaced(rg);
 assert(rg.standing === 5, 'Resonance does not heal before the third stone');
 M.CHARMS.resonance.on.stonePlaced(rg);
-assert(rg.standing === 6, 'Resonance heals 1 Standing on the third stone');
+assert(rg.standing === 7, 'Resonance heals 2 Standing on the third stone');
 
 // --- Wildcard: a hard-to-get relic that makes one card count as any type ---
 const wv = { Coin: 3, Sword: 2, Ferry: 1 };
