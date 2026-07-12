@@ -2317,7 +2317,7 @@ const CHARMS = {
   masterforger: { label: 'Master Forger',     blurb: 'Your Triads pay +3 more.', triadAdd: 3 },
   floorprice:   { label: 'Floor Price',       blurb: 'None of your cards read below 2.', valueFloor: 2 },
   smugglers:    { label: "Smuggler's Lining", blurb: 'Draw 1 extra stone each hand.', drawStones: 1 },
-  tempering:    { label: 'Tempering',          blurb: 'When you enter an Elite or Boss above 80% Standing, gain +1 maximum Standing — up to +4 a run.', on: { fightStart: g => { const n = g.curNode; if (n && (n.type === 'elite' || n.type === 'boss') && g.standing >= g.maxStanding * 0.8 && (g.temperCount || 0) < 4) { g.temperCount = (g.temperCount || 0) + 1; g.maxStanding += 1; g.standing += 1; log('Tempering — you meet the hard fight strong; your maximum Standing grows.', 'you'); updateCircuitHud(); } } } },
+  tempering:    { label: 'Tempering',          blurb: 'When you enter an Elite or Boss above 80% Standing, gain +1 maximum Standing. Caps at +4.', on: { fightStart: g => { const n = g.curNode; if (n && (n.type === 'elite' || n.type === 'boss') && g.standing >= g.maxStanding * 0.8 && (g.temperCount || 0) < 4) { g.temperCount = (g.temperCount || 0) + 1; g.maxStanding += 1; g.standing += 1; log('Tempering — you meet the hard fight strong; your maximum Standing grows.', 'you'); updateCircuitHud(); } } } },
   hardened:     { label: 'Hardened',          blurb: 'Your maximum Standing is +3.', maxStandingAdd: 3 },
   fieldsurgeon: { label: 'Field Surgeon',     blurb: 'When you enter a fight below 50% Standing, recover 6.', on: { fightStart: g => { if (g.standing < g.maxStanding * 0.5) { g.standing = Math.min(g.maxStanding, g.standing + 6); log('Field Surgeon — patched up before the bout; you recover 6 Standing.', 'you'); updateCircuitHud(); } } } },
   warchest:     { label: 'War Chest',         blurb: 'When you clear a table, gain 3 coin.', coinBonus: 3 },
@@ -2339,14 +2339,14 @@ const CHARMS = {
   foresight:    { label: 'Foresight',         blurb: 'See the next cards in your draw pile.', foresight: 2 },
   foulplay:     { label: 'Foul Play',         blurb: 'Each hand, discard 1 card to make your opponent discard 1 at random.', disruptEach: 1 },
   laststand:    { label: 'Last Stand',        blurb: 'While at 5 Standing or less, your whole board reads +1.', on: { handStart: (g) => { if (g.standing <= 5) g.handBuff = (g.handBuff || 0) + 1; } } },
-  reckless:     { label: 'Reckless Wager',    blurb: 'Your board reads +1 every hand — but when you lose a hand, you take 1 more Standing.', dmgReduce: -1, on: { handStart: (g) => { g.handBuff = (g.handBuff || 0) + 1; } } },
+  reckless:     { label: 'Reckless Wager',    blurb: 'Your board reads +1 every hand. But you take 1 more Standing from every lost hand.', dmgReduce: -1, on: { handStart: (g) => { g.handBuff = (g.handBuff || 0) + 1; } } },
   resonance:    { label: 'Resonance',         blurb: 'Every third stone you place, recover 2 Standing.',
     on: { fightStart: g => { g.resoCount = 0; },
           stonePlaced: g => { g.resoCount = (g.resoCount || 0) + 1; if (g.resoCount % 3 === 0 && g.standing < g.maxStanding) { g.standing = Math.min(g.maxStanding, g.standing + 2); log('Resonance — a stone rings true; you recover 2 Standing.', 'you'); updateCircuitHud(); } } } },
   // Neutral utility — build-agnostic, real decisions (not flat trickle).
   interest:     { label: 'Interest',           blurb: 'When you clear a table, gain 1 coin for every 10 you carry.',
     on: { tableCleared: g => { const b = Math.floor((g.coin || 0) / 10); if (b > 0) { g.coin += b; log(`Interest — your purse earns +${b} coin.`, 'you'); } } } },
-  gentlemansbet:{ label: "Gentleman's Bet",     blurb: 'When a hand would break you, spend this to stand back up at 10 Standing — but your maximum Standing drops 4 for the rest of the run. (Second Wind spends first.)' },
+  gentlemansbet:{ label: "Gentleman's Bet",     blurb: 'When a hand would break you, spend this to stand back up at 10 Standing. Your maximum Standing then drops 4 for the rest of the run. (Second Wind spends first.)' },
   // The rarest relic — only ever offered after a boss. On gain you choose one
   // of your cards to imbue (see the wild-imbue invariant in circuitAfterNode).
   wildcard:     { label: 'Wildcard',          blurb: 'When taken, choose one of your cards: it counts as any type for a Pair or Triad. Falls inert if an opponent steals it.', bossOnly: 1 },
@@ -2363,7 +2363,7 @@ const CHARMS = {
   // The trophy of the 2v1 "Old Rival" event (its only source). Each hand, the
   // first Lock or Steal the foe drew is shuffled back into their pouch and they
   // draw a random replacement — rattling their control before they can set it.
-  doublecross:  { label: 'The Double-Cross',    blurb: 'Each hand, the first Lock or Steal the foe drew is shuffled back into their pouch — they draw a random stone instead.', bossOnly: 1, coopRelic: 1,
+  doublecross:  { label: 'The Double-Cross',    blurb: 'Each hand, the first Lock or Steal the foe drew is shuffled back into their pouch. They draw a random stone instead.', bossOnly: 1, coopRelic: 1,
     on: { handStart: () => {
       if (typeof G === 'undefined' || !G || !G.gauntlet) return;
       const foe = G.players && G.players[1]; if (!foe) return;
