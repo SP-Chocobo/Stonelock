@@ -6716,13 +6716,24 @@ function charmGlyphStyle(g) {
 // Hidden per-charm effectiveness (sole-charm win rate from tests/charm-value-battery.js,
 // K=60). Not shown to players — general knowledge the fixer uses to target dead
 // weight, never elites. Higher = stronger. Relics/unmeasured default to mid.
+// Grader/fixer worth. Board-power charms carry their measured context win% (each as the
+// sole charm on a competently-built run). Everything the bot can't score — survival,
+// information, disruption, economy, combo-enablers — is approximated by judgment from
+// what it actually does in real play, since those read ~0 to an optimally-piloted bot.
 const CHARM_VAL = {
-  momentum: 73, crownjewel: 67, reckless: 54, whetstone: 50, evenkeel: 23, passagetoll: 16,
-  strongfinish: 15, laststand: 13, loadedcoin: 7, firstblood: 7, forgerseal: 6, masterforger: 6,
-  spite: 6, floorprice: 5, bulwarkcharm: 4, hardened: 3, tithe: 3, fullsatchel: 3, mulligan: 2,
-  smugglers: 1, tempering: 15, fieldsurgeon: 6, warchest: 1, opening: 1, counterpunch: 1,
-  cycle: 1, foresight: 1, foulplay: 1, vigor: 0, tollkeeper: 0, resonance: 0,
-  interest: 9, gentlemansbet: 45, // interest = economy (metric-blind, tradeable); gentlemansbet = a run-saver the metric can't see — pinned at ELITE so the fixer never sheds your safety net
+  // measured board power
+  momentum: 72, crownjewel: 63, reckless: 48, whetstone: 41, strongfinish: 24,
+  evenkeel: 18, laststand: 14, passagetoll: 13, masterforger: 8, loadedcoin: 7,
+  firstblood: 7, floorprice: 6, forgerseal: 5, spite: 4, opening: 3, tollkeeper: 3,
+  // defense — judged (bot-blind survival; Bracing = bulwarkcharm)
+  vigor: 18, tempering: 15, bulwarkcharm: 12, hardened: 10, fieldsurgeon: 8, counterpunch: 6, resonance: 6,
+  // cunning utility — judged (card/stone advantage, filtering, info, disruption)
+  smugglers: 12, fullsatchel: 12, foresight: 10, cycle: 10, mulligan: 8, foulplay: 8,
+  // economy / safety — judged (a net buys a turn, it doesn't fix a losing board)
+  interest: 9, warchest: 6, tithe: 4, gentlemansbet: 35,
+  // relics (boss trophies): premium, combo/context-weighted
+  matchedset: 34, followingsea: 30, sovereign: 26, riverking: 22, doublecross: 22,
+  highwayman: 20, veilwalker: 18, wildcard: 18, ironverdict: 18, motherlode: 15, secondwind: 28,
 };
 function charmWorth(key) { return CHARM_VAL[key] != null ? CHARM_VAL[key] : 45; } // NB: not charmVal() — that sums charm fields
 // The emblem markup. opts: { size:'sm'|'lg', tip:true (styled hover tooltip) }.
