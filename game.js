@@ -9293,6 +9293,10 @@ function setupTooltips() {
     hide();
   });
   window.addEventListener('scroll', hide, true);
+  // On touch, a tap emulates mouseover → the tip flashes under whatever the tap also
+  // opens (e.g. the compendium detail overlay), stacking on top of it. Any click/tap
+  // dismisses the tip; on desktop it simply re-appears on the next mouse move.
+  document.addEventListener('click', hide, true);
 }
 
 function boot() {
