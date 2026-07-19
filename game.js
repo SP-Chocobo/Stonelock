@@ -198,6 +198,9 @@ const SFX = (() => {
     sting(c, t) { tone(c, t, 392, 0.3, 'triangle', 0.08); tone(c, t + 0.13, 523, 0.4, 'triangle', 0.08); },
     win(c, t)   { [523, 659, 784, 1046].forEach((f, i) => tone(c, t + i * 0.1, f, 0.3, 'triangle', 0.08)); },
     lose(c, t)  { [392, 311, 262].forEach((f, i) => tone(c, t + i * 0.14, f, 0.34, 'triangle', 0.07)); },
+    hit(c, t)   { noiseBurst(c, t, 0.13, 'lowpass', 170, 0.3); tone(c, t, 130, 0.2, 'sine', 0.14, 55); },   // Standing damage lands on YOU
+    press(c, t) { noiseBurst(c, t, 0.07, 'lowpass', 430, 0.2); tone(c, t, 290, 0.11, 'triangle', 0.1, 170); }, // you press the foe — firmer, brighter
+    tick(c, t)  { tone(c, t, 1500, 0.03, 'square', 0.02); },                                                // the faintest UI click
   };
 
   return {
@@ -7546,6 +7549,7 @@ function circuitVictory() {
 function circuitHandResult(winner, diff) {
   const g = GAUNTLET;
   if (!g.active || !winner || diff <= 0) return;
+  let fx = null;
   if (winner.members.includes(0)) {
     const press = diff + ((charmHas('tithe') && diff >= 4) ? 1 : 0); // Tithe presses a big win harder
     const dmg = Math.min(press, ccfg('dmgCap')); // shaped: one hand can't decide a table outright
@@ -7553,6 +7557,7 @@ function circuitHandResult(winner, diff) {
     log(`The Circuit — you press ${g.opp} for ${dmg} (Standing ${g.foeHp}/${g.foeMax} left).`, 'you');
     charmFire('handWon');
     if (g.foeHp <= 0) { g.tableCleared = true; G.over = true; }
+    fx = ['foe', dmg];
   } else {
     const dmg = Math.max(1, Math.min(diff, ccfg('dmgCap')) - charmVal('dmgReduce')); // Bulwark softens a lost hand (min 1)
     g.standing = Math.max(0, g.standing - dmg);
@@ -7560,8 +7565,27 @@ function circuitHandResult(winner, diff) {
     charmFire('handLost');
     circuitCheatDeath(g); // Second Wind, then Gentleman's Bet
     if (g.standing <= 0) { g.groundOut = true; G.over = true; }
+    fx = ['you', dmg];
   }
   updateCircuitHud();
+  if (fx) circuitHitFx(fx[0], fx[1]); // after the HUD re-render, so the float lands on fresh DOM
+}
+
+// A felt beat for Standing damage — the struck bar flashes, a floating −N drifts off
+// it, your own bar shakes, and a thud/knock lands. The log line alone never read as
+// being hit. (Foe damage is gold — it's YOUR progress; taking damage is red.)
+function circuitHitFx(side, dmg) {
+  SFX.play(side === 'you' ? 'hit' : 'press');
+  if (typeof document === 'undefined') return;
+  const bar = document.querySelector(side === 'you' ? '.chud-bar.you' : '.chud-bar.foe');
+  if (!bar) return;
+  bar.classList.remove('chud-hit'); void bar.offsetWidth; // restart the one-shot animation
+  bar.classList.add('chud-hit');
+  const f = document.createElement('span');
+  f.className = 'chud-float' + (side === 'you' ? ' isyou' : '');
+  f.textContent = '−' + dmg;
+  bar.appendChild(f);
+  setTimeout(() => f.remove(), 1100);
 }
 
 function circuitEnd() {
@@ -9334,6 +9358,13 @@ function boot() {
   try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
   setupTooltips();
   setupBackButton();
+  // The faintest tick on every button press — the chrome answers the finger
+  // everywhere, not just where a bespoke sound exists. Quiet enough to sit under
+  // the specific sounds (stone clack, card thump) without stacking audibly.
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button, .btn');
+    if (b && !b.disabled) SFX.play('tick');
+  }, true);
   logEl = $('log');
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
