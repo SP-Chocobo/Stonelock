@@ -7538,7 +7538,8 @@ function circuitVictory() {
     `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b></div>` +
     `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
     `<div class="unlockitem">Coin banked: <b>${g.coin}</b></div>` +
-    (g.chitValue ? `<div class="unlockitem">Debts carried: <b>${g.chitValue} chit${g.chitValue === 1 ? '' : 's'}</b></div>` : '');
+    (g.chitValue ? `<div class="unlockitem">Debts carried: <b>${g.chitValue} chit${g.chitValue === 1 ? '' : 's'}</b></div>` : '') +
+    chronicleCharmsHtml(g); // what you carried to the summit
   const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
   $('circuitStats').appendChild(rb);
   const next = $('circuitNext'); next.style.display = ''; next.disabled = false; next.textContent = 'Run it again'; next.onclick = () => startCircuit();
@@ -9232,6 +9233,14 @@ function showDeckView(mode) {
   $('deckModal').classList.add('open');
 }
 
+// The charms/relics a run carried, as a small emblem row for its ending panel —
+// win or fall, the loadout IS the run's identity, so the chronicle shows it.
+function chronicleCharmsHtml(g) {
+  const ks = (g.charms || []);
+  if (!ks.length) return '';
+  return `<div class="chronicle-charms">${ks.map(k => charmEmblemHtml(k, { size: 'sm', tip: true })).join('')}</div>`;
+}
+
 function circuitScreen(over) {
   if (typeof document === 'undefined') return;
   const g = GAUNTLET;
@@ -9247,7 +9256,8 @@ function circuitScreen(over) {
     stats.innerHTML = `<div class="unlockhead">Run Chronicle</div>` +
       `<div class="unlockitem">Nodes cleared: <b>${g.cleared}</b> (act ${g.act})</div>` +
       `<div class="unlockitem">Final score: <b>${g.score}</b></div>` +
-      `<div class="unlockitem">Seed: <b>${g.seed >>> 0}</b></div>`;
+      `<div class="unlockitem">Seed: <b>${g.seed >>> 0}</b></div>` +
+      chronicleCharmsHtml(g); // the loadout that fell with you
     const rb = document.createElement('button'); rb.className = 'btn recordsbtn'; rb.textContent = 'Records & Compendium'; rb.onclick = showCircuitRecords;
     stats.appendChild(rb);
     next.textContent = 'Run it again';

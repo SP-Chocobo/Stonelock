@@ -1235,6 +1235,8 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .chud-k { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
 .chud-bars { display: flex; flex-direction: column; gap: 5px; }
 .chud-bar { display: flex; align-items: center; gap: 7px; position: relative; }
+/* The ending panels' "carried" row — the run's loadout as small emblems. */
+.chronicle-charms { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(201,160,80,0.22); }
 /* Standing damage beat: struck bar flashes, your own shakes, a −N floats off it. */
 .chud-bar.chud-hit .chud-fill { animation: chudFlash 0.45s ease; }
 .chud-bar.you.chud-hit { animation: chudShake 0.32s ease; }
