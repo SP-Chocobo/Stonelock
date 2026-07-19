@@ -3658,6 +3658,35 @@ function onEscapeKey(e) {
   }
 }
 
+// The browser/Android back button climbs the same ladder as Escape — one level per
+// press — instead of ejecting the player from the site mid-run. Returns true when a
+// step was consumed; false only from the title's main menu, where back should truly
+// leave. A forced choice (a modal with no Close/Back) swallows the press.
+function backStep() {
+  const modals = Array.from(document.querySelectorAll('.modal.open'));
+  if (modals.length) { const btn = dismissButton(modals[modals.length - 1]); if (btn) btn.click(); return true; }
+  if (menuPopOpen()) { toggleMenuPop(false); return true; }
+  const ts = document.getElementById('titleScreen');
+  if (ts && !ts.classList.contains('hidden')) {
+    const play = document.getElementById('titleMenuPlay');
+    if (play && play.style.display !== 'none') { const b = document.getElementById('titleBack'); if (b) { b.click(); return true; } }
+    return false; // title main menu — let back exit the page
+  }
+  if (INGAME && G && !G.over) { toggleMenuPop(true); return true; } // pause, don't abandon
+  return true; // any other full screen: swallow rather than eject mid-flow
+}
+function setupBackButton() {
+  if (typeof window === 'undefined' || !window.history || !window.history.pushState) return;
+  try {
+    history.replaceState({ sl: 'root' }, '');
+    history.pushState({ sl: 'game' }, ''); // the sentinel every back press pops
+    window.addEventListener('popstate', () => {
+      if (backStep()) history.pushState({ sl: 'game' }, ''); // consumed — re-arm
+      else history.back(); // unwind past root: actually leave
+    });
+  } catch (e) {} // sandboxed/file contexts that refuse pushState just keep default behaviour
+}
+
 /* ============================================================
    TITLE SCREEN, QUIT, TUTORIAL
    ============================================================ */
@@ -9304,6 +9333,7 @@ function boot() {
   // gesture lands (otherwise it downloads on-click, a ~3s awkward gap).
   try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
   setupTooltips();
+  setupBackButton();
   logEl = $('log');
   phaseEl = $('phaseLabel');
   phaseNoteEl = $('phaseNote');
