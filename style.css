@@ -2658,5 +2658,19 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
 /* Accessibility: larger text. Nudges the base up ~12%; most sizing is relative
    so it cascades. Off by default (Settings → Accessibility). */
 body.bigtext { font-size: 112%; }
+/* In-app "Reduce motion" — collapses every animation/transition to near-zero so it
+   lands on its end state instantly (dealing, shakes, flashes, screen arrivals). An
+   in-app switch for players who want calm without changing an OS-wide setting; the
+   OS-level prefers-reduced-motion is honoured separately by bespoke rules. */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
 /* Segmented on/off toggle in settings — matches the seg buttons' lit "on" look. */
 .segtoggle.on { border-color: var(--gold-bright); color: var(--gold-bright); }

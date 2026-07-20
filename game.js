@@ -3711,6 +3711,7 @@ function applyA11y() {
   const p = a11yPrefs();
   document.body.setAttribute('data-stonemarks', p.stoneMarks ? '1' : '0');
   document.body.classList.toggle('bigtext', !!p.bigText);
+  document.body.classList.toggle('reduce-motion', !!p.reduceMotion);
 }
 
 // Save export/import — every persisted key starts with "stonelock", so the whole
@@ -9473,6 +9474,7 @@ function boot() {
   };
   a11yTog('a11yStoneMarks', 'stoneMarks');
   a11yTog('a11yBigText', 'bigText');
+  a11yTog('a11yReduceMotion', 'reduceMotion');
   // The faintest tick on every button press — the chrome answers the finger
   // everywhere, not just where a bespoke sound exists. Quiet enough to sit under
   // the specific sounds (stone clack, card thump) without stacking audibly.
