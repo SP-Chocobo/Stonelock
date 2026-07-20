@@ -9400,27 +9400,49 @@ function setupTooltips() {
     stashEl = stashTitle = cur = null;
     tip.classList.remove('show'); tip.style.display = 'none';
   };
-  document.addEventListener('mouseover', e => {
-    const r = resolve(e.target);
-    if (!r) { hide(); return; }
-    if (r.el === cur) return;
+  const showFor = r => {
+    if (!r || r.el === cur) return;
     hide();
     cur = r.el;
     if (r.nativeTitle) { stashEl = r.el; stashTitle = r.el.getAttribute('title'); r.el.removeAttribute('title'); } // suppress the native tooltip
     tip.innerHTML = (r.head ? `<div class="fxtip-h ${r.cls || 'tip-gold'}">${r.head}</div>` : '') + (r.body ? `<div class="fxtip-b">${r.body}</div>` : '');
     place(r.el);
     requestAnimationFrame(() => tip.classList.add('show'));
-  });
+  };
+  document.addEventListener('mouseover', e => { const r = resolve(e.target); if (!r) { hide(); return; } showFor(r); });
   document.addEventListener('mouseout', e => {
     if (!cur) return;
     if (e.relatedTarget && e.relatedTarget.closest && (e.relatedTarget.closest('[data-tip]') === cur || e.relatedTarget.closest('.card') === cur || e.relatedTarget.closest(TIP_SELECTOR) === cur)) return;
     hide();
   });
   window.addEventListener('scroll', hide, true);
+
+  // Touch inspect: a long-press (≈420ms, held still) shows the tip for a stone / card /
+  // charm — the mobile answer to hover. Moving cancels the pending press; the resulting
+  // tip stays until the next touch or scroll. A short tap dismisses (the click handler).
+  let pressT = null, pressX = 0, pressY = 0, pressShown = false;
+  const clearPress = () => { if (pressT) { clearTimeout(pressT); pressT = null; } };
+  document.addEventListener('touchstart', e => {
+    pressShown = false;
+    if (cur) hide(); // a fresh touch dismisses a lingering long-press tip
+    const t = e.touches[0]; if (!t) return;
+    const r = resolve(e.target); if (!r) return;
+    pressX = t.clientX; pressY = t.clientY;
+    clearPress();
+    pressT = setTimeout(() => { pressT = null; pressShown = true; showFor(r); }, 420);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    const t = e.touches[0]; if (!t) return;
+    if (Math.abs(t.clientX - pressX) > 10 || Math.abs(t.clientY - pressY) > 10) clearPress();
+  }, { passive: true });
+  document.addEventListener('touchend', clearPress, { passive: true });
+  document.addEventListener('touchcancel', clearPress, { passive: true });
+
   // On touch, a tap emulates mouseover → the tip flashes under whatever the tap also
   // opens (e.g. the compendium detail overlay), stacking on top of it. Any click/tap
-  // dismisses the tip; on desktop it simply re-appears on the next mouse move.
-  document.addEventListener('click', hide, true);
+  // dismisses the tip — but not the click synthesised right after a long-press that
+  // just raised one (pressShown), so an inspect survives its own gesture.
+  document.addEventListener('click', () => { if (pressShown) { pressShown = false; return; } hide(); }, true);
 }
 
 function boot() {
