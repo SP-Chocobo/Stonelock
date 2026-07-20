@@ -77,8 +77,11 @@ h1, h2, h3, .phaselabel, .pname, .btn, .loghead, .cname {
 .game {
   display: flex;
   gap: 10px;
-  padding: 10px;
+  /* Respect notches/home-indicator (viewport-fit=cover): pad by the larger of the
+     base gap or the device's safe inset. */
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   height: 100vh;
+  height: 100dvh; /* dynamic vh — excludes the mobile address bar, so nothing hides under it */
   min-height: 560px; /* genuinely tiny windows scroll instead of cramming */
 }
 
@@ -2574,7 +2577,8 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
 
 @media (max-width: 760px) {
   body { font-size: 13.5px; }
-  .game { flex-direction: column; height: auto; min-height: 100vh; padding: 6px; gap: 8px; }
+  .game { flex-direction: column; height: auto; min-height: 100dvh; gap: 8px;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
 
   /* Score strip up top, panels as a swipeable row */
   .scoreboard {
