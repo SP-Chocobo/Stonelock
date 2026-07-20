@@ -810,7 +810,20 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
   width: 18px; height: 18px; border-radius: 50%;
   border: 1.5px solid rgba(0,0,0,0.55);
   box-shadow: inset -1px -2px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.6);
+  position: relative;
 }
+/* Colourblind aid — a shape per stone, so hue isn't the only signal. Off by
+   default; toggled in Settings → Accessibility (body[data-stonemarks="1"]). Each
+   mark echoes the power: copy / lock / swap / undo / poison. */
+body[data-stonemarks="1"] .stonedot:not(.socket):not(.empty)::after {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 66%; line-height: 1; font-weight: 700; pointer-events: none;
+}
+body[data-stonemarks="1"] .stonedot.red::after   { content: '⧉'; color: #fff2ec; text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
+body[data-stonemarks="1"] .stonedot.white::after  { content: '▣'; color: #2b2620; text-shadow: 0 1px 1px rgba(255,255,255,0.5); }
+body[data-stonemarks="1"] .stonedot.blue::after   { content: '⇄'; color: #eaf3fb; text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
+body[data-stonemarks="1"] .stonedot.black::after  { content: '↺'; color: #eee; text-shadow: 0 1px 2px rgba(0,0,0,0.95); }
+body[data-stonemarks="1"] .stonedot.green::after  { content: '☠'; color: #16351b; text-shadow: 0 1px 1px rgba(255,255,255,0.35); }
 /* The Archivist: a stone queued onto a slot but not yet fired — dimmed, with a
    dashed gold ring, so the open ledger reads as "waiting" rather than resolved. */
 .queuedrow { margin-top: 2px; opacity: 0.95; }
@@ -2637,3 +2650,9 @@ body.titleopen { overflow: hidden; overscroll-behavior: none; }
   .pickcard { width: 56px; height: 78px; }
   .pickcard .cicon { width: 28px; height: 28px; }
 }
+
+/* Accessibility: larger text. Nudges the base up ~12%; most sizing is relative
+   so it cascades. Off by default (Settings → Accessibility). */
+body.bigtext { font-size: 112%; }
+/* Segmented on/off toggle in settings — matches the seg buttons' lit "on" look. */
+.segtoggle.on { border-color: var(--gold-bright); color: var(--gold-bright); }

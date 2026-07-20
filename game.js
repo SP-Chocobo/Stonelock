@@ -3703,6 +3703,16 @@ function setupCrashBar() {
   window.addEventListener('unhandledrejection', e => { const r = e && e.reason; show('async: ' + ((r && r.message) || String(r)).slice(0, 160)); });
 }
 
+// Accessibility prefs (stone marks, larger text) — persisted, applied to <body>.
+function a11yPrefs() { try { return JSON.parse(ls.get('stonelock-a11y') || '{}') || {}; } catch (e) { return {}; } }
+function setA11yPref(k, v) { const p = a11yPrefs(); p[k] = v; ls.set('stonelock-a11y', JSON.stringify(p)); applyA11y(); }
+function applyA11y() {
+  if (typeof document === 'undefined') return;
+  const p = a11yPrefs();
+  document.body.setAttribute('data-stonemarks', p.stoneMarks ? '1' : '0');
+  document.body.classList.toggle('bigtext', !!p.bigText);
+}
+
 // Save export/import — every persisted key starts with "stonelock", so the whole
 // profile (records, campaign, settings) travels as one base64 code.
 function setupSaveData() {
@@ -9432,6 +9442,15 @@ function boot() {
   } catch (e) {}
   setupCrashBar();
   setupSaveData();
+  applyA11y();
+  // Accessibility toggles in Settings.
+  const a11yTog = (id, key) => {
+    const b = $(id); if (!b) return;
+    const sync = () => { const on = !!a11yPrefs()[key]; b.textContent = on ? 'On' : 'Off'; b.classList.toggle('on', on); b.classList.toggle('off', !on); };
+    sync(); b.onclick = () => { setA11yPref(key, !a11yPrefs()[key]); sync(); };
+  };
+  a11yTog('a11yStoneMarks', 'stoneMarks');
+  a11yTog('a11yBigText', 'bigText');
   // The faintest tick on every button press — the chrome answers the finger
   // everywhere, not just where a bespoke sound exists. Quiet enough to sit under
   // the specific sounds (stone clack, card thump) without stacking audibly.
