@@ -3678,6 +3678,57 @@ function backStep() {
   if (INGAME && G && !G.over) { toggleMenuPop(true); return true; } // pause, don't abandon
   return true; // any other full screen: swallow rather than eject mid-flow
 }
+// A crash should say so. Uncaught errors raise a small copyable bar (message +
+// build) instead of a silent freeze — a solo project lives on actionable reports.
+function setupCrashBar() {
+  if (typeof window === 'undefined') return;
+  let bar = null, count = 0, lastMsg = '';
+  const show = msg => {
+    count++; lastMsg = msg;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'crashbar';
+      bar.innerHTML = `<span class="crashbar-t"></span><button class="btn crashbar-copy">Copy details</button><button class="btn ghost crashbar-x" aria-label="Dismiss">×</button>`;
+      bar.querySelector('.crashbar-x').onclick = () => { bar.remove(); bar = null; count = 0; };
+      bar.querySelector('.crashbar-copy').onclick = () => {
+        const info = `Stonelock ${(document.getElementById('titleVer') || {}).textContent || ''} — ${lastMsg} — ${navigator.userAgent}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(info).catch(() => prompt('Copy:', info));
+        else prompt('Copy:', info);
+      };
+      document.body.appendChild(bar);
+    }
+    bar.querySelector('.crashbar-t').textContent = `Something broke${count > 1 ? ' ×' + count : ''}: ${msg}`;
+  };
+  window.addEventListener('error', e => { if (e && e.message) show(`${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`); });
+  window.addEventListener('unhandledrejection', e => { const r = e && e.reason; show('async: ' + ((r && r.message) || String(r)).slice(0, 160)); });
+}
+
+// Save export/import — every persisted key starts with "stonelock", so the whole
+// profile (records, campaign, settings) travels as one base64 code.
+function setupSaveData() {
+  const ex = document.getElementById('saveExport'), im = document.getElementById('saveImport');
+  if (!ex || !im) return;
+  const note = t => { const n = document.getElementById('saveDataNote'); if (n) { n.style.display = ''; n.textContent = t; } };
+  ex.onclick = () => {
+    const data = {};
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('stonelock') === 0) data[k] = localStorage.getItem(k); } } catch (e) {}
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify({ sl: 1, data }))));
+    const fallback = () => { prompt('Copy your save code:', code); note('Select and copy the code from the prompt.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(() => note('Save code copied — keep it somewhere safe.'), fallback);
+    else fallback();
+  };
+  im.onclick = () => {
+    const code = prompt('Paste a Stonelock save code:'); if (!code) return;
+    try {
+      const o = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      if (!o || o.sl !== 1 || !o.data) throw new Error('bad');
+      for (const k in o.data) if (k.indexOf('stonelock') === 0) localStorage.setItem(k, o.data[k]);
+      note('Save restored — reloading…');
+      setTimeout(() => location.reload(), 700);
+    } catch (e) { note('That code did not read as a Stonelock save.'); }
+  };
+}
+
 function setupBackButton() {
   if (typeof window === 'undefined' || !window.history || !window.history.pushState) return;
   try {
@@ -9372,6 +9423,15 @@ function boot() {
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+  // Build tag on the title (from game.js's own cache-bust number) — so a bug report
+  // can always say exactly which build it saw.
+  try {
+    const gs = document.querySelector('script[src*="game.js"]');
+    const m = gs && gs.getAttribute('src').match(/v=(\d+)/);
+    if (m && $('titleVer')) $('titleVer').textContent = 'alpha build ' + m[1];
+  } catch (e) {}
+  setupCrashBar();
+  setupSaveData();
   // The faintest tick on every button press — the chrome answers the finger
   // everywhere, not just where a bespoke sound exists. Quiet enough to sit under
   // the specific sounds (stone clack, card thump) without stacking audibly.

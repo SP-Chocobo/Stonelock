@@ -1237,6 +1237,14 @@ body[data-deal="house"] .hand .cicon { width: 46px; height: 46px; padding: 5px; 
 .chud-bar { display: flex; align-items: center; gap: 7px; position: relative; }
 /* The ending panels' "carried" row — the run's loadout as small emblems. */
 .chronicle-charms { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(201,160,80,0.22); }
+/* Build tag, quiet in the title's corner — every bug report can name its build. */
+.titlever { position: fixed; right: 12px; bottom: max(8px, env(safe-area-inset-bottom)); font-size: 10.5px; letter-spacing: 0.08em; color: rgba(201,160,80,0.5); pointer-events: none; }
+/* Crash bar: the game never dies silently. */
+.crashbar { position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 9999;
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 640px); padding: 8px 12px;
+  background: linear-gradient(180deg, #3a1712, #24100c); border: 1px solid #8a4638; border-radius: 9px; box-shadow: 0 6px 24px rgba(0,0,0,0.7); }
+.crashbar-t { font-size: 12px; color: #e8c0b4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crashbar .btn { flex: none; font-size: 12px; padding: 4px 10px; }
 /* Standing damage beat: struck bar flashes, your own shakes, a −N floats off it. */
 .chud-bar.chud-hit .chud-fill { animation: chudFlash 0.45s ease; }
 .chud-bar.you.chud-hit { animation: chudShake 0.32s ease; }
