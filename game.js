@@ -6767,9 +6767,9 @@ const CHARM_META = {
   vigor: ['❀', 'defense'], resonance: ['◎', 'defense'], secondwind: ['↺', 'defense'], tempering: ['▲', 'defense'],
   smugglers: ['◍', 'cunning'], fullsatchel: ['❐', 'cunning'], mulligan: ['⟲', 'cunning'], cycle: ['⟳', 'cunning'],
   foresight: ['◐', 'cunning'], foulplay: ['☠', 'cunning'], whetstone: ['✧', 'cunning'], motherlode: ['◆', 'cunning'],
-  wildcard: ['✺', 'cunning'], ironverdict: ['⛓', 'cunning'], highwayman: ['⚑', 'cunning'], veilwalker: ['◑', 'cunning'],
+  wildcard: ['✺', 'cunning'], ironverdict: ['§', 'cunning'], highwayman: ['⚑', 'cunning'], veilwalker: ['☾', 'cunning'],
   doublecross: ['✕', 'cunning'],
-  tithe: ['⊕', 'neutral'], floorprice: ['▂', 'neutral'], evenkeel: ['⚖', 'neutral'], interest: ['％', 'neutral'], gentlemansbet: ['♠', 'neutral'],
+  tithe: ['⊕', 'neutral'], floorprice: ['▂', 'neutral'], evenkeel: ['⚖', 'neutral'], interest: ['¤', 'neutral'], gentlemansbet: ['♠', 'neutral'],
 };
 const CHARM_DIAMONDS = '◆◇♦❖◈⬧⬦';
 function charmCat(key) { return (CHARM_META[key] || ['', 'neutral'])[1]; }
@@ -6790,7 +6790,7 @@ const CHARM_GLYPH_OFF = {
   '⟲': [-0.003, 0.022], '⟳': [-0.006, 0.028], '◐': [0.003, -0.053], '☠': [0.003, 0.031], '✧': [0.003, 0.031],
   '◆': [0.003, -0.075], '✺': [0, 0.031], '⛓': [0.003, 0.009], '⚑': [0.003, 0.031], '◑': [0.003, -0.053],
   '✕': [0.003, 0.028], '⊕': [0.003, -0.022], '▂': [0, -0.431], '⚖': [0.006, 0.037], '％': [-0.016, 0.009],
-  '♠': [0.003, -0.041],
+  '♠': [0.003, -0.041], '§': [0.003, 0.006], '☾': [0.02, 0.006], '¤': [0.003, 0.006],
 };
 function charmGlyphStyle(g) {
   const o = CHARM_GLYPH_OFF[g] || [0, CHARM_DIAMONDS.indexOf(g) >= 0 ? -0.04 : 0];
