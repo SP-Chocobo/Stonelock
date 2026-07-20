@@ -9368,6 +9368,10 @@ function boot() {
   try { $('bgm').load(); $('bgmBoss').load(); } catch (e) {}
   setupTooltips();
   setupBackButton();
+  // Installable/offline shell (PWA). http(s) only — file:// play needs no worker.
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   // The faintest tick on every button press — the chrome answers the finger
   // everywhere, not just where a bespoke sound exists. Quiet enough to sit under
   // the specific sounds (stone clack, card thump) without stacking audibly.
